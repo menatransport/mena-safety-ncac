@@ -1,36 +1,137 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ACNC Project - Mena Safety Management System
 
-## Getting Started
+ระบบจัดการความปลอดภัยสำหรับการจัดการกรณีอุบัติเหตุ (Accident Cases) และกรณีไม่สอดคล้องตามมาตรฐาน (Non-Conformance Cases)
 
-First, run the development server:
+## 🚀 Quick Start
 
+### Prerequisites
+- Node.js 18+ 
+- npm or yarn package manager
+
+### Installation
 ```bash
+# Clone repository
+git clone https://github.com/menatransport/mena-safety-ncac.git
+cd acnc-project
+
+# Install dependencies
+npm install
+
+# Run development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Available Scripts
+```bash
+npm run dev        # Start development server with Turbopack
+npm run build      # Build for production with Turbopack
+npm start          # Start production server
+npm run lint       # Run ESLint
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🏗️ Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+acnc-project/
+├── 📁 app/           # Next.js App Router pages & API routes
+├── 📁 components/    # React components
+├── 📁 lib/          # Utility functions & types
+├── 📁 public/       # Static assets
+├── 📁 types/        # TypeScript definitions
+└── 📄 Config files  # Various configuration files
+```
 
-## Learn More
+## 🎯 Core Features
 
-To learn more about Next.js, take a look at the following resources:
+- **🔐 Authentication System** - Secure login with remember me functionality
+- **📊 Dashboard Overview** - Statistics and navigation hub
+- **📝 Accident Case Management** - Form entry and records management
+- **📋 Non-Conformance Cases** - Standards compliance tracking
+- **⚙️ Settings & Configuration** - User and system preferences
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🛠️ Technology Stack
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Framework**: Next.js 15.5.3 (App Router)
+- **Language**: TypeScript 5
+- **Styling**: Tailwind CSS 4 + DaisyUI 5
+- **UI Components**: Radix UI + Custom components
+- **Forms**: React Hook Form + Zod validation
+- **Notifications**: SweetAlert2
+- **Icons**: Lucide React + Lord Icon
 
-## Deploy on Vercel
+## 📚 Documentation
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+For detailed information about the project:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **[📖 Complete Documentation](./DOCUMENTATION.md)** - Full project overview and structure
+- **[🏗️ Code Architecture Guide](./CODE_ARCHITECTURE.md)** - Technical architecture and patterns
+- **[🧩 Component Guide](./COMPONENT_GUIDE.md)** - Component development and analysis
+
+## 🌐 API Integration
+
+The application integrates with external API:
+- **Base URL**: `https://api-ncac.onrender.com`
+- **Authentication**: `/auth/login`
+
+Internal API routes are available at `/api/*` endpoints.
+
+## 🎨 Design System
+
+- **Color Scheme**: Light green theme (`#eef8ef` background)
+- **Components**: Tailwind utility classes + DaisyUI components
+- **Typography**: Geist Sans & Geist Mono fonts
+- **Responsive**: Mobile-first design approach
+
+## 🔧 Development
+
+### Project Configuration
+- **TypeScript**: Strict mode enabled
+- **ESLint**: Next.js configuration
+- **Turbopack**: Fast bundling for dev & build
+- **PostCSS**: With Tailwind CSS processing
+
+### Environment Setup
+```bash
+# Development with Turbopack (faster builds)
+npm run dev --turbopack
+
+# Production build
+npm run build --turbopack
+```
+
+## 🚀 Deployment
+
+The application is designed to work with:
+- **Vercel** (recommended for Next.js)
+- **Netlify**
+- **Docker containers**
+- **Traditional web servers**
+
+## 🧪 Testing
+
+Testing setup is ready for implementation:
+- Jest + React Testing Library (to be configured)
+- Cypress for E2E testing (to be configured)
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is proprietary software owned by Mena Transport.
+
+## 📞 Support
+
+For technical support or questions:
+- **Repository**: [mena-safety-ncac](https://github.com/menatransport/mena-safety-ncac)
+- **Owner**: menatransport
+- **Current Branch**: main
+
+---
+
+**Mena Safety Management System** - Ensuring safety through effective incident management and compliance tracking.
