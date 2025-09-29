@@ -26,21 +26,18 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
+    // แปลง URL และ extract query parameters
     const { searchParams } = new URL(request.url);
     
-    // Build query parameters
-    const params = new URLSearchParams();
-    
-    // Add all search parameters to the API call
-    searchParams.forEach((value, key) => {
-      if (value) {
-        params.append(key, value);
-      }
-    });
+    // สร้าง query string จาก parameters ทั้งหมด
+    const queryString = searchParams.toString();
+    console.log('GET /api/document query params:', queryString);
 
-    console.log('GET /api/document params:', params.toString());
+    // เรียก API พร้อม query parameters
+    const apiUrl = `https://api-ncac.onrender.com/case_reports${queryString ? `?${queryString}` : ''}`;
+    console.log('API URL:', apiUrl);
 
-    const res = await fetch(`https://api-ncac.onrender.com/case_reports?${params.toString()}`, {
+    const res = await fetch(apiUrl, {
       method: 'GET',
       headers: {  
         'Content-Type': 'application/json',
@@ -51,7 +48,15 @@ export async function GET(request: Request) {
       throw new Error(`API responded with status: ${res.status}`);
     }
 
-    return NextResponse.json(await res.json());
+    const data = await res.json();
+    console.log('API response data:', data);
+    
+    // ถ้าผลลัพธ์เป็น array และมีข้อมูล ให้ return รายการแรก (สำหรับกรณี document_no)
+    if (Array.isArray(data) && data.length > 0 && searchParams.get('document_no')) {
+      return NextResponse.json(data[0]);
+    }
+    
+    return NextResponse.json(data);
   } catch (error) {
     console.error('GET DB API error:', error);
     return NextResponse.json(

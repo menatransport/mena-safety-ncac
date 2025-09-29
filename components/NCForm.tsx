@@ -8,6 +8,16 @@ import { Picture } from "./picture";
 import { caseReport } from "@/lib/caseReport";
 import { SquarePen, Printer, CirclePlus, CircleMinus, Loader2 } from "lucide-react";
 
+interface FileWithId {
+  id: string;
+  file: File;
+  url: string;
+}
+
+interface CategoryFiles {
+  [key: string]: FileWithId[];
+}
+
 export const NCFormComponent = () => {
   const [formData, setFormData] = useState<Partial<caseReport>>({
     products: [{ product_id: 1, product_name: "", amount: 0, unit: "" }] as [
@@ -28,7 +38,6 @@ export const NCFormComponent = () => {
 
   const [displayPIC, setDisplayPIC] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<any>(null);
   
   const [originalData, setOriginalData] = useState<{
     masterdrivers?: any[];
@@ -37,17 +46,21 @@ export const NCFormComponent = () => {
   }>({});
 
   const [isLoadingDropdowns, setIsLoadingDropdowns] = useState(true);
-
-  // Loading Spinner Component
+  const [attachedFiles, setAttachedFiles] = useState<CategoryFiles>({});
+  
   const LoadingSpinner = () => (
     <Loader2 className="w-4 h-4 animate-spin text-gray-400 ml-2 inline" />
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    console.log("Form data before submission:", formData.document_no);
+    if(formData.document_no) {
+      alert('ไม่สามารถแก้ไขข้อมูลได้ในขณะนี้');
+      return;
+    }
     try {
-      // Get user data from localStorage
+
       const userData = localStorage.getItem('userData');
       const parsedUserData = userData ? JSON.parse(userData) : null;
       
@@ -56,14 +69,12 @@ export const NCFormComponent = () => {
         return;
       }
 
-      // Create local datetime (Thailand timezone)
       const now = new Date();
       const localDateTime = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString();
       
       console.log("userData from localStorage:", parsedUserData.id);
       console.log("Local DateTime:", localDateTime);
 
-      // Prepare form data with current datetime and reporter info
       const submitData = {
         ...formData,
         record_date: localDateTime,
@@ -86,9 +97,13 @@ export const NCFormComponent = () => {
       if (res.ok) {
         alert("NC Form submitted successfully!");
         console.log("Success response data:", responseData);
-        attatchments_post(responseData.document_no);
-        // Update form data state with the submitted data
+
         setFormData(submitData);
+        
+
+        if (responseData.document_no && Object.keys(attachedFiles).length > 0) {
+          await attatchments_post(responseData.document_no);
+        }
         
         // Optional: Reload page after successful submission
         // window.location.reload();
@@ -107,66 +122,190 @@ export const NCFormComponent = () => {
       console.error('Document number is required for attachments upload.');
       return;
     }
-    // const res = await fetch('/api/attachment', {
-  }
 
-  // useEffect(() => {
-
-  //   const urlParams = new URLSearchParams(window.location.search);
-  //   const mode = urlParams.get('mode');
-  //   const docId = urlParams.get('doc');
-    
-  //   if (mode === 'view' && docId) {
-  //     setIsViewMode(true);
+    try {
+      const uploadFormData = new FormData();
       
-  //     const storedRecord = localStorage.getItem('editingRecord');
-  //     if (storedRecord) {
-  //       try {
-  //         const recordData = JSON.parse(storedRecord);
-  //         setEditingRecord(recordData);
-          
-  //         setFormData(prev => ({
-  //           ...prev,
-  //           document_no: recordData.id,
-  //           record_date: recordData.date,
-  //           client_name: recordData.customer,
-  //           reporter_name: recordData.reporter,
-  //           site_name: recordData.site,
-  //           department_name: recordData.department,
-  //           vehicle_truckno: recordData.plateNumber,
-  //           driver_name: recordData.driver,
-  //           casestatus: recordData.status,
-  //           case_details: recordData.description,
-  //           case_location: recordData.location
-  //         }));
-          
-  //         // Clear the stored data after use
-  //         localStorage.removeItem('editingRecord');
-  //       } catch (error) {
-  //         console.error('Error parsing stored record:', error);
-  //       }
-  //     }
-  //   } else {
-  //     // Set current date/time for new forms
-  //     setFormData(prev => ({
-  //       ...prev,
-  //       record_date: new Date().toISOString()
-  //     }));
-  //   }
-  // }, []);
+      // เตรียมไฟล์สำหรับอัปโหลด
+      Object.entries(attachedFiles).forEach(([category, files]) => {
+        if (Array.isArray(files)) {
+          files.forEach((fileItem: FileWithId, index: number) => {
+            // สร้างชื่อไฟล์ใหม่
+            const fileExtension = fileItem.file.name.split('.').pop();
+            const randomNumber = String(Math.floor(Math.random() * 100)).padStart(2, '0');
+            const newFileName = `${document_no}.${category}.${randomNumber}.${fileExtension}`;
+            
+            const renamedFile = new File([fileItem.file], newFileName, { type: fileItem.file.type });
+            uploadFormData.append('files', renamedFile);
+            uploadFormData.append('categories', category);
+            
+            console.log(`Renamed file: ${fileItem.file.name} -> ${newFileName}`);
+          });
+        }
+      });
+      
+      uploadFormData.append('document_no', document_no);
+      
+      console.log('Uploading attachments for document:', document_no);
+      
+      const res = await fetch('/api/attachment', {
+        method: 'POST',
+        body: uploadFormData,
+      });
+      
+      if (res.ok) {
+        const result = await res.json();
+        // console.log('Attachments uploaded successfully:', result);
+        window.location.reload();
+      } else {
+        throw new Error(`Failed to upload attachments: ${res.statusText}`);
+      }
+    } catch (error) {
+      console.error('Error uploading attachments:', error);
+      alert('เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ');
+    }
+  };
 
-  // Initialize form with current local datetime
   useEffect(() => {
-    const now = new Date();
-    const localDateTime = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString();
-    
-    setFormData(prev => ({
-      ...prev,
-      record_date: localDateTime
+    const getvaluesparams = async (dropdowns: any) => {
+      const searchParams = useSearchParams();
+      const docId = searchParams.get('doc');
+
+      if (docId) {
+        setIsViewMode(true);
+        
+        try {
+          const res = await fetch(`/api/document?document_no=${encodeURIComponent(docId)}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+
+          const data = await res.json();
+          console.log('Fetched record for viewing:', data);
+          if (res.ok) {
+            setFormData(data);
+            const mappedData = await mapTextDataToIds(data, dropdowns);
+        
+          } else {
+            throw new Error(data.message || `HTTP ${res.status}: ${res.statusText}`);
+          }
+
+        } catch (error) {
+          console.error('Error fetching record:', error);
+          alert(`เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+       
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          record_date: new Date().toISOString()
+        }));
+      }
+    };
+
+  const mapTextDataToIds = async (data: any, dropdowns: any) => {
+    console.log('data:', data);
+    console.log('dropdowns:', dropdowns);
+
+    const mappedData: any = {};
+
+    // site to site_id
+    if (data.site && dropdowns.sites) {
+      const site = dropdowns.sites.find((val: any) => val.site_name_th === data.site);
+      if (site) {
+        mappedData.site_id = site.site_id;
+        // console.log(`Mapped site_name "${data.site}" to site_id:`, site.site_id);
+      }
+    }
+
+    // department
+    if (data.department && dropdowns.departments) {
+      const department = dropdowns.departments.find((val: any) => val.department_name_th === data.department);
+      if (department) {
+        mappedData.department_id = department.department_id;
+        // console.log(`Mapped department_name "${data.department}" to department_id:`, department.department_id);
+      }
+    }
+
+    // client
+    if (data.client && dropdowns.clients) {
+      const client = dropdowns.clients.find((val: any) => val.client_name === data.client);
+      if (client) {
+        mappedData.client_id = client.client_id;
+        // console.log(`Mapped client_name "${data.client}" to client_id:`, client.client_id);
+      }
+    }
+
+    // location to origin_id
+    if (data.location && dropdowns.locations) {
+      const location = dropdowns.locations.find((val: any) => val.location_name === data.location);
+      if (location) {
+        mappedData.origin_id = location.location_id;
+        // console.log(`Mapped location_name "${data.location}" to origin_id:`, location.location_id);
+      }
+    }
+
+    //vehicle_head
+    if (data.vehicle_head && dropdowns.vehicles) {
+      const vehicle = dropdowns.vehicles.find((val: any) => (val.vehicle_number_plate === data.vehicle_head) && val.plate_type === 'head');
+      if (vehicle) {
+        mappedData.vehicle_truckno = vehicle.truck_no;
+        mappedData.vehicle_id_head = vehicle.vehicle_id;
+        // console.log(`Mapped vehicle_name "${data.vehicle_head}" to vehicle_id:`, vehicle.vehicle_id);
+      }
+    }
+
+    //vehicle_tail
+    if (data.vehicle_tail && dropdowns.vehicles) {
+      const vehicle = dropdowns.vehicles.find((val: any) => (val.vehicle_number_plate === data.vehicle_tail) && val.plate_type === 'tail');
+      if (vehicle) {
+        mappedData.vehicle_id_tail = vehicle.vehicle_id;
+        // console.log(`Mapped vehicle_name "${data.vehicle_tail}" to vehicle_id:`, vehicle.vehicle_id);
+      }
+    }
+
+    //driver_role
+    if (data.driver_role && dropdowns.driver_roles) {
+      const role = dropdowns.driver_roles.find((val: any) => val.role_name === data.driver_role);
+      if (role) {
+        mappedData.driver_role_id = role.driver_role_id;
+        // console.log(`Mapped driver_role "${data.driver_role}" to driver_role_id:`, role.driver_role_id);
+      }
+    }
+
+    //driver_name
+    if (data.driver && dropdowns.masterdrivers) {
+      const driver = dropdowns.masterdrivers.find((val: any) => {
+        const fullName = val.first_name + " " + val.last_name;
+        console.log(`Comparing: "${fullName}" === "${data.driver}" = ${fullName === data.driver}`);
+        return fullName === data.driver;
+      });
+      console.log('Matched driver:', driver);
+      if (driver) {
+        mappedData.driver_id = driver.driver_id;
+        // console.log(`Mapped driver_name "${data.driver}" to driver_id:`, driver.driver_id);
+      }
+    }
+
+    //incident_cause
+    if (data.incident_cause && dropdowns.mastercauses) {
+      const cause = dropdowns.mastercauses.find((val: any) => val.cause_name === data.incident_cause);
+      if (cause) {
+        mappedData.incident_cause_id = cause.cause_id;
+        // console.log(`Mapped incident_cause "${data.incident_cause}" to incident_cause_id:`, cause.cause_id);
+      }
+    }
+
+    // อัปเดต formData ครั้งเดียวด้วยข้อมูลที่ map แล้วทั้งหมด
+    console.log('Final mapped data:', mappedData);
+    setFormData(prev => ({ 
+      ...prev, 
+      ...mappedData 
     }));
-  }, []);
 
-  useEffect(() => {
+  };
 
     const fetchData = async () => {
       setIsLoadingDropdowns(true);
@@ -180,6 +319,7 @@ export const NCFormComponent = () => {
         "/masterdrivers",
         "/mastercauses",
       ];
+      
       try {
         const responses = await Promise.all(
           list_api.map((api) =>
@@ -194,7 +334,6 @@ export const NCFormComponent = () => {
         );
 
         const data = await Promise.all(responses.map((res) => res.json()));
-
 
         const dropdownObj: any = {};
         list_api.forEach((api, index) => {
@@ -211,14 +350,42 @@ export const NCFormComponent = () => {
         });
 
         console.log("Dropdown data fetched:", dropdownObj);
+        console.log("Sites options:", dropdownObj.sites?.slice(0, 3)); // Show first 3 for debugging
+        console.log("Drivers options:", dropdownObj.masterdrivers?.slice(0, 3)); // Show first 3 for debugging
+
+        // เรียกใช้ getvaluesparams หลังจากดึงข้อมูล dropdown เสร็จแล้ว
+        await getvaluesparams(dropdownObj);
+        
       } catch (error) {
         console.error("Error fetching dropdown data:", error);
       } finally {
         setIsLoadingDropdowns(false);
       }
     };
+    
     fetchData();
   }, []);
+
+
+
+  // Function สำหรับรับข้อมูลไฟล์จาก Picture component
+  const handleFilesFromPicture = (files: CategoryFiles) => {
+    console.log('Files received from Picture component:', files);
+    setAttachedFiles(files);
+  };
+
+  // Initialize form with current local datetime
+  useEffect(() => {
+    const now = new Date();
+    const localDateTime = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString();
+    
+    setFormData(prev => ({
+      ...prev,
+      record_date: localDateTime
+    }));
+  }, []);
+
+
 
   // const adddropdownData = (value: any) => {
   //   setDropdownData((prevData) => ({
@@ -279,6 +446,31 @@ export const NCFormComponent = () => {
       resetToOriginalData();
     }
   }, [formData.site_id, originalData]);
+
+  // Filter dropdowns when view mode data is loaded
+  useEffect(() => {
+    if (isViewMode && formData.site_id && originalData.masterdrivers && originalData.locations) {
+      console.log('Filtering dropdowns for view mode with site_id:', formData.site_id);
+      
+      let filteredDrivers = originalData.masterdrivers?.filter(driver => driver.site_id === formData.site_id) || [];
+      const filteredLocations = originalData.locations?.filter(location => location.location_id === formData.origin_id || location.site_id === formData.site_id) || [];
+      
+      // เพิ่มคนขับที่เลือกไว้เข้าไปใน filtered list หากยังไม่มี
+      if (formData.driver_id) {
+        const selectedDriver = originalData.masterdrivers?.find(driver => driver.driver_id == formData.driver_id);
+        if (selectedDriver && !filteredDrivers.find(driver => driver.driver_id == selectedDriver.driver_id)) {
+          filteredDrivers = [...filteredDrivers, selectedDriver];
+          console.log('Added selected driver to filtered list:', selectedDriver);
+        }
+      }
+      
+      setDropdownData((prev) => ({ 
+        ...prev, 
+        masterdrivers: filteredDrivers,
+        locations: filteredLocations,
+      }));
+    }
+  }, [isViewMode, formData.site_id, formData.driver_id, formData.origin_id, originalData.masterdrivers, originalData.locations]);
 
   const handleVehicleCodeChange = (truckNo: string) => {
     const selectedVehicle = dropdownData.vehicles?.find(vehicle => 
@@ -656,6 +848,7 @@ export const NCFormComponent = () => {
                         onAdd={() => handleAddItem('department')}
                         onRemove={(itemId) => handleRemoveItem('department', itemId)}
                         placeholder="เลือกฝ่าย"
+                        disabled={isViewMode}
                         showAddRemove={true}
                         className="w-full"
                       />
@@ -668,6 +861,7 @@ export const NCFormComponent = () => {
                       <input
                         type="text"
                         name="record_date"
+                        disabled={isViewMode}
                         value={
                           formData?.record_date
                             ? (() => {
@@ -692,7 +886,7 @@ export const NCFormComponent = () => {
                               })
                         }
                         readOnly
-                        className="w-full text-sm p-2 bg-gray-100 border border-gray-300 rounded focus:outline-none text-black cursor-not-allowed"
+                        className="w-full text-sm p-2 bg-gray-100 border border-gray-300 rounded focus:outline-none text-black cursor-not-allowed disabled:text-blue-600 disabled:font-bold"
                         placeholder="วันที่และเวลาจะถูกตั้งอัตโนมัติ"
                       />
                     </div>
@@ -701,19 +895,44 @@ export const NCFormComponent = () => {
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
                         วันที่และเวลา เกิดเหตุ:
                       </label>
-                      <DateTimePicker24h
-                        value={
-                          formData?.incident_date
-                            ? new Date(formData.incident_date)
-                            : undefined
-                        }
-                        onChange={(date) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            incident_date: date?.toISOString() || "",
-                          }))
-                        }
-                      />
+                      {isViewMode ? (
+                        <input
+                          type="text"
+                          value={
+                            formData?.incident_date
+                              ? (() => {
+                                  const date = new Date(formData.incident_date);
+                                  const localDate = new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
+                                  return localDate.toLocaleString('en-UK', {
+                                    year: 'numeric',
+                                    month: '2-digit',
+                                    day: '2-digit',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: false
+                                  });
+                                })()
+                              : ""
+                          }
+                          readOnly
+                          className="w-full cursor-not-allowed text-sm font-bold text-blue-600 p-2 bg-gray-100 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black"
+                        />
+                      ) : (
+                        <DateTimePicker24h
+                          value={
+                            formData?.incident_date
+                              ? new Date(formData.incident_date)
+                              : undefined
+                          }
+                          onChange={(date) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              incident_date: date?.toISOString() || "",
+                            }))
+                          }
+                          disabled={isViewMode}
+                        />
+                      )}
                     </div>
 
                     <br />
@@ -735,6 +954,7 @@ export const NCFormComponent = () => {
                         placeholder="เลือกลูกค้า"
                         showAddRemove={true}
                         className="w-full"
+                        disabled={isViewMode}
                       />
                     </div>
 
@@ -755,6 +975,7 @@ export const NCFormComponent = () => {
                         placeholder="เลือกต้นทาง/แพล้น"
                         showAddRemove={true}
                         className="w-full"
+                        disabled={isViewMode}
                       />
                     </div>
 
@@ -767,7 +988,10 @@ export const NCFormComponent = () => {
                         name="destination"
                         value={formData?.destination}
                         onChange={handleInputChange}
-                        className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black"
+                        disabled={isViewMode}
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
+                          isViewMode ? 'cursor-not-allowed bg-gray-100 text-blue-600 font-bold' : ''
+                        }`}
                       />
                     </div>
 
@@ -780,10 +1004,12 @@ export const NCFormComponent = () => {
                         name="case_location"
                         value={formData?.case_location}
                         onChange={handleInputChange}
-                        className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black"
+                        disabled={isViewMode}
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
+                          isViewMode ? 'cursor-not-allowed bg-gray-100 text-blue-600 font-bold' : ''
+                        }`}
                       />
                     </div>
-
                     
 
                     <div>
@@ -805,6 +1031,7 @@ export const NCFormComponent = () => {
                         placeholder="เลือกทะเบียนรถหัว"
                         showAddRemove={true}
                         className="w-full"
+                        disabled={isViewMode}
                       />
                     </div>
 
@@ -831,6 +1058,7 @@ export const NCFormComponent = () => {
                         placeholder="เลือกรหัสรถ"
                         showAddRemove={true}
                         className="w-full"
+                        disabled={isViewMode}
                       />
                     </div>
 
@@ -853,6 +1081,7 @@ export const NCFormComponent = () => {
                         placeholder="เลือกทะเบียนรถหาง"
                         showAddRemove={true}
                         className="w-full"
+                        disabled={isViewMode}
                       />
                     </div>
 
@@ -873,6 +1102,7 @@ export const NCFormComponent = () => {
                         placeholder="เลือกประเภทคนขับ"
                         showAddRemove={true}
                         className="w-full"
+                        disabled={isViewMode}
                       />
                     </div>
 
@@ -893,6 +1123,7 @@ export const NCFormComponent = () => {
                         placeholder="เลือกชื่อ-สกุลคนขับ"
                         showAddRemove={true}
                         className="w-full"
+                        disabled={isViewMode}
                       />
                     </div>
 
@@ -901,7 +1132,7 @@ export const NCFormComponent = () => {
                     <div className="md:col-span-3">
                       <label className="flex justify-between p-2 bg-gray-200 font-bold text-gray-800 font-bold mb-3 text-sm">
                         รายการสินค้าเสียหาย :
-                        <div className="flex">
+                        <div className={`flex ${isViewMode ? 'hidden' : ''}`}>
                           <CirclePlus
                             onClick={addProductItem}
                             className="ml-2 w-5 h-5 bg-white rounded-full text-gray-600 hover:text-green-700 cursor-pointer"
@@ -948,8 +1179,11 @@ export const NCFormComponent = () => {
                                         e.target.value
                                       )
                                     }
-                                    className="w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black"
+                                    className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
+                                      isViewMode ? 'cursor-not-allowed bg-gray-100 text-blue-600 font-bold' : ''
+                                    }`}
                                     placeholder=""
+                                    disabled={isViewMode}
                                   />
                                 </td>
                                 <td className="border border-gray-300 px-3 py-2 text-black">
@@ -963,8 +1197,11 @@ export const NCFormComponent = () => {
                                         e.target.value
                                       )
                                     }
-                                    className="w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black"
+                                    className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
+                                      isViewMode ? 'cursor-not-allowed bg-gray-100 text-blue-600 font-bold' : ''
+                                    }`}
                                     placeholder=""
+                                    disabled={isViewMode}
                                   />
                                 </td>
                                 <td className="border border-gray-300 px-3 py-2 text-black">
@@ -977,7 +1214,10 @@ export const NCFormComponent = () => {
                                         e.target.value
                                       )
                                     }
-                                    className="w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black"
+                                    disabled={isViewMode}
+                                    className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
+                                      isViewMode ? 'cursor-not-allowed bg-gray-100 text-blue-600 font-bold' : ''
+                                    }`}
                                   >
                                     <option value=""></option>
                                     <option value="คิว">คิว</option>
@@ -1008,7 +1248,10 @@ export const NCFormComponent = () => {
                         name="estimated_cost"
                         value={formData?.estimated_cost || 0}
                         onChange={handleInputChange}
-                        className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black"
+                        disabled={isViewMode}
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
+                          isViewMode ? 'cursor-not-allowed bg-gray-100 text-blue-600 font-bold' : ''
+                        }`}
                       />
                     </div>
 
@@ -1021,7 +1264,10 @@ export const NCFormComponent = () => {
                         name="actual_price"
                         value={formData?.actual_price || 0}
                         onChange={handleInputChange}
-                        className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black"
+                        disabled={isViewMode}
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
+                          isViewMode ? 'cursor-not-allowed bg-gray-100 text-blue-600 font-bold' : ''
+                        }`}
                       />
                     </div>
 
@@ -1042,6 +1288,7 @@ export const NCFormComponent = () => {
                         placeholder="เลือกสาเหตุ"
                         showAddRemove={true}
                         className="w-full"
+                        disabled={isViewMode}
                       />
                     </div>
 
@@ -1055,13 +1302,16 @@ export const NCFormComponent = () => {
                         onChange={handleInputChange}
                         rows={3}
                         maxLength={1000}
-                        className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black"
+                        disabled={isViewMode}
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
+                          isViewMode ? 'cursor-not-allowed bg-gray-100 text-blue-600 font-bold' : ''
+                        }`}
                       />
                     </div>
 
                     <div
                       onClick={() => setDisplayPIC(true)}
-                      className="mx-5 cursor-pointer md:col-span-3"
+                      className="mx-5 cursor-pointer"
                     >
                       <button type="button">
                         <LordIcon
@@ -1075,8 +1325,13 @@ export const NCFormComponent = () => {
                           }}
                         />
                       </button>
-                      <a className="block text-blue-700 font-medium text-sm">
+                      <a className="flex text-blue-700 font-medium text-sm items-center">
                         แนบรูปภาพ
+                        {Object.values(attachedFiles).reduce((total, files) => total + files.length, 0) > 0 && (
+                          <span className="ml-2 px-2 py-1 bg-blue-600 text-white text-xs rounded-full">
+                            {Object.values(attachedFiles).reduce((total, files) => total + files.length, 0)}
+                          </span>
+                        )}
                       </a>
                     </div>
 
@@ -1188,6 +1443,15 @@ export const NCFormComponent = () => {
                       <span>บันทึกข้อมูล</span>
                     </button>
                   )}
+                  {isViewMode && (
+                    <button
+                      type="button"
+                      onClick={() => setIsViewMode(false)}
+                      className="px-6 py-3 bg-yellow-400 text-white rounded-lg hover:bg-yellow-500 transition-colors font-semibold flex items-center space-x-2"
+                    >
+                      <span>แก้ไขข้อมูล</span>
+                    </button>
+                  )}
                 </div>
               </form>
             </div>
@@ -1195,7 +1459,13 @@ export const NCFormComponent = () => {
         </div>
       </div>
 
-      {displayPIC && <Picture display={setDisplayPIC} />}
+      {displayPIC && (
+        <Picture 
+          display={setDisplayPIC} 
+          onSaveFiles={handleFilesFromPicture}
+          initialFiles={attachedFiles}
+        />
+      )}
     </>
   );
 };

@@ -20,6 +20,7 @@ interface SearchableSelectProps {
   showAddRemove?: boolean;
   className?: string;
   disabled?: boolean;
+  error?: boolean;
 }
 
 export const SearchableSelect: React.FC<SearchableSelectProps> = ({
@@ -34,6 +35,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   showAddRemove = false,
   className = "",
   disabled = false,
+  error = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -114,12 +116,14 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
       <div
-        className={`flex items-center justify-between w-full text-sm p-2 border border-gray-300 rounded focus-within:ring-2 focus-within:ring-[#cfe5d0] focus-within:outline-none text-black bg-white cursor-pointer ${
-          disabled ? "bg-gray-100 cursor-not-allowed" : ""
+        className={`flex items-center justify-between w-full text-sm p-2 border rounded focus-within:ring-2 focus-within:outline-none text-black bg-white cursor-pointer ${
+          error ? "border-red-500 focus-within:ring-red-200" : "border-gray-300 focus-within:ring-[#cfe5d0]"
+        } ${
+          disabled ? "!bg-gray-100 !cursor-not-allowed !text-blue-600 font-bold" : ""
         }`}
         onClick={handleToggle}
       >
-        <span className={`flex-1 ${!selectedLabel ? "text-gray-400" : ""}`}>
+        <span className={`flex-1 ${!selectedLabel ? "text-gray-400" : disabled ? "!text-blue-600 font-bold" : ""}`}>
           {selectedLabel || placeholder}
         </span>
         

@@ -14,13 +14,24 @@ import {
 } from "@/components/ui/popover";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
-export function DateTimePicker24h (values: {value?: Date, onChange?: (date: Date | undefined) => void}) {
+export function DateTimePicker24h (values: {
+  value?: Date, 
+  onChange?: (date: Date | undefined) => void,
+  disabled?: boolean
+}) {
   const [date, setDate] = React.useState<Date>();
   const [isOpen, setIsOpen] = React.useState(false);
 
+  // Sync internal date with external value
+  React.useEffect(() => {
+    if (values.value) {
+      setDate(values.value);
+    }
+  }, [values.value]);
+
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const handleDateSelect = (selectedDate: Date | undefined) => {
-    if (selectedDate) {
+    if (selectedDate && !values.disabled) {
       setDate(selectedDate);
       values.onChange?.(selectedDate);
     }
@@ -30,7 +41,7 @@ export function DateTimePicker24h (values: {value?: Date, onChange?: (date: Date
     type: "hour" | "minute",
     value: string
   ) => {
-    if (date) {
+    if (date && !values.disabled) {
       const newDate = new Date(date);
       if (type === "hour") {
         newDate.setHours(parseInt(value));
@@ -43,13 +54,15 @@ export function DateTimePicker24h (values: {value?: Date, onChange?: (date: Date
   };
 
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover open={isOpen && !values.disabled} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
+          disabled={values.disabled}
           className={cn(
             "w-full justify-start text-left font-normal",
-            !date && "text-muted-foreground"
+            !date && "text-muted-foreground",
+            values.disabled && "cursor-not-allowed text-sm font-bold text-blue-600 p-2 bg-gray-100 border border-gray-300"
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
@@ -80,6 +93,7 @@ export function DateTimePicker24h (values: {value?: Date, onChange?: (date: Date
                       variant={date && date.getHours() === hour ? "default" : "ghost"}
                       className="sm:w-full shrink-0 aspect-square"
                       onClick={() => handleTimeChange("hour", hour.toString())}
+                      disabled={values.disabled}
                     >
                       {hour}
                     </Button>
@@ -99,6 +113,7 @@ export function DateTimePicker24h (values: {value?: Date, onChange?: (date: Date
                       variant={date && date.getMinutes() === minute ? "default" : "ghost"}
                       className="sm:w-full shrink-0 aspect-square"
                       onClick={() => handleTimeChange("minute", minute.toString())}
+                      disabled={values.disabled}
                     >
                       {minute.toString().padStart(2, '0')}
                     </Button>

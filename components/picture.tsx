@@ -13,8 +13,16 @@ interface CategoryFiles {
   [key: string]: FileWithId[];
 }
 
-export const Picture = ({ display }: { display: (value: boolean) => void }) => {
-  const [files, setFiles] = useState<CategoryFiles>({});
+export const Picture = ({ 
+  display, 
+  onSaveFiles,
+  initialFiles = {}
+}: { 
+  display: (value: boolean) => void;
+  onSaveFiles?: (files: CategoryFiles) => void;
+  initialFiles?: CategoryFiles;
+}) => {
+  const [files, setFiles] = useState<CategoryFiles>(initialFiles);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
 
@@ -38,9 +46,19 @@ export const Picture = ({ display }: { display: (value: boolean) => void }) => {
     };
   }, []);
 
+  // อัปเดต files เมื่อได้รับ initialFiles ใหม่
+  useEffect(() => {
+    setFiles(initialFiles);
+  }, [initialFiles]);
+
   const handleCancel = () => {
     console.log('Cancel clicked');
     display(false)
+  };
+
+  // คำนวณจำนวนไฟล์ทั้งหมด
+  const getTotalFiles = () => {
+    return Object.values(files).reduce((total, categoryFiles) => total + categoryFiles.length, 0);
   };
 
   const handleDragOver = (e: React.DragEvent, category: string) => {
@@ -112,12 +130,16 @@ export const Picture = ({ display }: { display: (value: boolean) => void }) => {
     // ส่งข้อมูลไฟล์ทั้งหมดกลับไปยัง parent component
     console.log('Saved files:', files);
     
-    // คำนวณจำนวนไฟล์ทั้งหมด
-    const totalFiles = Object.values(files).reduce((total, categoryFiles) => total + categoryFiles.length, 0);
+    const totalFiles = getTotalFiles();
     
     if (totalFiles === 0) {
       alert('กรุณาแนบไฟล์อย่างน้อย 1 ไฟล์');
       return;
+    }
+    
+    // ส่งข้อมูลไฟล์กลับไป parent component
+    if (onSaveFiles) {
+      onSaveFiles(files);
     }
     
     // ปิด modal
@@ -256,12 +278,14 @@ export const Picture = ({ display }: { display: (value: boolean) => void }) => {
           >
             ยกเลิก
           </button>
-          <button 
-            onClick={handleSave}
-            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium"
-          >
-            ตกลง
-          </button>
+          {getTotalFiles() > 0 && (
+            <button 
+              onClick={handleSave}
+              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium"
+            >
+              ตกลง
+            </button>
+          )}
         </div>
       </div>
     </div>

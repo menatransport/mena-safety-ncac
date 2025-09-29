@@ -16,8 +16,8 @@ interface NCRecord {
   department: string;
   plateNumber: string;
   driver: string;
-  priority: 'Low' | 'Medium' | 'High' | 'Critical';
-  status: 'pending' | 'completed' | 'canceled';
+  priority: string;
+  status: string;
   description: string;
   location: string;
 }
@@ -29,6 +29,7 @@ interface FilterCriteria {
   site_id?: string;
   driver_id?: string;
   casestatus?: string;
+  priority?: string;
 }
 
 type DateRangePreset = 'custom' | '7days' | '3days' | 'week' | 'month';
@@ -36,8 +37,6 @@ type DateRangePreset = 'custom' | '7days' | '3days' | 'week' | 'month';
 export const NCRecordsComponent = () => {
   const [records, setRecords] = useState<NCRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('All');
-  const [filterPriority, setFilterPriority] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
@@ -113,7 +112,20 @@ export const NCRecordsComponent = () => {
     fetchDropdownData();
   }, []);
 
-  // Date range preset functions
+  const formatDate = (dateString: string) => {
+    const [year, month, day] = dateString.split('T')[0].split('-');
+    const [hours, minutes, seconds] = dateString.split('T')[1].split('.')[0].split(':');
+    return `${day}/${month}/${year}, ${hours}:${minutes}`;
+  };
+
+  // Helper function to format date in local timezone (YYYY-MM-DD)
+  const formatDateToLocal = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const getDateRange = (preset: DateRangePreset) => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -123,16 +135,16 @@ export const NCRecordsComponent = () => {
         const threeDaysAgo = new Date(today);
         threeDaysAgo.setDate(today.getDate() - 3);
         return {
-          start_date: threeDaysAgo.toISOString().split('T')[0],
-          end_date: today.toISOString().split('T')[0]
+          start_date: formatDateToLocal(threeDaysAgo),
+          end_date: formatDateToLocal(today)
         };
       
       case '7days':
         const sevenDaysAgo = new Date(today);
         sevenDaysAgo.setDate(today.getDate() - 7);
         return {
-          start_date: sevenDaysAgo.toISOString().split('T')[0],
-          end_date: today.toISOString().split('T')[0]
+          start_date: formatDateToLocal(sevenDaysAgo),
+          end_date: formatDateToLocal(today)
         };
       
       case 'week':
@@ -141,16 +153,16 @@ export const NCRecordsComponent = () => {
         const endOfWeek = new Date(startOfWeek);
         endOfWeek.setDate(startOfWeek.getDate() + 6);
         return {
-          start_date: startOfWeek.toISOString().split('T')[0],
-          end_date: endOfWeek.toISOString().split('T')[0]
+          start_date: formatDateToLocal(startOfWeek),
+          end_date: formatDateToLocal(endOfWeek)
         };
       
       case 'month':
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
         return {
-          start_date: startOfMonth.toISOString().split('T')[0],
-          end_date: endOfMonth.toISOString().split('T')[0]
+          start_date: formatDateToLocal(startOfMonth),
+          end_date: formatDateToLocal(endOfMonth)
         };
       
       default:
@@ -163,6 +175,7 @@ export const NCRecordsComponent = () => {
     setDateRangePreset(preset);
     if (preset !== 'custom') {
       const dateRange = getDateRange(preset);
+      console.log('Date range selected:', preset, dateRange); // Debug log
       setFilterCriteria(prev => ({
         ...prev,
         ...dateRange
@@ -195,6 +208,7 @@ export const NCRecordsComponent = () => {
           date: record.record_date,
           customer: record.client ,
           reporter: record.reporter ,
+          priority: record.priority,
           site: record.site ,
           department: record.department ,
           plateNumber: record.vehicle_truckno ,
@@ -238,10 +252,29 @@ export const NCRecordsComponent = () => {
       // record.reporter.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.description.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = filterStatus === 'All' || record.status === filterStatus;
-    // const matchesPriority = filterPriority === 'All' || record.priority === filterPriority;
+    // Filter by status using filterCriteria
+    const matchesStatus = !filterCriteria.casestatus || 
+      filterCriteria.casestatus.split(',').map(s => s.trim()).includes(record.status);
     
-    return matchesSearch && matchesStatus //&& matchesPriority
+    // Filter by priority using filterCriteria
+    const matchesPriority = !filterCriteria.priority || 
+      filterCriteria.priority.split(',').map(p => p.trim()).includes(record.priority);
+    
+    // Filter by site using filterCriteria
+    const matchesSite = !filterCriteria.site_id || 
+      filterCriteria.site_id.split(',').map(s => s.trim()).includes(record.site);
+    
+    // Filter by driver using filterCriteria
+    const matchesDriver = !filterCriteria.driver_id || 
+      filterCriteria.driver_id.split(',').map(d => d.trim()).includes(record.driver);
+    
+    // Filter by document number using filterCriteria
+    const matchesDocumentNo = !filterCriteria.document_no || 
+      filterCriteria.document_no.split(',').map(d => d.trim()).some(docNo => 
+        record.id.toLowerCase().includes(docNo.toLowerCase())
+      );
+    
+    return matchesSearch && matchesStatus && matchesPriority && matchesSite && matchesDriver && matchesDocumentNo;
   });
 
   // Pagination
@@ -257,6 +290,53 @@ export const NCRecordsComponent = () => {
       case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'completed': return 'bg-green-100 text-green-800 border-green-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const getPriorityIcon = (priority: string) => {
+    if (!priority) {
+      return {
+        icon: '⚪',
+        color: 'text-gray-600',
+        bgColor: 'bg-gray-50',
+        borderColor: 'border-gray-200',
+        label: 'ไม่ระบุ'
+      };
+    }
+    
+    switch (priority.toLowerCase()) {
+      case 'minor':
+        return {
+          icon: '🟡',
+          color: 'text-yellow-600',
+          bgColor: 'bg-yellow-50',
+          borderColor: 'border-yellow-200',
+          label: 'Minor'
+        };
+      case 'major':
+        return {
+          icon: '🟠',
+          color: 'text-orange-600',
+          bgColor: 'bg-orange-50',
+          borderColor: 'border-orange-200',
+          label: 'Major'
+        };
+      case 'crisis':
+        return {
+          icon: '🔴',
+          color: 'text-red-600',
+          bgColor: 'bg-red-50',
+          borderColor: 'border-red-200',
+          label: 'Crisis'
+        };
+      default:
+        return {
+          icon: '⚪',
+          color: 'text-gray-600',
+          bgColor: 'bg-gray-50',
+          borderColor: 'border-gray-200',
+          label: priority
+        };
     }
   };
 
@@ -352,7 +432,7 @@ export const NCRecordsComponent = () => {
                           if (date) {
                             setFilterCriteria(prev => ({ 
                               ...prev, 
-                              start_date: date.toISOString().split('T')[0] 
+                              start_date: formatDateToLocal(date) 
                             }));
                           }
                           setStartDateOpen(false);
@@ -387,7 +467,7 @@ export const NCRecordsComponent = () => {
                           if (date) {
                             setFilterCriteria(prev => ({ 
                               ...prev, 
-                              end_date: date.toISOString().split('T')[0] 
+                              end_date: formatDateToLocal(date) 
                             }));
                           }
                           setEndDateOpen(false);
@@ -401,7 +481,7 @@ export const NCRecordsComponent = () => {
             )}
 
             {/* Main Filter Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               {/* Document Number */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
@@ -516,6 +596,34 @@ export const NCRecordsComponent = () => {
                     }
                   }}
                   placeholder="เลือกสถานะ"
+                />
+              </div>
+
+              {/* Priority */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                  <Filter size={16} />
+                  ระดับความรุนแรง (Priority)
+                </label>
+                <SearchableSelect
+                  options={[
+                    { value: 'Minor', label: '🟡 Minor' },
+                    { value: 'Major', label: '🟠 Major' },
+                    { value: 'Crisis', label: '🔴 Crisis' }
+                  ]}
+                  value={filterCriteria.priority || ''}
+                  onChange={(value) => setFilterCriteria(prev => ({ ...prev, priority: value.toString() }))}
+                  onAddFilter={(value) => {
+                    const currentValue = filterCriteria.priority || '';
+                    const currentItems = currentValue.split(',').map(item => item.trim()).filter(Boolean);
+                    const newValue = value.toString();
+                    
+                    if (!currentItems.includes(newValue)) {
+                      const updatedItems = [...currentItems, newValue];
+                      setFilterCriteria(prev => ({ ...prev, priority: updatedItems.join(', ') }));
+                    }
+                  }}
+                  placeholder="เลือกระดับความรุนแรง"
                 />
               </div>
             </div>
@@ -687,10 +795,20 @@ export const NCRecordsComponent = () => {
                   : currentRecords.map((record) => (
                       <tr key={record.id} className="hover:bg-gray-100 transition-colors">
                         <td className="px-6 py-4 text-xs font-medium text-gray-800">
-                          {record.id}
+                          <div className="flex items-center gap-2">
+                            <div className={`flex items-center justify-center w-6 h-6 rounded-full ${getPriorityIcon(record.priority).bgColor} ${getPriorityIcon(record.priority).borderColor} border`}>
+                              <span className="text-sm">{getPriorityIcon(record.priority).icon}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{record.id}</span>
+                              <span className={`text-xs ${getPriorityIcon(record.priority).color} font-medium`}>
+                                {getPriorityIcon(record.priority).label}
+                              </span>
+                            </div>
+                          </div>
                         </td>
                         <td className="px-6 py-4 text-xs text-gray-600">
-                          {record.date}
+                          {formatDate(record.date)}
                         </td>
                         <td className="px-6 py-4 text-xs text-gray-600">
                           {record.customer}
