@@ -254,13 +254,13 @@ export const Picture = ({ display }: { display: (value: boolean) => void }) => {
             onClick={handleCancel}
             className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-700"
           >
-            Cancel
+            ยกเลิก
           </button>
           <button 
             onClick={handleSave}
             className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium"
           >
-            Save
+            ตกลง
           </button>
         </div>
       </div>

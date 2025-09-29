@@ -28,7 +28,6 @@ export default function Login() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // ตรวจสอบว่ากรอกข้อมูลครบถ้วน
     if (!username || !password) {
       alert('กรุณากรอกชื่อผู้ใช้งานและรหัสผ่าน');
       return;
@@ -108,7 +107,7 @@ export default function Login() {
                 : "translate-y-4 opacity-0"
             }`}
           >
-            Mena Safety System Powered by Operation Support
+            Mena Safety System Powered by Operations Support
           </p>
         </div>
       {/* Login Card */}
@@ -218,7 +217,6 @@ export default function Login() {
               </a>
             </div>
 
-            {/* Login Button */}
             <button
               type="submit"
               disabled={isLoading}
@@ -249,7 +247,6 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Divider */}
           <div className="hidden relative my-8">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-200"></div>
@@ -259,7 +256,6 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Alternative Login Options */}
           <div className="hidden space-y-3">
             <button className="w-full py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-all duration-200 flex items-center justify-center space-x-3 font-medium">
               <LordIcon 
@@ -273,7 +269,6 @@ export default function Login() {
 
           </div>
 
-          {/* Security Notice */}
           <div className="mt-5">
             
             {/* Footer */}

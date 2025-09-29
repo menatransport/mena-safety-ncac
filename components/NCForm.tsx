@@ -6,7 +6,7 @@ import { DateTimePicker24h } from "./ui/datetime-picker";
 import { SearchableSelect } from "./ui/searchable-select";
 import { Picture } from "./picture";
 import { caseReport } from "@/lib/caseReport";
-import { SquarePen, Printer, CirclePlus, CircleMinus } from "lucide-react";
+import { SquarePen, Printer, CirclePlus, CircleMinus, Loader2 } from "lucide-react";
 
 export const NCFormComponent = () => {
   const [formData, setFormData] = useState<Partial<caseReport>>({
@@ -30,85 +30,146 @@ export const NCFormComponent = () => {
   const [isViewMode, setIsViewMode] = useState(false);
   const [editingRecord, setEditingRecord] = useState<any>(null);
   
-  // เก็บข้อมูลต้นฉบับสำหรับการกรอง
   const [originalData, setOriginalData] = useState<{
     masterdrivers?: any[];
     locations?: any[];
     vehicles?: any[];
   }>({});
 
+  const [isLoadingDropdowns, setIsLoadingDropdowns] = useState(true);
+
+  // Loading Spinner Component
+  const LoadingSpinner = () => (
+    <Loader2 className="w-4 h-4 animate-spin text-gray-400 ml-2 inline" />
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const userData = localStorage.getItem('userData');
-    const parsedUserData = userData ? JSON.parse(userData) : null;
-    console.log("userData from localStorage:", parsedUserData.id);
-    setFormData((prev) => ({ ...prev , reporter_id: parsedUserData?.id}));
-    console.log("NC Form submitted:", formData);
+    
+    try {
+      // Get user data from localStorage
+      const userData = localStorage.getItem('userData');
+      const parsedUserData = userData ? JSON.parse(userData) : null;
+      
+      if (!parsedUserData?.id) {
+        alert('ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่');
+        return;
+      }
 
-    const res = await fetch('/api/document', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(formData),
-    });
-    if(res.ok){
-      alert("NC Form submitted successfully!");
-      window.location.reload();
+      // Create local datetime (Thailand timezone)
+      const now = new Date();
+      const localDateTime = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString();
+      
+      console.log("userData from localStorage:", parsedUserData.id);
+      console.log("Local DateTime:", localDateTime);
+
+      // Prepare form data with current datetime and reporter info
+      const submitData = {
+        ...formData,
+        record_date: localDateTime,
+        reporter_id: parsedUserData.id
+      };
+
+      console.log("NC Form data to submit:", submitData);
+
+      const res = await fetch('/api/document', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(submitData),
+      });
+
+      const responseData = await res.json();
+      console.log("API Response:", responseData);
+
+      if (res.ok) {
+        alert("NC Form submitted successfully!");
+        console.log("Success response data:", responseData);
+        attatchments_post(responseData.document_no);
+        // Update form data state with the submitted data
+        setFormData(submitData);
+        
+        // Optional: Reload page after successful submission
+        // window.location.reload();
+      } else {
+        throw new Error(responseData.message || `HTTP ${res.status}: ${res.statusText}`);
+      }
+      
+    } catch (error) {
+      console.error('Error submitting NC Form:', error);
+      alert(`เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  // Check for view mode and load record data
-  useEffect(() => {
-    // Check URL parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    const mode = urlParams.get('mode');
-    const docId = urlParams.get('doc');
-    
-    if (mode === 'view' && docId) {
-      setIsViewMode(true);
-      
-      // Load record data from localStorage
-      const storedRecord = localStorage.getItem('editingRecord');
-      if (storedRecord) {
-        try {
-          const recordData = JSON.parse(storedRecord);
-          setEditingRecord(recordData);
-          
-          // Map record data to form data structure
-          setFormData(prev => ({
-            ...prev,
-            document_no: recordData.id,
-            record_date: recordData.date,
-            client_name: recordData.customer,
-            reporter_name: recordData.reporter,
-            site_name: recordData.site,
-            department_name: recordData.department,
-            vehicle_truckno: recordData.plateNumber,
-            driver_name: recordData.driver,
-            casestatus: recordData.status,
-            case_details: recordData.description,
-            case_location: recordData.location
-          }));
-          
-          // Clear the stored data after use
-          localStorage.removeItem('editingRecord');
-        } catch (error) {
-          console.error('Error parsing stored record:', error);
-        }
-      }
-    } else {
-      // Set current date/time for new forms
-      setFormData(prev => ({
-        ...prev,
-        record_date: new Date().toISOString()
-      }));
+  const attatchments_post = async (document_no: string) => {
+    if (!document_no) {
+      console.error('Document number is required for attachments upload.');
+      return;
     }
+    // const res = await fetch('/api/attachment', {
+  }
+
+  // useEffect(() => {
+
+  //   const urlParams = new URLSearchParams(window.location.search);
+  //   const mode = urlParams.get('mode');
+  //   const docId = urlParams.get('doc');
+    
+  //   if (mode === 'view' && docId) {
+  //     setIsViewMode(true);
+      
+  //     const storedRecord = localStorage.getItem('editingRecord');
+  //     if (storedRecord) {
+  //       try {
+  //         const recordData = JSON.parse(storedRecord);
+  //         setEditingRecord(recordData);
+          
+  //         setFormData(prev => ({
+  //           ...prev,
+  //           document_no: recordData.id,
+  //           record_date: recordData.date,
+  //           client_name: recordData.customer,
+  //           reporter_name: recordData.reporter,
+  //           site_name: recordData.site,
+  //           department_name: recordData.department,
+  //           vehicle_truckno: recordData.plateNumber,
+  //           driver_name: recordData.driver,
+  //           casestatus: recordData.status,
+  //           case_details: recordData.description,
+  //           case_location: recordData.location
+  //         }));
+          
+  //         // Clear the stored data after use
+  //         localStorage.removeItem('editingRecord');
+  //       } catch (error) {
+  //         console.error('Error parsing stored record:', error);
+  //       }
+  //     }
+  //   } else {
+  //     // Set current date/time for new forms
+  //     setFormData(prev => ({
+  //       ...prev,
+  //       record_date: new Date().toISOString()
+  //     }));
+  //   }
+  // }, []);
+
+  // Initialize form with current local datetime
+  useEffect(() => {
+    const now = new Date();
+    const localDateTime = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString();
+    
+    setFormData(prev => ({
+      ...prev,
+      record_date: localDateTime
+    }));
   }, []);
 
   useEffect(() => {
 
     const fetchData = async () => {
+      setIsLoadingDropdowns(true);
       const list_api = [
         "/sites",
         "/departments",
@@ -143,7 +204,6 @@ export const NCFormComponent = () => {
 
         setDropdownData(dropdownObj);
         
-        // เก็บข้อมูลต้นฉบับสำหรับการกรอง
         setOriginalData({
           masterdrivers: dropdownObj.masterdrivers || [],
           locations: dropdownObj.locations || [],
@@ -153,17 +213,19 @@ export const NCFormComponent = () => {
         console.log("Dropdown data fetched:", dropdownObj);
       } catch (error) {
         console.error("Error fetching dropdown data:", error);
+      } finally {
+        setIsLoadingDropdowns(false);
       }
     };
     fetchData();
   }, []);
 
-  const adddropdownData = (value: any) => {
-    setDropdownData((prevData) => ({
-      ...prevData,
-      ...value,
-    }));
-  };
+  // const adddropdownData = (value: any) => {
+  //   setDropdownData((prevData) => ({
+  //     ...prevData,
+  //     ...value,
+  //   }));
+  // };
 
 
   const handleSiteChange = (siteId: number) => {
@@ -174,6 +236,7 @@ export const NCFormComponent = () => {
 
       const filteredDrivers = originalData.masterdrivers?.filter(driver => driver.site_id === siteId) || [];
       const filteredLocations = originalData.locations?.filter(location => location.site_id === siteId) || [];
+      // console.log("Filtered Locations:", filteredLocations);
       // const filteredVehicles = originalData.vehicles?.filter(vehicle => vehicle.site_id === siteId) || [];
       
       setDropdownData((prev) => ({ 
@@ -192,7 +255,6 @@ export const NCFormComponent = () => {
       }));
     }
 
-    // Clear driver, location, and vehicle data when site changes
     setFormData((prev) => ({ 
       ...prev, 
       driver_id: "", 
@@ -218,14 +280,12 @@ export const NCFormComponent = () => {
     }
   }, [formData.site_id, originalData]);
 
-  // ฟังก์ชันสำหรับจัดการการเลือกรถตามรหัสรถ (truck_no)
   const handleVehicleCodeChange = (truckNo: string) => {
     const selectedVehicle = dropdownData.vehicles?.find(vehicle => 
       vehicle.truck_no === truckNo && vehicle.plate_type === 'head'
     );
     
     if (selectedVehicle) {
-      // หา tail vehicle ที่มี truck_no เดียวกัน
       const tailVehicle = dropdownData.vehicles?.find(vehicle => 
         vehicle.truck_no === truckNo && vehicle.plate_type === 'tail'
       );
@@ -239,14 +299,12 @@ export const NCFormComponent = () => {
     }
   };
 
-  // ฟังก์ชันสำหรับจัดการการเลือกทะเบียนรถหัว
   const handleHeadPlateChange = (vehicleId: number) => {
-    const selectedVehicle = dropdownData.vehicles?.find(vehicle => 
+  const selectedVehicle = dropdownData.vehicles?.find(vehicle => 
       vehicle.vehicle_id === vehicleId && vehicle.plate_type === 'head'
     );
     
     if (selectedVehicle) {
-      // หา tail vehicle ที่มี truck_no เดียวกัน
       const tailVehicle = dropdownData.vehicles?.find(vehicle => 
         vehicle.truck_no === selectedVehicle.truck_no && vehicle.plate_type === 'tail'
       );
@@ -260,26 +318,25 @@ export const NCFormComponent = () => {
     }
   };
 
-  // ฟังก์ชันสำหรับจัดการการเลือกทะเบียนรถหาง
-  const handleTailPlateChange = (vehicleId: number) => {
-    const selectedVehicle = dropdownData.vehicles?.find(vehicle => 
-      vehicle.vehicle_id === vehicleId && vehicle.plate_type === 'tail'
-    );
+  // const handleTailPlateChange = (vehicleId: number) => {
+  //   const selectedVehicle = dropdownData.vehicles?.find(vehicle => 
+  //     vehicle.vehicle_id === vehicleId && vehicle.plate_type === 'tail'
+  //   );
     
-    if (selectedVehicle) {
-      // หา head vehicle ที่มี truck_no เดียวกัน
-      const headVehicle = dropdownData.vehicles?.find(vehicle => 
-        vehicle.truck_no === selectedVehicle.truck_no && vehicle.plate_type === 'head'
-      );
+  //   if (selectedVehicle) {
+  //     // หา head vehicle ที่มี truck_no เดียวกัน
+  //     const headVehicle = dropdownData.vehicles?.find(vehicle => 
+  //       vehicle.truck_no === selectedVehicle.truck_no && vehicle.plate_type === 'head'
+  //     );
 
-      setFormData(prev => ({
-        ...prev,
-        vehicle_truckno: headVehicle?.truck_no || selectedVehicle.truck_no,
-        vehicle_id_head: headVehicle?.vehicle_id,
-        vehicle_id_tail: selectedVehicle.vehicle_id
-      }));
-    }
-  };
+  //     setFormData(prev => ({
+  //       ...prev,
+  //       vehicle_truckno: headVehicle?.truck_no || selectedVehicle.truck_no,
+  //       vehicle_id_head: headVehicle?.vehicle_id,
+  //       vehicle_id_tail: selectedVehicle.vehicle_id
+  //     }));
+  //   }
+  // };
 
 
   const handleAddItem = (type: string) => {
@@ -325,7 +382,6 @@ export const NCFormComponent = () => {
       return;
     }
 
-    // Find the item to be removed
     const itemToRemove = items.find((item: any) => {
       const idField = `${type}_id`;
       return item[idField] === itemId;
@@ -336,7 +392,6 @@ export const NCFormComponent = () => {
       return;
     }
 
-    // Get item name for confirmation
     let itemName = '';
     if (type === 'client') {
       itemName = itemToRemove.client_name;
@@ -352,7 +407,6 @@ export const NCFormComponent = () => {
 
     const shouldRemove = confirm(`คุณแน่ใจหรือไม่ที่จะลบรายการ: "${itemName}"?`);
     if (shouldRemove) {
-      // Remove the specific item from dropdown data
       const filteredItems = items.filter((item: any) => {
         const idField = `${type}_id`;
         return item[idField] !== itemId;
@@ -363,7 +417,6 @@ export const NCFormComponent = () => {
         [`${type}s`]: filteredItems
       }));
 
-      // If the removed item was selected, clear the selection
       const formKey = `${type}_id`;
       if (formData[formKey as keyof typeof formData] === itemId) {
         setFormData(prev => ({
@@ -387,12 +440,12 @@ export const NCFormComponent = () => {
     });
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      attachments: e.target.files ? e.target.files.length.toString() : "",
-    });
-  };
+  // const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   setFormData({
+  //     ...formData,
+  //     attachments: e.target.files ? e.target.files.length.toString() : "",
+  //   });
+  // };
 
   const addProductItem = () => {
     const items = formData.products || [];
@@ -495,7 +548,6 @@ export const NCFormComponent = () => {
     <>
       <div className="min-h-screen  bg-[#eef8ef]">
         <div className="p-6 space-y-6">
-          {/* Header - Hidden in print */}
           <div className="no-print flex items-center justify-between">
             <div className="hidden items-center space-x-4">
               <div className="w-12 h-12 text-black flex items-center justify-center">
@@ -511,7 +563,6 @@ export const NCFormComponent = () => {
               </div>
             </div>
 
-            {/* Print Button */}
             <button
               onClick={handlePrint}
               className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -521,16 +572,14 @@ export const NCFormComponent = () => {
             </button>
           </div>
 
-          {/* Form Container */}
           <div className="flex items-center justify-center">
             <div
               id="printable-area"
               className="md:w-4xl sm:w-full mx-4 space-y-6 bg-white p-8 rounded-xl shadow-sm border border-gray-500"
             >
-              {/* Form Header */}
               <div className="text-center border-b border-gray-400 pb-4 mb-4">
                 <h2 className="text-xl font-bold text-gray-800">
-                  แบบรายงานเหตุการณ์เบื้องต้น - BBS06
+                  แบบรายงานการให้บริการที่ไม่เป็นไปตามข้อกำหนดเบื้องต้น
                 </h2>
                 <h3 className="text-lg text-gray-600">
                   Initial Non-Conformity Services Form
@@ -551,14 +600,12 @@ export const NCFormComponent = () => {
                       Part 1: Initial NC Reporting - Overview and key details
                     </label>
                     <label className="flex text-xs p-1 bg-gray-200 font-bold text-gray-800">
-                      ส่วนที่ 1: รายงานเหตุการณ์เบื้องต้น -
-                      รายละเอียดเบื้องต้นของเหตุการณ์ที่เกิดขึ้น
+                      ส่วนที่ 1: รายงานการให้บริการที่ไม่เป็นไปตามข้อกำหนด -
+                      รายละเอียดเบื้องต้นของการให้บริการที่ไม่เป็นไปตามข้อกำหนดที่เกิดขึ้น
                     </label>
                   </div>
 
-                  {/* Grid Form */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    {/* เลขที่เอกสาร */}
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
                         เลขที่เอกสาร:
@@ -573,10 +620,10 @@ export const NCFormComponent = () => {
                       />
                     </div>
 
-                    {/* ศูนย์ปฏิบัติการ */}
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
                         ศูนย์ปฏิบัติการ:
+                        {isLoadingDropdowns && <LoadingSpinner />}
                       </label>
                       <SearchableSelect
                         options={(dropdownData.sites || []).map((site: any) => ({
@@ -594,10 +641,10 @@ export const NCFormComponent = () => {
                       />
                     </div>
 
-                    {/* ฝ่าย */}
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
                         ฝ่าย:
+                        {isLoadingDropdowns && <LoadingSpinner />}
                       </label>
                       <SearchableSelect
                         options={(dropdownData.departments || []).map((dept: any) => ({
@@ -614,24 +661,28 @@ export const NCFormComponent = () => {
                       />
                     </div>
 
-                    {/* วันและเวลาแจ้งเหตุ */}
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
                         วันที่และเวลา แจ้งเหตุ:
                       </label>
                       <input
                         type="text"
+                        name="record_date"
                         value={
                           formData?.record_date
-                            ? new Date(formData.record_date).toLocaleString('th-TH', {
-                                year: 'numeric',
-                                month: '2-digit',
-                                day: '2-digit',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                hour12: false
-                              })
-                            : new Date().toLocaleString('th-TH', {
+                            ? (() => {
+                                const date = new Date(formData.record_date);
+                                const localDate = new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
+                                return localDate.toLocaleString('en-UK', {
+                                  year: 'numeric',
+                                  month: '2-digit',
+                                  day: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  hour12: false
+                                });
+                              })()
+                            : new Date().toLocaleString('en-UK', {
                                 year: 'numeric',
                                 month: '2-digit',
                                 day: '2-digit',
@@ -646,7 +697,6 @@ export const NCFormComponent = () => {
                       />
                     </div>
 
-                    {/* วันและเวลาเกิดเหตุ */}
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
                         วันที่และเวลา เกิดเหตุ:
@@ -668,10 +718,10 @@ export const NCFormComponent = () => {
 
                     <br />
                     <div className="border-t border-gray-400 md:col-span-3"></div>
-                    {/* ลูกค้า */}
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
                         ลูกค้า:
+                        {isLoadingDropdowns && <LoadingSpinner />}
                       </label>
                       <SearchableSelect
                         options={(dropdownData.clients || []).map((client: any) => ({
@@ -688,10 +738,10 @@ export const NCFormComponent = () => {
                       />
                     </div>
 
-                    {/* Plant */}
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
                         ต้นทาง/แพล้น:
+                        {isLoadingDropdowns && <LoadingSpinner />}
                       </label>
                       <SearchableSelect
                         options={(dropdownData.locations || []).map((location: any) => ({
@@ -708,7 +758,6 @@ export const NCFormComponent = () => {
                       />
                     </div>
 
-                    {/* ปลายทาง */}
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
                         ปลายทาง:
@@ -722,7 +771,6 @@ export const NCFormComponent = () => {
                       />
                     </div>
 
-                    {/* สถานที่เกิดเหตุ */}
                     <div className="md:col-span-3">
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
                         สถานที่เกิดเหตุ:
@@ -736,10 +784,34 @@ export const NCFormComponent = () => {
                       />
                     </div>
 
-                    {/* รหัสรถ */}
+                    
+
+                    <div>
+                      <label className="block text-gray-700 font-medium mb-1 text-sm">
+                        ทะเบียนรถหัว:
+                        {isLoadingDropdowns && <LoadingSpinner />}
+                      </label>
+                      <SearchableSelect
+                        options={(dropdownData.vehicles || [])
+                          .filter(vehicle => vehicle.plate_type === 'head')
+                          .map((vehicle: any) => ({
+                            value: vehicle.vehicle_id,
+                            label: `${vehicle.vehicle_number_plate}`
+                          }))}
+                        value={formData?.vehicle_id_head || ""}
+                        onChange={(value) => handleHeadPlateChange(Number(value))}
+                        onAdd={() => handleAddItem('vehicle')}
+                        onRemove={(itemId) => handleRemoveItem('vehicle', itemId)}
+                        placeholder="เลือกทะเบียนรถหัว"
+                        showAddRemove={true}
+                        className="w-full"
+                      />
+                    </div>
+
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
                         รหัสรถ:
+                        {isLoadingDropdowns && <LoadingSpinner />}
                       </label>
                       <SearchableSelect
                         options={Array.from(
@@ -762,32 +834,10 @@ export const NCFormComponent = () => {
                       />
                     </div>
 
-                    {/* ทะเบียนรถหัว - Auto filled */}
-                    <div>
-                      <label className="block text-gray-700 font-medium mb-1 text-sm">
-                        ทะเบียนรถหัว:
-                      </label>
-                      <SearchableSelect
-                        options={(dropdownData.vehicles || [])
-                          .filter(vehicle => vehicle.plate_type === 'head')
-                          .map((vehicle: any) => ({
-                            value: vehicle.vehicle_id,
-                            label: `${vehicle.vehicle_number_plate}`
-                          }))}
-                        value={formData?.vehicle_id_head || ""}
-                        onChange={(value) => handleHeadPlateChange(Number(value))}
-                        onAdd={() => handleAddItem('vehicle')}
-                        onRemove={(itemId) => handleRemoveItem('vehicle', itemId)}
-                        placeholder="เลือกทะเบียนรถหัว"
-                        showAddRemove={true}
-                        className="w-full"
-                      />
-                    </div>
-
-                    {/* ทะเบียนรถหาง - Auto filled */}
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
                         ทะเบียนรถหาง:
+                        {isLoadingDropdowns && <LoadingSpinner />}
                       </label>
                       <SearchableSelect
                         options={(dropdownData.vehicles || [])
@@ -806,10 +856,10 @@ export const NCFormComponent = () => {
                       />
                     </div>
 
-                    {/* ประเภทคนขับ */}
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
                         ประเภทคนขับ:
+                        {isLoadingDropdowns && <LoadingSpinner />}
                       </label>
                       <SearchableSelect
                         options={(dropdownData.driver_roles || []).map((role: any) => ({
@@ -826,10 +876,10 @@ export const NCFormComponent = () => {
                       />
                     </div>
 
-                    {/* ชื่อ-สกุลคนขับ */}
                     <div className="md:col-span-2">
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
                         ชื่อ-สกุลคนขับ:
+                        {isLoadingDropdowns && <LoadingSpinner />}
                       </label>
                       <SearchableSelect
                         options={(dropdownData.masterdrivers || []).map((driver: any) => ({
@@ -850,7 +900,7 @@ export const NCFormComponent = () => {
 
                     <div className="md:col-span-3">
                       <label className="flex justify-between p-2 bg-gray-200 font-bold text-gray-800 font-bold mb-3 text-sm">
-                        รายการสินค้า :
+                        รายการสินค้าเสียหาย :
                         <div className="flex">
                           <CirclePlus
                             onClick={addProductItem}
@@ -949,7 +999,6 @@ export const NCFormComponent = () => {
                       style={{ pageBreakBefore: "always" }}
                     ></div>
 
-                    {/* ประมาณการมูลค่าเสียหาย */}
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
                         ประมาณการมูลค่าเสียหาย:
@@ -957,13 +1006,12 @@ export const NCFormComponent = () => {
                       <input
                         type="number"
                         name="estimated_cost"
-                        value={formData?.estimated_cost}
+                        value={formData?.estimated_cost || 0}
                         onChange={handleInputChange}
                         className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black"
                       />
                     </div>
 
-                    {/* มูลค่าความเสียหายจริง */}
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
                         มูลค่าความเสียหายจริง:
@@ -971,16 +1019,16 @@ export const NCFormComponent = () => {
                       <input
                         type="number"
                         name="actual_price"
-                        value={formData?.actual_price}
+                        value={formData?.actual_price || 0}
                         onChange={handleInputChange}
                         className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black"
                       />
                     </div>
 
-                    {/* สาเหตุ NC */}
                     <div className="md:col-span-3">
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
                         สาเหตุ NC:
+                        {isLoadingDropdowns && <LoadingSpinner />}
                       </label>
                       <SearchableSelect
                         options={(dropdownData.mastercauses || []).map((cause: any) => ({
@@ -997,7 +1045,6 @@ export const NCFormComponent = () => {
                       />
                     </div>
 
-                    {/* รายละเอียด */}
                     <div className="md:col-span-3">
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
                         รายละเอียด:
@@ -1012,7 +1059,6 @@ export const NCFormComponent = () => {
                       />
                     </div>
 
-                    {/* แนบรูปภาพ */}
                     <div
                       onClick={() => setDisplayPIC(true)}
                       className="mx-5 cursor-pointer md:col-span-3"
@@ -1036,12 +1082,11 @@ export const NCFormComponent = () => {
 
                     <div className="border-t border-gray-400 md:col-span-3"></div>
 
-                    {/* ตารางลำดับการอนุมัติ */}
                     <div className=" hidden md:col-span-3">
                       <label className="block p-2 bg-gray-200 font-bold text-gray-800 font-bold mb-3 text-sm">
                         ลำดับการอนุมัติ (View):
                       </label>
-                      <div className="overflow-x-auto">
+                      {/* <div className="overflow-x-auto">
                         <table className="w-full border border-gray-300 text-sm">
                           <thead className="bg-gray-100">
                             <tr>
@@ -1116,12 +1161,11 @@ export const NCFormComponent = () => {
                             </tr>
                           </tbody>
                         </table>
-                      </div>
+                      </div> */}
                     </div>
                   </div>
                 </div>
 
-                {/* Action Buttons */}
                 <div className="no-print flex justify-end space-x-4 pt-6 border-t border-gray-200">
                   {isViewMode && (
                     <div className="hidden bg-blue-100 border border-blue-300 text-blue-800 px-4 py-2 rounded-lg">
@@ -1151,7 +1195,6 @@ export const NCFormComponent = () => {
         </div>
       </div>
 
-      {/* Picture */}
       {displayPIC && <Picture display={setDisplayPIC} />}
     </>
   );
