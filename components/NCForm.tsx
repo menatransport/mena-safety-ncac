@@ -1,5 +1,5 @@
 ﻿"use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { LordIcon } from "./LordIcon";
 import { DateTimePicker24h } from "./ui/datetime-picker";
@@ -7,6 +7,7 @@ import { SearchableSelect } from "./ui/searchable-select";
 import { Picture } from "./picture";
 import { caseReport } from "@/lib/caseReport";
 import { SquarePen, Printer, CirclePlus, CircleMinus, Loader2 } from "lucide-react";
+import Swal from "sweetalert2";
 
 interface FileWithId {
   id: string;
@@ -18,7 +19,9 @@ interface CategoryFiles {
   [key: string]: FileWithId[];
 }
 
-export const NCFormComponent = () => {
+// แยก component ที่ใช้ useSearchParams ออกมา
+const NCFormContent = () => {
+  const searchParams = useSearchParams();
   const [formData, setFormData] = useState<Partial<caseReport>>({
     products: [{ product_id: 1, product_name: "", amount: 0, unit: "" }] as [
       { product_id: number; product_name: string; amount: number; unit: string }
@@ -46,6 +49,7 @@ export const NCFormComponent = () => {
   }>({});
 
   const [isLoadingDropdowns, setIsLoadingDropdowns] = useState(true);
+  const [isLoadingFormData, setIsLoadingFormData] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<CategoryFiles>({});
   
   const LoadingSpinner = () => (
@@ -95,15 +99,20 @@ export const NCFormComponent = () => {
       console.log("API Response:", responseData);
 
       if (res.ok) {
-        alert("NC Form submitted successfully!");
         console.log("Success response data:", responseData);
-
+        Swal.fire({
+          icon: 'success',
+          title: 'บันทึกข้อมูลเรียบร้อย',
+          draggable: true,
+          confirmButtonText: 'ตกลง',
+          allowOutsideClick: false
+        });
         setFormData(submitData);
         
 
-        if (responseData.document_no && Object.keys(attachedFiles).length > 0) {
+        if (responseData.document_no && Object.keys(attachedFiles).length > 0) { 
           await attatchments_post(responseData.document_no);
-        }
+        } 
         
         // Optional: Reload page after successful submission
         // window.location.reload();
@@ -125,28 +134,27 @@ export const NCFormComponent = () => {
 
     try {
       const uploadFormData = new FormData();
-      
-      // เตรียมไฟล์สำหรับอัปโหลด
+
       Object.entries(attachedFiles).forEach(([category, files]) => {
         if (Array.isArray(files)) {
           files.forEach((fileItem: FileWithId, index: number) => {
-            // สร้างชื่อไฟล์ใหม่
+
             const fileExtension = fileItem.file.name.split('.').pop();
             const randomNumber = String(Math.floor(Math.random() * 100)).padStart(2, '0');
-            const newFileName = `${document_no}.${category}.${randomNumber}.${fileExtension}`;
+            const newFileName = `${document_no}_${category}_${randomNumber}_${fileExtension}`;
             
             const renamedFile = new File([fileItem.file], newFileName, { type: fileItem.file.type });
             uploadFormData.append('files', renamedFile);
             uploadFormData.append('categories', category);
             
-            console.log(`Renamed file: ${fileItem.file.name} -> ${newFileName}`);
+            // console.log(`Renamed file: ${fileItem.file.name} -> ${newFileName}`);
           });
         }
       });
       
       uploadFormData.append('document_no', document_no);
       
-      console.log('Uploading attachments for document:', document_no);
+      console.log('uploadFormData prepared for upload:', uploadFormData);
       
       const res = await fetch('/api/attachment', {
         method: 'POST',
@@ -155,7 +163,7 @@ export const NCFormComponent = () => {
       
       if (res.ok) {
         const result = await res.json();
-        // console.log('Attachments uploaded successfully:', result);
+        console.log('Attachments uploaded successfully:', result);
         window.location.reload();
       } else {
         throw new Error(`Failed to upload attachments: ${res.statusText}`);
@@ -168,11 +176,11 @@ export const NCFormComponent = () => {
 
   useEffect(() => {
     const getvaluesparams = async (dropdowns: any) => {
-      const searchParams = useSearchParams();
       const docId = searchParams.get('doc');
 
       if (docId) {
         setIsViewMode(true);
+        setIsLoadingFormData(true);
         
         try {
           const res = await fetch(`/api/document?document_no=${encodeURIComponent(docId)}`, {
@@ -195,6 +203,8 @@ export const NCFormComponent = () => {
         } catch (error) {
           console.error('Error fetching record:', error);
           alert(`เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        } finally {
+          setIsLoadingFormData(false);
         }
        
       } else {
@@ -279,7 +289,7 @@ export const NCFormComponent = () => {
     if (data.driver && dropdowns.masterdrivers) {
       const driver = dropdowns.masterdrivers.find((val: any) => {
         const fullName = val.first_name + " " + val.last_name;
-        console.log(`Comparing: "${fullName}" === "${data.driver}" = ${fullName === data.driver}`);
+        // console.log(`Comparing: "${fullName}" === "${data.driver}" = ${fullName === data.driver}`);
         return fullName === data.driver;
       });
       console.log('Matched driver:', driver);
@@ -736,6 +746,23 @@ export const NCFormComponent = () => {
     }
   };
 
+  // แสดงหน้าโหลดเมื่อกำลังโหลดข้อมูลฟอร์ม (เฉพาะเมื่อมี param)
+  if (isLoadingFormData || (isLoadingDropdowns && searchParams.get('doc'))) {
+    return (
+      <div className="min-h-screen bg-[#eef8ef] flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="w-12 h-12 animate-spin text-green-600" />
+          <div className="text-center">
+            <p className="text-gray-700 font-medium text-lg">กำลังโหลดข้อมูลฟอร์ม...</p>
+            <p className="text-gray-500 text-sm mt-1">
+              {isLoadingDropdowns ? 'กำลังโหลดรายการข้อมูล' : 'กำลังโหลดข้อมูลเอกสาร'}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="min-h-screen  bg-[#eef8ef]">
@@ -825,7 +852,7 @@ export const NCFormComponent = () => {
                         value={formData?.site_id || ""}
                         onChange={(value) => handleSiteChange(Number(value))}
                         onAdd={() => handleAddItem('site')}
-                        onRemove={(itemId) => handleRemoveItem('site', itemId)}
+                        // onRemove={(itemId) => handleRemoveItem('site', itemId)}
                         placeholder="เลือกศูนย์ปฏิบัติการ"
                         showAddRemove={!isViewMode}
                         disabled={isViewMode}
@@ -846,7 +873,7 @@ export const NCFormComponent = () => {
                         value={formData?.department_id || ""}
                         onChange={(value) => setFormData(prev => ({ ...prev, department_id: Number(value) }))}
                         onAdd={() => handleAddItem('department')}
-                        onRemove={(itemId) => handleRemoveItem('department', itemId)}
+                        // onRemove={(itemId) => handleRemoveItem('department', itemId)}
                         placeholder="เลือกฝ่าย"
                         disabled={isViewMode}
                         showAddRemove={true}
@@ -950,7 +977,7 @@ export const NCFormComponent = () => {
                         value={formData?.client_id || ""}
                         onChange={(value) => setFormData(prev => ({ ...prev, client_id: Number(value) }))}
                         onAdd={() => handleAddItem('client')}
-                        onRemove={(itemId) => handleRemoveItem('client', itemId)}
+                        // onRemove={(itemId) => handleRemoveItem('client', itemId)}
                         placeholder="เลือกลูกค้า"
                         showAddRemove={true}
                         className="w-full"
@@ -971,7 +998,7 @@ export const NCFormComponent = () => {
                         value={formData?.origin_id || ""}
                         onChange={(value) => setFormData(prev => ({ ...prev, origin_id: Number(value) }))}
                         onAdd={() => handleAddItem('locations')}
-                        onRemove={(itemId) => handleRemoveItem('locations', itemId)}
+                        // onRemove={(itemId) => handleRemoveItem('locations', itemId)}
                         placeholder="เลือกต้นทาง/แพล้น"
                         showAddRemove={true}
                         className="w-full"
@@ -1027,7 +1054,7 @@ export const NCFormComponent = () => {
                         value={formData?.vehicle_id_head || ""}
                         onChange={(value) => handleHeadPlateChange(Number(value))}
                         onAdd={() => handleAddItem('vehicle')}
-                        onRemove={(itemId) => handleRemoveItem('vehicle', itemId)}
+                        // onRemove={(itemId) => handleRemoveItem('vehicle', itemId)}
                         placeholder="เลือกทะเบียนรถหัว"
                         showAddRemove={true}
                         className="w-full"
@@ -1054,7 +1081,7 @@ export const NCFormComponent = () => {
                         value={formData?.vehicle_truckno || ""}
                         onChange={(value) => handleVehicleCodeChange(String(value))}
                         onAdd={() => handleAddItem('vehicle')}
-                        onRemove={(itemId) => handleRemoveItem('vehicle', itemId)}
+                        // onRemove={(itemId) => handleRemoveItem('vehicle', itemId)}
                         placeholder="เลือกรหัสรถ"
                         showAddRemove={true}
                         className="w-full"
@@ -1077,7 +1104,7 @@ export const NCFormComponent = () => {
                         value={formData?.vehicle_id_tail || ""}
                         onChange={(value) => setFormData(prev => ({ ...prev, vehicle_id_tail: Number(value) }))}
                         onAdd={() => handleAddItem('vehicle')}
-                        onRemove={(itemId) => handleRemoveItem('vehicle', itemId)}
+                        // onRemove={(itemId) => handleRemoveItem('vehicle', itemId)}
                         placeholder="เลือกทะเบียนรถหาง"
                         showAddRemove={true}
                         className="w-full"
@@ -1098,7 +1125,7 @@ export const NCFormComponent = () => {
                         value={formData?.driver_role_id || ""}
                         onChange={(value) => setFormData(prev => ({ ...prev, driver_role_id: Number(value) }))}
                         onAdd={() => handleAddItem('driver_role')}
-                        onRemove={(itemId) => handleRemoveItem('driver_role', itemId)}
+                        // onRemove={(itemId) => handleRemoveItem('driver_role', itemId)}
                         placeholder="เลือกประเภทคนขับ"
                         showAddRemove={true}
                         className="w-full"
@@ -1119,7 +1146,7 @@ export const NCFormComponent = () => {
                         value={formData?.driver_id || ""}
                         onChange={(value) => setFormData(prev => ({ ...prev, driver_id: String(value) }))}
                         onAdd={() => handleAddItem('masterdriver')}
-                        onRemove={(itemId) => handleRemoveItem('masterdriver', itemId)}
+                        // onRemove={(itemId) => handleRemoveItem('masterdriver', itemId)}
                         placeholder="เลือกชื่อ-สกุลคนขับ"
                         showAddRemove={true}
                         className="w-full"
@@ -1284,7 +1311,7 @@ export const NCFormComponent = () => {
                         value={formData?.incident_cause_id || ""}
                         onChange={(value) => setFormData(prev => ({ ...prev, incident_cause_id: Number(value) }))}
                         onAdd={() => handleAddItem('mastercause')}
-                        onRemove={(itemId) => handleRemoveItem('mastercause', itemId)}
+                        // onRemove={(itemId) => handleRemoveItem('mastercause', itemId)}
                         placeholder="เลือกสาเหตุ"
                         showAddRemove={true}
                         className="w-full"
@@ -1467,5 +1494,27 @@ export const NCFormComponent = () => {
         />
       )}
     </>
+  );
+};
+
+// Loading component สำหรับ Suspense fallback
+const NCFormLoading = () => (
+  <div className="min-h-screen bg-[#eef8ef] flex items-center justify-center">
+    <div className="flex flex-col items-center space-y-4">
+      <Loader2 className="w-12 h-12 animate-spin text-green-600" />
+      <div className="text-center">
+        <p className="text-gray-700 font-medium text-lg">เตรียมแบบฟอร์ม...</p>
+        <p className="text-gray-500 text-sm mt-1">กำลังเริ่มต้นระบบ</p>
+      </div>
+    </div>
+  </div>
+);
+
+// Main export component ที่มี Suspense boundary
+export const NCFormComponent = () => {
+  return (
+    <Suspense fallback={<NCFormLoading />}>
+      <NCFormContent />
+    </Suspense>
   );
 };

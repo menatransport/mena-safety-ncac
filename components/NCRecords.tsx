@@ -348,7 +348,7 @@ export const NCRecordsComponent = () => {
 
       localStorage.setItem('editingRecord', JSON.stringify(selectedRecord));
 
-      window.open(`/nc-form?doc=${id}&mode=view`, "_blank");
+      window.open(`/nc-form?doc=${id}`, "_blank");
    
   }
 
