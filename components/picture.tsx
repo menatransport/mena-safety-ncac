@@ -16,11 +16,13 @@ interface CategoryFiles {
 export const Picture = ({ 
   display, 
   onSaveFiles,
-  initialFiles = {}
+  initialFiles = {},
+  isViewMode = false
 }: { 
   display: (value: boolean) => void;
   onSaveFiles?: (files: CategoryFiles) => void;
   initialFiles?: CategoryFiles;
+  isViewMode?: boolean;
 }) => {
   const [files, setFiles] = useState<CategoryFiles>(initialFiles);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -52,7 +54,6 @@ export const Picture = ({
   }, [initialFiles]);
 
   const handleCancel = () => {
-    console.log('Cancel clicked');
     display(false)
   };
 
@@ -127,8 +128,6 @@ export const Picture = ({
   };
 
   const handleSave = () => {
-    // ส่งข้อมูลไฟล์ทั้งหมดกลับไปยัง parent component
-    console.log('Saved files:', files);
     
     const totalFiles = getTotalFiles();
     
@@ -163,8 +162,12 @@ export const Picture = ({
               style={{ width: '56px', height: '56px', cursor: 'pointer' }}
             />
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">แนบรูปและเอกสาร</h1>
-              <p className="text-sm text-gray-500">รายละเอียดเพิ่มเติมเกี่ยวกับภาพ</p>
+              <h1 className="text-2xl font-bold text-gray-800">
+                {isViewMode ? 'ดูรูปและเอกสาร' : 'แนบรูปและเอกสาร'}
+              </h1>
+              <p className="text-sm text-gray-500">
+                {isViewMode ? 'รูปภาพและเอกสารที่แนบมากับเอกสารนี้' : 'รายละเอียดเพิ่มเติมเกี่ยวกับภาพ'}
+              </p>
             </div>
           </div>
         </div>
@@ -175,51 +178,70 @@ export const Picture = ({
               <div key={category} className="rounded-lg p-4">
                 <h3 className="text-md font-bold text-gray-700 mb-3">{category}</h3>
                 
-                {/* Drop Zone */}
-                <div
-                  className={`border-2 border-dashed rounded-lg p-6 transition-colors ${
-                    dragOver === category
-                      ? 'border-blue-400 bg-blue-50'
-                      : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                  onDragOver={(e) => handleDragOver(e, category)}
-                  onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, category)}
-                >
-                  <div className="text-center">
-                    <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                    <p className="mt-2 text-sm text-gray-600">
-                      ลากและวางไฟล์ที่นี่ หรือ
-                    </p>
-                    <label className="mt-2 cursor-pointer inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-600 bg-blue-100 hover:bg-blue-200">
-                      เลือกไฟล์
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept="image/*,.pdf"
-                        multiple
-                        onChange={(e) => handleFileSelect(e, category)}
-                      />
-                    </label>
+                {/* Drop Zone - ซ่อนใน view mode */}
+                {!isViewMode && (
+                  <div
+                    className={`border-2 border-dashed rounded-lg p-6 transition-colors ${
+                      dragOver === category
+                        ? 'border-blue-400 bg-blue-50'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                    onDragOver={(e) => handleDragOver(e, category)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, category)}
+                  >
+                    <div className="text-center">
+                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                      <p className="mt-2 text-sm text-gray-600">
+                        ลากและวางไฟล์ที่นี่ หรือ
+                      </p>
+                      <label className="mt-2 cursor-pointer inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-600 bg-blue-100 hover:bg-blue-200">
+                        เลือกไฟล์
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="image/*,.pdf"
+                          multiple
+                          onChange={(e) => handleFileSelect(e, category)}
+                        />
+                      </label>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* File List */}
-                {files[category] && files[category].length > 0 && (
+                
+                {files[category] && files[category].length > 0 ? (
                   <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                     {files[category].map((fileItem) => (
                       <div key={fileItem.id} className="relative group">
                         <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden border">
-                          {fileItem.file.type.startsWith('image/') ? (
+                         
+                          {fileItem.file.type.includes('image/jpeg') ? (
                             <img
                               src={fileItem.url}
                               alt={fileItem.file.name}
                               className="w-full h-full object-cover"
+                              // crossOrigin="anonymous"
+                              // onError={(e) => {
+                              //   console.error('Image load error:', e);
+                              //   const target = e.target as HTMLImageElement;
+                              //   target.style.display = 'none';
+                              //   target.nextElementSibling?.classList.remove('hidden');
+                              // }}
                             />
-                          ) : (
+                          ) : null}
+                          
+                          {!fileItem.file.type.startsWith('image/') || fileItem.file.name.toLowerCase().includes('.pdf') ? (
                             <div className="flex items-center justify-center h-full">
                               <span className="text-xs text-gray-600 text-center p-2">
                                 {fileItem.file.name}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="hidden flex items-center justify-center h-full">
+                              <span className="text-xs text-red-600 text-center p-2">
+                                ไม่สามารถโหลดรูปได้
                               </span>
                             </div>
                           )}
@@ -233,12 +255,14 @@ export const Picture = ({
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => removeFile(category, fileItem.id)}
-                            className="p-2 bg-white rounded-full text-red-600 hover:bg-red-50"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
+                          {!isViewMode && (
+                            <button
+                              onClick={() => removeFile(category, fileItem.id)}
+                              className="p-2 bg-white rounded-full text-red-600 hover:bg-red-50"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                         
                         {/* File Name */}
@@ -248,7 +272,11 @@ export const Picture = ({
                       </div>
                     ))}
                   </div>
-                )}
+                ) : isViewMode ? (
+                  <div className="mt-4 text-center py-8 text-gray-500">
+                    <p>ไม่มีไฟล์ในหมวดหมู่นี้</p>
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
@@ -257,15 +285,35 @@ export const Picture = ({
         {/* Preview Modal */}
         {previewImage && (
           <div 
-            className="fixed inset-0 backdrop-blur-sm bg-opacity-75 z-60 flex items-center justify-center"
+            className="fixed inset-0 backdrop-blur-sm bg-black bg-opacity-75 z-60 flex items-center justify-center"
             onClick={() => setPreviewImage(null)}
           >
-            <div className="max-w-4xl max-h-4xl p-4">
-              <img
-                src={previewImage}
-                alt="Preview"
-                className="max-w-full max-h-full object-contain"
-              />
+            <div className="max-w-4xl max-h-4xl p-4 relative">
+              <button
+                onClick={() => setPreviewImage(null)}
+                className="absolute top-2 right-2 z-70 p-2 bg-white rounded-full text-gray-700 hover:bg-gray-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              {previewImage.toLowerCase().includes('.pdf') ? (
+                <iframe
+                  src={previewImage}
+                  className="w-full h-[80vh] bg-white rounded"
+                  title="PDF Preview"
+                />
+              ) : (
+                <img
+                  src={previewImage}
+                  alt="Preview"
+                  className="max-w-full max-h-full object-contain"
+                  // crossOrigin="anonymous"
+                  // onError={(e) => {
+                  //   console.error('Preview image load error:', e);
+                  //   alert('ไม่สามารถโหลดรูปภาพได้ กรุณาตรวจสอบการเชื่อมต่อ');
+                  //   setPreviewImage(null);
+                  // }}
+                />
+              )}
             </div>
           </div>
         )}
@@ -276,9 +324,9 @@ export const Picture = ({
             onClick={handleCancel}
             className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-700"
           >
-            ยกเลิก
+            {isViewMode ? 'ปิด' : 'ยกเลิก'}
           </button>
-          {getTotalFiles() > 0 && (
+          {!isViewMode && getTotalFiles() > 0 && (
             <button 
               onClick={handleSave}
               className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium"

@@ -6,7 +6,13 @@ import { DateTimePicker24h } from "./ui/datetime-picker";
 import { SearchableSelect } from "./ui/searchable-select";
 import { Picture } from "./picture";
 import { caseReport } from "@/lib/caseReport";
-import { SquarePen, Printer, CirclePlus, CircleMinus, Loader2 } from "lucide-react";
+import {
+  SquarePen,
+  Printer,
+  CirclePlus,
+  CircleMinus,
+  Loader2,
+} from "lucide-react";
 import Swal from "sweetalert2";
 
 interface FileWithId {
@@ -19,7 +25,6 @@ interface CategoryFiles {
   [key: string]: FileWithId[];
 }
 
-// แยก component ที่ใช้ useSearchParams ออกมา
 const NCFormContent = () => {
   const searchParams = useSearchParams();
   const [formData, setFormData] = useState<Partial<caseReport>>({
@@ -41,7 +46,7 @@ const NCFormContent = () => {
 
   const [displayPIC, setDisplayPIC] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
-  
+
   const [originalData, setOriginalData] = useState<{
     masterdrivers?: any[];
     locations?: any[];
@@ -51,7 +56,7 @@ const NCFormContent = () => {
   const [isLoadingDropdowns, setIsLoadingDropdowns] = useState(true);
   const [isLoadingFormData, setIsLoadingFormData] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<CategoryFiles>({});
-  
+
   const LoadingSpinner = () => (
     <Loader2 className="w-4 h-4 animate-spin text-gray-400 ml-2 inline" />
   );
@@ -59,38 +64,39 @@ const NCFormContent = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Form data before submission:", formData.document_no);
-    if(formData.document_no) {
-      alert('ไม่สามารถแก้ไขข้อมูลได้ในขณะนี้');
+    if (formData.document_no) {
+      alert("ไม่สามารถแก้ไขข้อมูลได้ในขณะนี้");
       return;
     }
     try {
-
-      const userData = localStorage.getItem('userData');
+      const userData = localStorage.getItem("userData");
       const parsedUserData = userData ? JSON.parse(userData) : null;
-      
+
       if (!parsedUserData?.id) {
-        alert('ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่');
+        alert("ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่");
         return;
       }
 
       const now = new Date();
-      const localDateTime = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString();
-      
+      const localDateTime = new Date(
+        now.getTime() - now.getTimezoneOffset() * 60000
+      ).toISOString();
+
       console.log("userData from localStorage:", parsedUserData.id);
       console.log("Local DateTime:", localDateTime);
 
       const submitData = {
         ...formData,
         record_date: localDateTime,
-        reporter_id: parsedUserData.id
+        reporter_id: parsedUserData.id,
       };
 
       console.log("NC Form data to submit:", submitData);
 
-      const res = await fetch('/api/document', {
-        method: 'POST',
+      const res = await fetch("/api/document", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(submitData),
       });
@@ -101,34 +107,38 @@ const NCFormContent = () => {
       if (res.ok) {
         console.log("Success response data:", responseData);
         Swal.fire({
-          icon: 'success',
-          title: 'บันทึกข้อมูลเรียบร้อย',
+          icon: "success",
+          title: "บันทึกข้อมูลเรียบร้อย",
           draggable: true,
-          confirmButtonText: 'ตกลง',
-          allowOutsideClick: false
+          confirmButtonText: "ตกลง",
+          allowOutsideClick: false,
         });
         setFormData(submitData);
-        
 
-        if (responseData.document_no && Object.keys(attachedFiles).length > 0) { 
+        if (responseData.document_no && Object.keys(attachedFiles).length > 0) {
           await attatchments_post(responseData.document_no);
-        } 
-        
+        }
+
         // Optional: Reload page after successful submission
         // window.location.reload();
       } else {
-        throw new Error(responseData.message || `HTTP ${res.status}: ${res.statusText}`);
+        throw new Error(
+          responseData.message || `HTTP ${res.status}: ${res.statusText}`
+        );
       }
-      
     } catch (error) {
-      console.error('Error submitting NC Form:', error);
-      alert(`เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error("Error submitting NC Form:", error);
+      alert(
+        `เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
-  }
+  };
 
   const attatchments_post = async (document_no: string) => {
     if (!document_no) {
-      console.error('Document number is required for attachments upload.');
+      console.error("Document number is required for attachments upload.");
       return;
     }
 
@@ -138,186 +148,283 @@ const NCFormContent = () => {
       Object.entries(attachedFiles).forEach(([category, files]) => {
         if (Array.isArray(files)) {
           files.forEach((fileItem: FileWithId, index: number) => {
+            const fileExtension = fileItem.file.name.split(".").pop();
+            const randomNumber = String(
+              Math.floor(Math.random() * 100)
+            ).padStart(2, "0");
+            const newFileName = `${document_no}_${category}_${randomNumber}.${fileExtension}`;
 
-            const fileExtension = fileItem.file.name.split('.').pop();
-            const randomNumber = String(Math.floor(Math.random() * 100)).padStart(2, '0');
-            const newFileName = `${document_no}_${category}_${randomNumber}_${fileExtension}`;
-            
-            const renamedFile = new File([fileItem.file], newFileName, { type: fileItem.file.type });
-            uploadFormData.append('files', renamedFile);
-            uploadFormData.append('categories', category);
-            
+            const renamedFile = new File([fileItem.file], newFileName, {
+              type: fileItem.file.type,
+            });
+            uploadFormData.append("files", renamedFile);
+            uploadFormData.append("categories", category);
+
             // console.log(`Renamed file: ${fileItem.file.name} -> ${newFileName}`);
           });
         }
       });
-      
-      uploadFormData.append('document_no', document_no);
-      
-      console.log('uploadFormData prepared for upload:', uploadFormData);
-      
-      const res = await fetch('/api/attachment', {
-        method: 'POST',
+
+      uploadFormData.append("document_no", document_no);
+
+      // console.log("uploadFormData prepared for upload:", uploadFormData);
+
+      const res = await fetch("/api/attachment", {
+        method: "POST",
         body: uploadFormData,
       });
-      
+
       if (res.ok) {
         const result = await res.json();
-        console.log('Attachments uploaded successfully:', result);
+        // console.log("Attachments uploaded successfully:", result);
         window.location.reload();
       } else {
         throw new Error(`Failed to upload attachments: ${res.statusText}`);
       }
     } catch (error) {
-      console.error('Error uploading attachments:', error);
-      alert('เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ');
+      console.error("Error uploading attachments:", error);
+      alert("เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ");
+    }
+  };
+
+  // ฟังก์ชันสำหรับโหลดไฟล์แนบจาก S3
+  const loadExistingAttachments = async (document_no: string) => {
+    try {
+      const res = await fetch(`/api/attachment?document_no=${encodeURIComponent(document_no)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        // console.log('Existing attachments:', data.files);
+        
+        const categorizedFiles: CategoryFiles = {};
+        
+        if (data.files && Array.isArray(data.files)) {
+          data.files.forEach((file: any) => {
+            const fileName = file.fileName || '';
+            const parts = fileName.split('_');
+            
+            if (parts.length >= 3) {
+              // ตัด docno และ number + extension ออก เหลือแค่ category
+              const category = parts.slice(1, -1).join('_');
+              // console.log('Category:', category);
+              
+              if (!categorizedFiles[category]) {
+                categorizedFiles[category] = [];
+              }
+              
+              // สร้าง mock File object สำหรับไฟล์ที่มีอยู่แล้ว
+              const mockFile = new File([''], fileName, {
+                type: fileName.toLowerCase().includes('.pdf') ? 'application/pdf' : 'image/jpeg'
+              });
+              
+              categorizedFiles[category].push({
+                id: file.key || Math.random().toString(36).substr(2, 9),
+                file: mockFile,
+                url: file.url
+              });
+            }
+          });
+        }
+        
+        // console.log('Categorized files:', categorizedFiles);
+        // console.log('Sample file URL:', data.files[0]?.url);
+        setAttachedFiles(categorizedFiles);
+        
+      } else {
+        console.error('Failed to load attachments:', res.statusText);
+      }
+    } catch (error) {
+      console.error('Error loading attachments:', error);
     }
   };
 
   useEffect(() => {
     const getvaluesparams = async (dropdowns: any) => {
-      const docId = searchParams.get('doc');
+      const docId = searchParams.get("doc");
 
       if (docId) {
+        // เปลี่ยน title ของหน้าเว็บเมื่อมี doc parameter
+        document.title = `${docId}`;
+        
         setIsViewMode(true);
         setIsLoadingFormData(true);
-        
+
         try {
-          const res = await fetch(`/api/document?document_no=${encodeURIComponent(docId)}`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json'
+          const res = await fetch(
+            `/api/document?document_no=${encodeURIComponent(docId)}`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+              },
             }
-          });
+          );
 
           const data = await res.json();
-          console.log('Fetched record for viewing:', data);
+          // console.log("Fetched record for viewing:", data);
           if (res.ok) {
             setFormData(data);
             const mappedData = await mapTextDataToIds(data, dropdowns);
-        
+            
+            // โหลดไฟล์แนบ
+            await loadExistingAttachments(docId);
           } else {
-            throw new Error(data.message || `HTTP ${res.status}: ${res.statusText}`);
+            throw new Error(
+              data.message || `HTTP ${res.status}: ${res.statusText}`
+            );
           }
-
         } catch (error) {
-          console.error('Error fetching record:', error);
-          alert(`เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          console.error("Error fetching record:", error);
+          alert(
+            `เกิดข้อผิดพลาดในการโหลดข้อมูล: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`
+          );
         } finally {
           setIsLoadingFormData(false);
         }
-       
       } else {
-        setFormData(prev => ({
+        // ถ้าไม่มี doc parameter ให้ reset title กลับเป็นปกติ
+        document.title = "Mena Safety";
+        
+        setFormData((prev) => ({
           ...prev,
-          record_date: new Date().toISOString()
+          record_date: new Date().toISOString(),
         }));
       }
     };
 
-  const mapTextDataToIds = async (data: any, dropdowns: any) => {
-    console.log('data:', data);
-    console.log('dropdowns:', dropdowns);
+    
 
-    const mappedData: any = {};
+    const mapTextDataToIds = async (data: any, dropdowns: any) => {
+      // console.log("data:", data);
+      // console.log("dropdowns:", dropdowns);
 
-    // site to site_id
-    if (data.site && dropdowns.sites) {
-      const site = dropdowns.sites.find((val: any) => val.site_name_th === data.site);
-      if (site) {
-        mappedData.site_id = site.site_id;
-        // console.log(`Mapped site_name "${data.site}" to site_id:`, site.site_id);
+      const mappedData: any = {};
+
+      // site to site_id
+      if (data.site && dropdowns.sites) {
+        const site = dropdowns.sites.find(
+          (val: any) => val.site_name_th === data.site
+        );
+        if (site) {
+          mappedData.site_id = site.site_id;
+          // console.log(`Mapped site_name "${data.site}" to site_id:`, site.site_id);
+        }
       }
-    }
 
-    // department
-    if (data.department && dropdowns.departments) {
-      const department = dropdowns.departments.find((val: any) => val.department_name_th === data.department);
-      if (department) {
-        mappedData.department_id = department.department_id;
-        // console.log(`Mapped department_name "${data.department}" to department_id:`, department.department_id);
+      // department
+      if (data.department && dropdowns.departments) {
+        const department = dropdowns.departments.find(
+          (val: any) => val.department_name_th === data.department
+        );
+        if (department) {
+          mappedData.department_id = department.department_id;
+          // console.log(`Mapped department_name "${data.department}" to department_id:`, department.department_id);
+        }
       }
-    }
 
-    // client
-    if (data.client && dropdowns.clients) {
-      const client = dropdowns.clients.find((val: any) => val.client_name === data.client);
-      if (client) {
-        mappedData.client_id = client.client_id;
-        // console.log(`Mapped client_name "${data.client}" to client_id:`, client.client_id);
+      // client
+      if (data.client && dropdowns.clients) {
+        const client = dropdowns.clients.find(
+          (val: any) => val.client_name === data.client
+        );
+        if (client) {
+          mappedData.client_id = client.client_id;
+          // console.log(`Mapped client_name "${data.client}" to client_id:`, client.client_id);
+        }
       }
-    }
 
-    // location to origin_id
-    if (data.location && dropdowns.locations) {
-      const location = dropdowns.locations.find((val: any) => val.location_name === data.location);
-      if (location) {
-        mappedData.origin_id = location.location_id;
-        // console.log(`Mapped location_name "${data.location}" to origin_id:`, location.location_id);
+      // location to origin_id
+      if (data.location && dropdowns.locations) {
+        const location = dropdowns.locations.find(
+          (val: any) => val.location_name === data.location
+        );
+        if (location) {
+          mappedData.origin_id = location.location_id;
+          // console.log(`Mapped location_name "${data.location}" to origin_id:`, location.location_id);
+        }
       }
-    }
 
-    //vehicle_head
-    if (data.vehicle_head && dropdowns.vehicles) {
-      const vehicle = dropdowns.vehicles.find((val: any) => (val.vehicle_number_plate === data.vehicle_head) && val.plate_type === 'head');
-      if (vehicle) {
-        mappedData.vehicle_truckno = vehicle.truck_no;
-        mappedData.vehicle_id_head = vehicle.vehicle_id;
-        // console.log(`Mapped vehicle_name "${data.vehicle_head}" to vehicle_id:`, vehicle.vehicle_id);
+      //vehicle_head
+      if (data.vehicle_head && dropdowns.vehicles) {
+        const vehicle = dropdowns.vehicles.find(
+          (val: any) =>
+            val.vehicle_number_plate === data.vehicle_head &&
+            val.plate_type === "head"
+        );
+        if (vehicle) {
+          mappedData.vehicle_truckno = vehicle.truck_no;
+          mappedData.vehicle_id_head = vehicle.vehicle_id;
+          // console.log(`Mapped vehicle_name "${data.vehicle_head}" to vehicle_id:`, vehicle.vehicle_id);
+        }
       }
-    }
 
-    //vehicle_tail
-    if (data.vehicle_tail && dropdowns.vehicles) {
-      const vehicle = dropdowns.vehicles.find((val: any) => (val.vehicle_number_plate === data.vehicle_tail) && val.plate_type === 'tail');
-      if (vehicle) {
-        mappedData.vehicle_id_tail = vehicle.vehicle_id;
-        // console.log(`Mapped vehicle_name "${data.vehicle_tail}" to vehicle_id:`, vehicle.vehicle_id);
+      //vehicle_tail
+      if (data.vehicle_tail && dropdowns.vehicles) {
+        const vehicle = dropdowns.vehicles.find(
+          (val: any) =>
+            val.vehicle_number_plate === data.vehicle_tail &&
+            val.plate_type === "tail"
+        );
+        if (vehicle) {
+          mappedData.vehicle_id_tail = vehicle.vehicle_id;
+          // console.log(`Mapped vehicle_name "${data.vehicle_tail}" to vehicle_id:`, vehicle.vehicle_id);
+        }
       }
-    }
 
-    //driver_role
-    if (data.driver_role && dropdowns.driver_roles) {
-      const role = dropdowns.driver_roles.find((val: any) => val.role_name === data.driver_role);
-      if (role) {
-        mappedData.driver_role_id = role.driver_role_id;
-        // console.log(`Mapped driver_role "${data.driver_role}" to driver_role_id:`, role.driver_role_id);
+      //driver_role
+      if (data.driver_role && dropdowns.driver_roles) {
+        const role = dropdowns.driver_roles.find(
+          (val: any) => val.role_name === data.driver_role
+        );
+        if (role) {
+          mappedData.driver_role_id = role.driver_role_id;
+          // console.log(`Mapped driver_role "${data.driver_role}" to driver_role_id:`, role.driver_role_id);
+        }
       }
-    }
 
-    //driver_name
-    if (data.driver && dropdowns.masterdrivers) {
-      const driver = dropdowns.masterdrivers.find((val: any) => {
-        const fullName = val.first_name + " " + val.last_name;
-        // console.log(`Comparing: "${fullName}" === "${data.driver}" = ${fullName === data.driver}`);
-        return fullName === data.driver;
-      });
-      console.log('Matched driver:', driver);
-      if (driver) {
-        mappedData.driver_id = driver.driver_id;
-        // console.log(`Mapped driver_name "${data.driver}" to driver_id:`, driver.driver_id);
+      //driver_name
+      if (data.driver && dropdowns.masterdrivers) {
+        const driver = dropdowns.masterdrivers.find((val: any) => {
+          const fullName = val.first_name + " " + val.last_name;
+          // console.log(`Comparing: "${fullName}" === "${data.driver}" = ${fullName === data.driver}`);
+          return fullName === data.driver;
+        });
+        console.log("Matched driver:", driver);
+        if (driver) {
+          mappedData.driver_id = driver.driver_id;
+          // console.log(`Mapped driver_name "${data.driver}" to driver_id:`, driver.driver_id);
+        }
       }
-    }
 
-    //incident_cause
-    if (data.incident_cause && dropdowns.mastercauses) {
-      const cause = dropdowns.mastercauses.find((val: any) => val.cause_name === data.incident_cause);
-      if (cause) {
-        mappedData.incident_cause_id = cause.cause_id;
-        // console.log(`Mapped incident_cause "${data.incident_cause}" to incident_cause_id:`, cause.cause_id);
+      //incident_cause
+      if (data.incident_cause && dropdowns.mastercauses) {
+        const cause = dropdowns.mastercauses.find(
+          (val: any) => val.cause_name === data.incident_cause
+        );
+        if (cause) {
+          mappedData.incident_cause_id = cause.cause_id;
+          // console.log(`Mapped incident_cause "${data.incident_cause}" to incident_cause_id:`, cause.cause_id);
+        }
       }
-    }
 
-    // อัปเดต formData ครั้งเดียวด้วยข้อมูลที่ map แล้วทั้งหมด
-    console.log('Final mapped data:', mappedData);
-    setFormData(prev => ({ 
-      ...prev, 
-      ...mappedData 
-    }));
+      // อัปเดต formData ครั้งเดียวด้วยข้อมูลที่ map แล้วทั้งหมด
+      console.log("Final mapped data:", mappedData);
+      setFormData((prev) => ({
+        ...prev,
+        ...mappedData,
+      }));
+    };
 
-  };
-
+   
     const fetchData = async () => {
+      document.title = `loading...`;
       setIsLoadingDropdowns(true);
       const list_api = [
         "/sites",
@@ -329,7 +436,7 @@ const NCFormContent = () => {
         "/masterdrivers",
         "/mastercauses",
       ];
-      
+
       try {
         const responses = await Promise.all(
           list_api.map((api) =>
@@ -337,7 +444,7 @@ const NCFormContent = () => {
               method: "GET",
               headers: {
                 "Content-Type": "application/json",
-                "X-Api-Path": api, 
+                "X-Api-Path": api,
               },
             })
           )
@@ -347,55 +454,53 @@ const NCFormContent = () => {
 
         const dropdownObj: any = {};
         list_api.forEach((api, index) => {
-          const key = api.substring(1); 
+          const key = api.substring(1);
           dropdownObj[key] = data[index];
         });
 
         setDropdownData(dropdownObj);
-        
+
         setOriginalData({
           masterdrivers: dropdownObj.masterdrivers || [],
           locations: dropdownObj.locations || [],
-          vehicles: dropdownObj.vehicles || []
+          vehicles: dropdownObj.vehicles || [],
         });
 
         console.log("Dropdown data fetched:", dropdownObj);
         console.log("Sites options:", dropdownObj.sites?.slice(0, 3)); // Show first 3 for debugging
         console.log("Drivers options:", dropdownObj.masterdrivers?.slice(0, 3)); // Show first 3 for debugging
-
+        
         // เรียกใช้ getvaluesparams หลังจากดึงข้อมูล dropdown เสร็จแล้ว
         await getvaluesparams(dropdownObj);
-        
       } catch (error) {
         console.error("Error fetching dropdown data:", error);
       } finally {
+        
         setIsLoadingDropdowns(false);
       }
     };
-    
+
     fetchData();
   }, []);
 
-
-
   // Function สำหรับรับข้อมูลไฟล์จาก Picture component
   const handleFilesFromPicture = (files: CategoryFiles) => {
-    console.log('Files received from Picture component:', files);
+    console.log("Files received from Picture component:", files);
     setAttachedFiles(files);
   };
 
   // Initialize form with current local datetime
   useEffect(() => {
     const now = new Date();
-    const localDateTime = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString();
-    
-    setFormData(prev => ({
+    const localDateTime = new Date(
+      now.getTime() - now.getTimezoneOffset() * 60000
+    ).toISOString();
+
+    setFormData((prev) => ({
       ...prev,
-      record_date: localDateTime
+      record_date: localDateTime,
     }));
   }, []);
-
-
 
   // const adddropdownData = (value: any) => {
   //   setDropdownData((prevData) => ({
@@ -404,43 +509,45 @@ const NCFormContent = () => {
   //   }));
   // };
 
-
   const handleSiteChange = (siteId: number) => {
-
     setFormData((prev) => ({ ...prev, site_id: siteId }));
 
     if (siteId) {
-
-      const filteredDrivers = originalData.masterdrivers?.filter(driver => driver.site_id === siteId) || [];
-      const filteredLocations = originalData.locations?.filter(location => location.site_id === siteId) || [];
+      const filteredDrivers =
+        originalData.masterdrivers?.filter(
+          (driver) => driver.site_id === siteId
+        ) || [];
+      const filteredLocations =
+        originalData.locations?.filter(
+          (location) => location.site_id === siteId
+        ) || [];
       // console.log("Filtered Locations:", filteredLocations);
       // const filteredVehicles = originalData.vehicles?.filter(vehicle => vehicle.site_id === siteId) || [];
-      
-      setDropdownData((prev) => ({ 
-        ...prev, 
+
+      setDropdownData((prev) => ({
+        ...prev,
         masterdrivers: filteredDrivers,
         locations: filteredLocations,
         // vehicles: filteredVehicles
       }));
-
     } else {
-      setDropdownData((prev) => ({ 
-        ...prev, 
+      setDropdownData((prev) => ({
+        ...prev,
         masterdrivers: originalData.masterdrivers || [],
         locations: originalData.locations || [],
         // vehicles: originalData.vehicles || []
       }));
     }
 
-    setFormData((prev) => ({ 
-      ...prev, 
-      driver_id: "", 
+    setFormData((prev) => ({
+      ...prev,
+      driver_id: "",
       origin_id: undefined,
       // vehicle_truckno: "",
       // vehicle_id_head: undefined,
       // vehicle_id_tail: undefined
     }));
-  }
+  };
 
   const resetToOriginalData = () => {
     setDropdownData((prev) => ({
@@ -449,85 +556,126 @@ const NCFormContent = () => {
       locations: originalData.locations || [],
       // vehicles: originalData.vehicles || []
     }));
-  }
+  };
 
   useEffect(() => {
-    if (!formData.site_id && originalData.masterdrivers && originalData.locations) {
+    if (
+      !formData.site_id &&
+      originalData.masterdrivers &&
+      originalData.locations
+    ) {
       resetToOriginalData();
     }
   }, [formData.site_id, originalData]);
 
   // Filter dropdowns when view mode data is loaded
   useEffect(() => {
-    if (isViewMode && formData.site_id && originalData.masterdrivers && originalData.locations) {
-      console.log('Filtering dropdowns for view mode with site_id:', formData.site_id);
-      
-      let filteredDrivers = originalData.masterdrivers?.filter(driver => driver.site_id === formData.site_id) || [];
-      const filteredLocations = originalData.locations?.filter(location => location.location_id === formData.origin_id || location.site_id === formData.site_id) || [];
-      
+    if (
+      isViewMode &&
+      formData.site_id &&
+      originalData.masterdrivers &&
+      originalData.locations
+    ) {
+      console.log(
+        "Filtering dropdowns for view mode with site_id:",
+        formData.site_id
+      );
+
+      let filteredDrivers =
+        originalData.masterdrivers?.filter(
+          (driver) => driver.site_id === formData.site_id
+        ) || [];
+      const filteredLocations =
+        originalData.locations?.filter(
+          (location) =>
+            location.location_id === formData.origin_id ||
+            location.site_id === formData.site_id
+        ) || [];
+
       // เพิ่มคนขับที่เลือกไว้เข้าไปใน filtered list หากยังไม่มี
       if (formData.driver_id) {
-        const selectedDriver = originalData.masterdrivers?.find(driver => driver.driver_id == formData.driver_id);
-        if (selectedDriver && !filteredDrivers.find(driver => driver.driver_id == selectedDriver.driver_id)) {
+        const selectedDriver = originalData.masterdrivers?.find(
+          (driver) => driver.driver_id == formData.driver_id
+        );
+        if (
+          selectedDriver &&
+          !filteredDrivers.find(
+            (driver) => driver.driver_id == selectedDriver.driver_id
+          )
+        ) {
           filteredDrivers = [...filteredDrivers, selectedDriver];
-          console.log('Added selected driver to filtered list:', selectedDriver);
+          console.log(
+            "Added selected driver to filtered list:",
+            selectedDriver
+          );
         }
       }
-      
-      setDropdownData((prev) => ({ 
-        ...prev, 
+
+      setDropdownData((prev) => ({
+        ...prev,
         masterdrivers: filteredDrivers,
         locations: filteredLocations,
       }));
     }
-  }, [isViewMode, formData.site_id, formData.driver_id, formData.origin_id, originalData.masterdrivers, originalData.locations]);
+  }, [
+    isViewMode,
+    formData.site_id,
+    formData.driver_id,
+    formData.origin_id,
+    originalData.masterdrivers,
+    originalData.locations,
+  ]);
 
   const handleVehicleCodeChange = (truckNo: string) => {
-    const selectedVehicle = dropdownData.vehicles?.find(vehicle => 
-      vehicle.truck_no === truckNo && vehicle.plate_type === 'head'
+    const selectedVehicle = dropdownData.vehicles?.find(
+      (vehicle) => vehicle.truck_no === truckNo && vehicle.plate_type === "head"
     );
-    
+
     if (selectedVehicle) {
-      const tailVehicle = dropdownData.vehicles?.find(vehicle => 
-        vehicle.truck_no === truckNo && vehicle.plate_type === 'tail'
+      const tailVehicle = dropdownData.vehicles?.find(
+        (vehicle) =>
+          vehicle.truck_no === truckNo && vehicle.plate_type === "tail"
       );
 
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         vehicle_truckno: selectedVehicle.truck_no,
         vehicle_id_head: selectedVehicle.vehicle_id,
-        vehicle_id_tail: tailVehicle?.vehicle_id
+        vehicle_id_tail: tailVehicle?.vehicle_id,
       }));
     }
   };
 
   const handleHeadPlateChange = (vehicleId: number) => {
-  const selectedVehicle = dropdownData.vehicles?.find(vehicle => 
-      vehicle.vehicle_id === vehicleId && vehicle.plate_type === 'head'
+    const selectedVehicle = dropdownData.vehicles?.find(
+      (vehicle) =>
+        vehicle.vehicle_id === vehicleId && vehicle.plate_type === "head"
     );
-    
+
     if (selectedVehicle) {
-      const tailVehicle = dropdownData.vehicles?.find(vehicle => 
-        vehicle.truck_no === selectedVehicle.truck_no && vehicle.plate_type === 'tail'
+      const tailVehicle = dropdownData.vehicles?.find(
+        (vehicle) =>
+          vehicle.truck_no === selectedVehicle.truck_no &&
+          vehicle.plate_type === "tail"
       );
 
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         vehicle_truckno: selectedVehicle.truck_no,
         vehicle_id_head: selectedVehicle.vehicle_id,
-        vehicle_id_tail: tailVehicle?.vehicle_id
+        vehicle_id_tail: tailVehicle?.vehicle_id,
       }));
     }
   };
 
   // const handleTailPlateChange = (vehicleId: number) => {
-  //   const selectedVehicle = dropdownData.vehicles?.find(vehicle => 
+  //   const selectedVehicle = dropdownData.vehicles?.find(vehicle =>
   //     vehicle.vehicle_id === vehicleId && vehicle.plate_type === 'tail'
   //   );
-    
+
   //   if (selectedVehicle) {
   //     // หา head vehicle ที่มี truck_no เดียวกัน
-  //     const headVehicle = dropdownData.vehicles?.find(vehicle => 
+  //     const headVehicle = dropdownData.vehicles?.find(vehicle =>
   //       vehicle.truck_no === selectedVehicle.truck_no && vehicle.plate_type === 'head'
   //     );
 
@@ -539,48 +687,89 @@ const NCFormContent = () => {
   //     }));
   //   }
   // };
+  const formatDT = (dateTimeString?: string) => {
+    if (!dateTimeString) return "";
+    const date = new Date(dateTimeString);
+    if (isNaN(date.getTime())) return dateTimeString; // คืนค่าเดิมถ้าไม่ใช่วันที่ที่ถูกต้อง
+
+    const options: Intl.DateTimeFormatOptions = {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    };
+    return new Intl.DateTimeFormat("en-GB", options).format(date);
+  }
+
+   const clipboard = async () => {
+     const content = `
+เลขที่: ${formData.document_no}
+
+ผู้รายงาน: ${formData.reporter}
+ศูนย์ปฏิบัติการ: ${formData.site}
+ฝ่าย: ${formData.department}
+
+แจ้งเมื่อ: ${formatDT(formData.record_date)}
+เกิดเหตุเมื่อ: ${formatDT(formData.incident_date)}
+
+ลูกค้า: ${formData.client}
+สถานที่: ${formData.case_location}
+ค่าเสียหาย: ${formData.actual_price ? formData.actual_price : formData.estimated_cost}
+
+${formData.driver_role}: ${formData.driver}
+ทะเบียนรถ: ${formData.vehicle_head} / ${formData.vehicle_tail}
+สาเหตุ: ${formData.incident_cause}
+รายละเอียด: ${formData.case_details}
+`;
+
+      await navigator.clipboard.writeText(content);
+      alert("คัดลอกข้อมูลสำเร็จ");
+    }
 
 
   const handleAddItem = (type: string) => {
     const itemName = prompt(`เพิ่มรายการใหม่สำหรับ ${type}:`);
     if (itemName && itemName.trim()) {
-
       const newItem = {
         [`${type}_id`]: Date.now(), // Temporary ID
         [`${type}_name`]: itemName.trim(),
         [`${type}_name_th`]: itemName.trim(),
       };
-      
-      if (type === 'client') {
+
+      if (type === "client") {
         newItem.client_name = itemName.trim();
-      } else if (type === 'driver_role') {
+      } else if (type === "driver_role") {
         newItem.role_name = itemName.trim();
-      } else if (type === 'masterdriver') {
-        newItem.first_name = itemName.trim().split(' ')[0] || itemName.trim();
-        newItem.last_name = itemName.trim().split(' ')[1] || '';
-      } else if (type === 'mastercause') {
+      } else if (type === "masterdriver") {
+        newItem.first_name = itemName.trim().split(" ")[0] || itemName.trim();
+        newItem.last_name = itemName.trim().split(" ")[1] || "";
+      } else if (type === "mastercause") {
         newItem.cause_name = itemName.trim();
       }
 
-      setDropdownData(prev => ({
+      setDropdownData((prev) => ({
         ...prev,
-        [`${type}s`]: [...(prev[`${type}s` as keyof typeof prev] || []), newItem]
+        [`${type}s`]: [
+          ...(prev[`${type}s` as keyof typeof prev] || []),
+          newItem,
+        ],
       }));
-      
+
       alert(`เพิ่มรายการ "${itemName}" เรียบร้อยแล้ว`);
     }
   };
 
   const handleRemoveItem = (type: string, itemId?: string | number) => {
     const items = dropdownData[`${type}s` as keyof typeof dropdownData] || [];
-    
+
     if (items.length === 0) {
-      alert('ไม่มีรายการให้ลบ');
+      alert("ไม่มีรายการให้ลบ");
       return;
     }
 
     if (!itemId) {
-      alert('ไม่สามารถระบุรายการที่จะลบได้');
+      alert("ไม่สามารถระบุรายการที่จะลบได้");
       return;
     }
 
@@ -590,43 +779,48 @@ const NCFormContent = () => {
     });
 
     if (!itemToRemove) {
-      alert('ไม่พบรายการที่ต้องการลบ');
+      alert("ไม่พบรายการที่ต้องการลบ");
       return;
     }
 
-    let itemName = '';
-    if (type === 'client') {
+    let itemName = "";
+    if (type === "client") {
       itemName = itemToRemove.client_name;
-    } else if (type === 'driver_role') {
+    } else if (type === "driver_role") {
       itemName = itemToRemove.role_name;
-    } else if (type === 'masterdriver') {
+    } else if (type === "masterdriver") {
       itemName = `${itemToRemove.first_name} ${itemToRemove.last_name}`;
-    } else if (type === 'mastercause') {
+    } else if (type === "mastercause") {
       itemName = itemToRemove.cause_name;
     } else {
-      itemName = itemToRemove[`${type}_name_th`] || itemToRemove[`${type}_name`] || 'รายการนี้';
+      itemName =
+        itemToRemove[`${type}_name_th`] ||
+        itemToRemove[`${type}_name`] ||
+        "รายการนี้";
     }
 
-    const shouldRemove = confirm(`คุณแน่ใจหรือไม่ที่จะลบรายการ: "${itemName}"?`);
+    const shouldRemove = confirm(
+      `คุณแน่ใจหรือไม่ที่จะลบรายการ: "${itemName}"?`
+    );
     if (shouldRemove) {
       const filteredItems = items.filter((item: any) => {
         const idField = `${type}_id`;
         return item[idField] !== itemId;
       });
 
-      setDropdownData(prev => ({
+      setDropdownData((prev) => ({
         ...prev,
-        [`${type}s`]: filteredItems
+        [`${type}s`]: filteredItems,
       }));
 
       const formKey = `${type}_id`;
       if (formData[formKey as keyof typeof formData] === itemId) {
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
-          [formKey]: undefined
+          [formKey]: undefined,
         }));
       }
-      
+
       alert(`ลบรายการ "${itemName}" เรียบร้อยแล้ว`);
     }
   };
@@ -747,15 +941,19 @@ const NCFormContent = () => {
   };
 
   // แสดงหน้าโหลดเมื่อกำลังโหลดข้อมูลฟอร์ม (เฉพาะเมื่อมี param)
-  if (isLoadingFormData || (isLoadingDropdowns && searchParams.get('doc'))) {
+  if (isLoadingFormData || (isLoadingDropdowns && searchParams.get("doc"))) {
     return (
       <div className="min-h-screen bg-[#eef8ef] flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
           <Loader2 className="w-12 h-12 animate-spin text-green-600" />
           <div className="text-center">
-            <p className="text-gray-700 font-medium text-lg">กำลังโหลดข้อมูลฟอร์ม...</p>
+            <p className="text-gray-700 font-medium text-lg">
+              กำลังโหลดข้อมูลฟอร์ม...
+            </p>
             <p className="text-gray-500 text-sm mt-1">
-              {isLoadingDropdowns ? 'กำลังโหลดรายการข้อมูล' : 'กำลังโหลดข้อมูลเอกสาร'}
+              {isLoadingDropdowns
+                ? "กำลังโหลดรายการข้อมูล"
+                : "กำลังโหลดข้อมูลเอกสาร"}
             </p>
           </div>
         </div>
@@ -845,13 +1043,15 @@ const NCFormContent = () => {
                         {isLoadingDropdowns && <LoadingSpinner />}
                       </label>
                       <SearchableSelect
-                        options={(dropdownData.sites || []).map((site: any) => ({
-                          value: site.site_id,
-                          label: site.site_name_th
-                        }))}
+                        options={(dropdownData.sites || []).map(
+                          (site: any) => ({
+                            value: site.site_id,
+                            label: site.site_name_th,
+                          })
+                        )}
                         value={formData?.site_id || ""}
                         onChange={(value) => handleSiteChange(Number(value))}
-                        onAdd={() => handleAddItem('site')}
+                        onAdd={() => handleAddItem("site")}
                         // onRemove={(itemId) => handleRemoveItem('site', itemId)}
                         placeholder="เลือกศูนย์ปฏิบัติการ"
                         showAddRemove={!isViewMode}
@@ -866,13 +1066,20 @@ const NCFormContent = () => {
                         {isLoadingDropdowns && <LoadingSpinner />}
                       </label>
                       <SearchableSelect
-                        options={(dropdownData.departments || []).map((dept: any) => ({
-                          value: dept.department_id,
-                          label: dept.department_name_th
-                        }))}
+                        options={(dropdownData.departments || []).map(
+                          (dept: any) => ({
+                            value: dept.department_id,
+                            label: dept.department_name_th,
+                          })
+                        )}
                         value={formData?.department_id || ""}
-                        onChange={(value) => setFormData(prev => ({ ...prev, department_id: Number(value) }))}
-                        onAdd={() => handleAddItem('department')}
+                        onChange={(value) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            department_id: Number(value),
+                          }))
+                        }
+                        onAdd={() => handleAddItem("department")}
                         // onRemove={(itemId) => handleRemoveItem('department', itemId)}
                         placeholder="เลือกฝ่าย"
                         disabled={isViewMode}
@@ -893,23 +1100,26 @@ const NCFormContent = () => {
                           formData?.record_date
                             ? (() => {
                                 const date = new Date(formData.record_date);
-                                const localDate = new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
-                                return localDate.toLocaleString('en-UK', {
-                                  year: 'numeric',
-                                  month: '2-digit',
-                                  day: '2-digit',
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                  hour12: false
+                                const localDate = new Date(
+                                  date.getTime() +
+                                    date.getTimezoneOffset() * 60000
+                                );
+                                return localDate.toLocaleString("en-UK", {
+                                  year: "numeric",
+                                  month: "2-digit",
+                                  day: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  hour12: false,
                                 });
                               })()
-                            : new Date().toLocaleString('en-UK', {
-                                year: 'numeric',
-                                month: '2-digit',
-                                day: '2-digit',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                hour12: false
+                            : new Date().toLocaleString("en-UK", {
+                                year: "numeric",
+                                month: "2-digit",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: false,
                               })
                         }
                         readOnly
@@ -929,14 +1139,17 @@ const NCFormContent = () => {
                             formData?.incident_date
                               ? (() => {
                                   const date = new Date(formData.incident_date);
-                                  const localDate = new Date(date.getTime() + (date.getTimezoneOffset() * 60000));
-                                  return localDate.toLocaleString('en-UK', {
-                                    year: 'numeric',
-                                    month: '2-digit',
-                                    day: '2-digit',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    hour12: false
+                                  const localDate = new Date(
+                                    date.getTime() +
+                                      date.getTimezoneOffset() * 60000
+                                  );
+                                  return localDate.toLocaleString("en-UK", {
+                                    year: "numeric",
+                                    month: "2-digit",
+                                    day: "2-digit",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    hour12: false,
                                   });
                                 })()
                               : ""
@@ -970,13 +1183,20 @@ const NCFormContent = () => {
                         {isLoadingDropdowns && <LoadingSpinner />}
                       </label>
                       <SearchableSelect
-                        options={(dropdownData.clients || []).map((client: any) => ({
-                          value: client.client_id,
-                          label: client.client_name
-                        }))}
+                        options={(dropdownData.clients || []).map(
+                          (client: any) => ({
+                            value: client.client_id,
+                            label: client.client_name,
+                          })
+                        )}
                         value={formData?.client_id || ""}
-                        onChange={(value) => setFormData(prev => ({ ...prev, client_id: Number(value) }))}
-                        onAdd={() => handleAddItem('client')}
+                        onChange={(value) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            client_id: Number(value),
+                          }))
+                        }
+                        onAdd={() => handleAddItem("client")}
                         // onRemove={(itemId) => handleRemoveItem('client', itemId)}
                         placeholder="เลือกลูกค้า"
                         showAddRemove={true}
@@ -991,13 +1211,20 @@ const NCFormContent = () => {
                         {isLoadingDropdowns && <LoadingSpinner />}
                       </label>
                       <SearchableSelect
-                        options={(dropdownData.locations || []).map((location: any) => ({
-                          value: location.location_id,
-                          label: location.location_name
-                        }))}
+                        options={(dropdownData.locations || []).map(
+                          (location: any) => ({
+                            value: location.location_id,
+                            label: location.location_name,
+                          })
+                        )}
                         value={formData?.origin_id || ""}
-                        onChange={(value) => setFormData(prev => ({ ...prev, origin_id: Number(value) }))}
-                        onAdd={() => handleAddItem('locations')}
+                        onChange={(value) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            origin_id: Number(value),
+                          }))
+                        }
+                        onAdd={() => handleAddItem("locations")}
                         // onRemove={(itemId) => handleRemoveItem('locations', itemId)}
                         placeholder="เลือกต้นทาง/แพล้น"
                         showAddRemove={true}
@@ -1017,7 +1244,9 @@ const NCFormContent = () => {
                         onChange={handleInputChange}
                         disabled={isViewMode}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                          isViewMode ? 'cursor-not-allowed bg-gray-100 text-blue-600 font-bold' : ''
+                          isViewMode
+                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                            : ""
                         }`}
                       />
                     </div>
@@ -1033,11 +1262,12 @@ const NCFormContent = () => {
                         onChange={handleInputChange}
                         disabled={isViewMode}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                          isViewMode ? 'cursor-not-allowed bg-gray-100 text-blue-600 font-bold' : ''
+                          isViewMode
+                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                            : ""
                         }`}
                       />
                     </div>
-                    
 
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
@@ -1046,14 +1276,16 @@ const NCFormContent = () => {
                       </label>
                       <SearchableSelect
                         options={(dropdownData.vehicles || [])
-                          .filter(vehicle => vehicle.plate_type === 'head')
+                          .filter((vehicle) => vehicle.plate_type === "head")
                           .map((vehicle: any) => ({
                             value: vehicle.vehicle_id,
-                            label: `${vehicle.vehicle_number_plate}`
+                            label: `${vehicle.vehicle_number_plate}`,
                           }))}
                         value={formData?.vehicle_id_head || ""}
-                        onChange={(value) => handleHeadPlateChange(Number(value))}
-                        onAdd={() => handleAddItem('vehicle')}
+                        onChange={(value) =>
+                          handleHeadPlateChange(Number(value))
+                        }
+                        onAdd={() => handleAddItem("vehicle")}
                         // onRemove={(itemId) => handleRemoveItem('vehicle', itemId)}
                         placeholder="เลือกทะเบียนรถหัว"
                         showAddRemove={true}
@@ -1071,16 +1303,20 @@ const NCFormContent = () => {
                         options={Array.from(
                           new Set(
                             (dropdownData.vehicles || [])
-                              .filter(vehicle => vehicle.plate_type === 'head')
-                              .map(vehicle => vehicle.truck_no)
+                              .filter(
+                                (vehicle) => vehicle.plate_type === "head"
+                              )
+                              .map((vehicle) => vehicle.truck_no)
                           )
                         ).map((truckNo: string) => ({
                           value: truckNo,
-                          label: truckNo
+                          label: truckNo,
                         }))}
                         value={formData?.vehicle_truckno || ""}
-                        onChange={(value) => handleVehicleCodeChange(String(value))}
-                        onAdd={() => handleAddItem('vehicle')}
+                        onChange={(value) =>
+                          handleVehicleCodeChange(String(value))
+                        }
+                        onAdd={() => handleAddItem("vehicle")}
                         // onRemove={(itemId) => handleRemoveItem('vehicle', itemId)}
                         placeholder="เลือกรหัสรถ"
                         showAddRemove={true}
@@ -1096,14 +1332,19 @@ const NCFormContent = () => {
                       </label>
                       <SearchableSelect
                         options={(dropdownData.vehicles || [])
-                          .filter(vehicle => vehicle.plate_type === 'tail')
+                          .filter((vehicle) => vehicle.plate_type === "tail")
                           .map((vehicle: any) => ({
                             value: vehicle.vehicle_id,
-                            label: `${vehicle.vehicle_number_plate}`
+                            label: `${vehicle.vehicle_number_plate}`,
                           }))}
                         value={formData?.vehicle_id_tail || ""}
-                        onChange={(value) => setFormData(prev => ({ ...prev, vehicle_id_tail: Number(value) }))}
-                        onAdd={() => handleAddItem('vehicle')}
+                        onChange={(value) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            vehicle_id_tail: Number(value),
+                          }))
+                        }
+                        onAdd={() => handleAddItem("vehicle")}
                         // onRemove={(itemId) => handleRemoveItem('vehicle', itemId)}
                         placeholder="เลือกทะเบียนรถหาง"
                         showAddRemove={true}
@@ -1118,13 +1359,20 @@ const NCFormContent = () => {
                         {isLoadingDropdowns && <LoadingSpinner />}
                       </label>
                       <SearchableSelect
-                        options={(dropdownData.driver_roles || []).map((role: any) => ({
-                          value: role.driver_role_id,
-                          label: role.role_name
-                        }))}
+                        options={(dropdownData.driver_roles || []).map(
+                          (role: any) => ({
+                            value: role.driver_role_id,
+                            label: role.role_name,
+                          })
+                        )}
                         value={formData?.driver_role_id || ""}
-                        onChange={(value) => setFormData(prev => ({ ...prev, driver_role_id: Number(value) }))}
-                        onAdd={() => handleAddItem('driver_role')}
+                        onChange={(value) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            driver_role_id: Number(value),
+                          }))
+                        }
+                        onAdd={() => handleAddItem("driver_role")}
                         // onRemove={(itemId) => handleRemoveItem('driver_role', itemId)}
                         placeholder="เลือกประเภทคนขับ"
                         showAddRemove={true}
@@ -1139,13 +1387,20 @@ const NCFormContent = () => {
                         {isLoadingDropdowns && <LoadingSpinner />}
                       </label>
                       <SearchableSelect
-                        options={(dropdownData.masterdrivers || []).map((driver: any) => ({
-                          value: driver.driver_id,
-                          label: `${driver.first_name} ${driver.last_name}`
-                        }))}
+                        options={(dropdownData.masterdrivers || []).map(
+                          (driver: any) => ({
+                            value: driver.driver_id,
+                            label: `${driver.first_name} ${driver.last_name}`,
+                          })
+                        )}
                         value={formData?.driver_id || ""}
-                        onChange={(value) => setFormData(prev => ({ ...prev, driver_id: String(value) }))}
-                        onAdd={() => handleAddItem('masterdriver')}
+                        onChange={(value) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            driver_id: String(value),
+                          }))
+                        }
+                        onAdd={() => handleAddItem("masterdriver")}
                         // onRemove={(itemId) => handleRemoveItem('masterdriver', itemId)}
                         placeholder="เลือกชื่อ-สกุลคนขับ"
                         showAddRemove={true}
@@ -1159,7 +1414,7 @@ const NCFormContent = () => {
                     <div className="md:col-span-3">
                       <label className="flex justify-between p-2 bg-gray-200 font-bold text-gray-800 font-bold mb-3 text-sm">
                         รายการสินค้าเสียหาย :
-                        <div className={`flex ${isViewMode ? 'hidden' : ''}`}>
+                        <div className={`flex ${isViewMode ? "hidden" : ""}`}>
                           <CirclePlus
                             onClick={addProductItem}
                             className="ml-2 w-5 h-5 bg-white rounded-full text-gray-600 hover:text-green-700 cursor-pointer"
@@ -1207,7 +1462,9 @@ const NCFormContent = () => {
                                       )
                                     }
                                     className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                                      isViewMode ? 'cursor-not-allowed bg-gray-100 text-blue-600 font-bold' : ''
+                                      isViewMode
+                                        ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                        : ""
                                     }`}
                                     placeholder=""
                                     disabled={isViewMode}
@@ -1225,7 +1482,9 @@ const NCFormContent = () => {
                                       )
                                     }
                                     className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                                      isViewMode ? 'cursor-not-allowed bg-gray-100 text-blue-600 font-bold' : ''
+                                      isViewMode
+                                        ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                        : ""
                                     }`}
                                     placeholder=""
                                     disabled={isViewMode}
@@ -1243,7 +1502,9 @@ const NCFormContent = () => {
                                     }
                                     disabled={isViewMode}
                                     className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                                      isViewMode ? 'cursor-not-allowed bg-gray-100 text-blue-600 font-bold' : ''
+                                      isViewMode
+                                        ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                        : ""
                                     }`}
                                   >
                                     <option value=""></option>
@@ -1277,7 +1538,9 @@ const NCFormContent = () => {
                         onChange={handleInputChange}
                         disabled={isViewMode}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                          isViewMode ? 'cursor-not-allowed bg-gray-100 text-blue-600 font-bold' : ''
+                          isViewMode
+                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                            : ""
                         }`}
                       />
                     </div>
@@ -1293,7 +1556,9 @@ const NCFormContent = () => {
                         onChange={handleInputChange}
                         disabled={isViewMode}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                          isViewMode ? 'cursor-not-allowed bg-gray-100 text-blue-600 font-bold' : ''
+                          isViewMode
+                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                            : ""
                         }`}
                       />
                     </div>
@@ -1304,13 +1569,20 @@ const NCFormContent = () => {
                         {isLoadingDropdowns && <LoadingSpinner />}
                       </label>
                       <SearchableSelect
-                        options={(dropdownData.mastercauses || []).map((cause: any) => ({
-                          value: cause.cause_id,
-                          label: cause.cause_name
-                        }))}
+                        options={(dropdownData.mastercauses || []).map(
+                          (cause: any) => ({
+                            value: cause.cause_id,
+                            label: cause.cause_name,
+                          })
+                        )}
                         value={formData?.incident_cause_id || ""}
-                        onChange={(value) => setFormData(prev => ({ ...prev, incident_cause_id: Number(value) }))}
-                        onAdd={() => handleAddItem('mastercause')}
+                        onChange={(value) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            incident_cause_id: Number(value),
+                          }))
+                        }
+                        onAdd={() => handleAddItem("mastercause")}
                         // onRemove={(itemId) => handleRemoveItem('mastercause', itemId)}
                         placeholder="เลือกสาเหตุ"
                         showAddRemove={true}
@@ -1331,7 +1603,9 @@ const NCFormContent = () => {
                         maxLength={1000}
                         disabled={isViewMode}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                          isViewMode ? 'cursor-not-allowed bg-gray-100 text-blue-600 font-bold' : ''
+                          isViewMode
+                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                            : ""
                         }`}
                       />
                     </div>
@@ -1354,9 +1628,15 @@ const NCFormContent = () => {
                       </button>
                       <a className="flex text-blue-700 font-medium text-sm items-center">
                         แนบรูปภาพ
-                        {Object.values(attachedFiles).reduce((total, files) => total + files.length, 0) > 0 && (
+                        {Object.values(attachedFiles).reduce(
+                          (total, files) => total + files.length,
+                          0
+                        ) > 0 && (
                           <span className="ml-2 px-2 py-1 bg-blue-600 text-white text-xs rounded-full">
-                            {Object.values(attachedFiles).reduce((total, files) => total + files.length, 0)}
+                            {Object.values(attachedFiles).reduce(
+                              (total, files) => total + files.length,
+                              0
+                            )}
                           </span>
                         )}
                       </a>
@@ -1451,17 +1731,19 @@ const NCFormContent = () => {
                 <div className="no-print flex justify-end space-x-4 pt-6 border-t border-gray-200">
                   {isViewMode && (
                     <div className="hidden bg-blue-100 border border-blue-300 text-blue-800 px-4 py-2 rounded-lg">
-                      <span className="text-sm font-medium">📋 โหมดดูข้อมูล - ไม่สามารถแก้ไขได้</span>
+                      <span className="text-sm font-medium">
+                        📋 โหมดดูข้อมูล - ไม่สามารถแก้ไขได้
+                      </span>
                     </div>
                   )}
-                  
+
                   <button
                     type="button"
                     className="hidden px-6 py-3 border border-gray-300 bg-yellow-400 text-white rounded-lg hover:bg-yellow-500 font-semibold"
                   >
                     แก้ไข
                   </button>
-                  
+
                   {!isViewMode && (
                     <button
                       type="submit"
@@ -1478,7 +1760,21 @@ const NCFormContent = () => {
                     >
                       <span>แก้ไขข้อมูล</span>
                     </button>
+                    
                   )}
+
+                  {isViewMode && (
+                    <button
+                      type="button"
+                      onClick={() => clipboard()}
+                      className="px-6 py-3 bg-green-100 border-3 border-dashed border-green-300 rounded-lg hover:bg-green-200 transition-colors font-semibold flex items-center space-x-2"
+                    >
+                      <span>คัดลอกข้อมูล</span>
+                    </button>
+                    
+                  )}
+
+                  
                 </div>
               </form>
             </div>
@@ -1487,17 +1783,18 @@ const NCFormContent = () => {
       </div>
 
       {displayPIC && (
-        <Picture 
-          display={setDisplayPIC} 
+        <Picture
+          display={setDisplayPIC}
           onSaveFiles={handleFilesFromPicture}
           initialFiles={attachedFiles}
+          isViewMode={isViewMode}
         />
       )}
     </>
   );
 };
 
-// Loading component สำหรับ Suspense fallback
+
 const NCFormLoading = () => (
   <div className="min-h-screen bg-[#eef8ef] flex items-center justify-center">
     <div className="flex flex-col items-center space-y-4">
@@ -1510,8 +1807,9 @@ const NCFormLoading = () => (
   </div>
 );
 
-// Main export component ที่มี Suspense boundary
+
 export const NCFormComponent = () => {
+  
   return (
     <Suspense fallback={<NCFormLoading />}>
       <NCFormContent />

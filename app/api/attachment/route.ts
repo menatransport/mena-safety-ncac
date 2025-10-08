@@ -19,8 +19,8 @@ export async function POST(req: NextRequest) {
   const files = formData.getAll('files') as File[];
   const document_no = formData.get('document_no') as string;
   
-  console.log(' ++++++ Received files:', files);
-  console.log(' ++++++ Document No:', document_no);
+  // console.log(' ++++++ Received files:', files);
+  // console.log(' ++++++ Document No:', document_no);
   
   if (!files || files.length === 0) {
     return NextResponse.json({ error: 'ไม่มีไฟล์' }, { status: 400 });
@@ -32,11 +32,9 @@ export async function POST(req: NextRequest) {
 
   const uploadedPaths: string[] = [];
   for (const file of files) {
-    // ใช้ document_no จาก formData แทนการ split ชื่อไฟล์
     const docid = document_no;
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    // สร้าง path: BASE_PATH/docid/filename
     const fileName = `${BASE_PATH}/${docid}/${file.name}`;
 
     const uploadParams = {
@@ -81,13 +79,30 @@ export async function GET(req: NextRequest) {
     });
 
     const response = await s3.send(listCommand);
-    const files = response.Contents?.map(obj => ({
-      key: obj.Key,
-      fileName: obj.Key?.split('/').pop(),
-      size: obj.Size,
-      lastModified: obj.LastModified,
-      url: `https://${BUCKET_NAME}.sgp1.digitaloceanspaces.com/${obj.Key}`
-    })) || [];
+    
+    // สร้าง signed URL สำหรับแต่ละไฟล์
+    const filesWithUrls = await Promise.all(
+      (response.Contents || []).map(async (obj) => {
+        if (!obj.Key) return null;
+        
+        const getObjectCommand = new GetObjectCommand({
+          Bucket: BUCKET_NAME,
+          Key: obj.Key,
+        });
+        
+        const signedUrl = await getSignedUrl(s3, getObjectCommand, { expiresIn: 3600 });
+        
+        return {
+          key: obj.Key,
+          fileName: obj.Key.split('/').pop(),
+          url: signedUrl,
+          size: obj.Size,
+          lastModified: obj.LastModified
+        };
+      })
+    );
+
+    const files = filesWithUrls.filter(file => file !== null);
 
     return NextResponse.json({ files });
   } catch (err) {
