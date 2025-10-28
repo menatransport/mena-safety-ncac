@@ -1,17 +1,18 @@
 
 import { NavComponent } from "@/components/Navbar";
 import { NCFormComponent } from "@/components/NCForm";
+import { Suspense } from "react";
 
 
 const NCFormPage = () => {
 
   return (
     <>
-    
+     
         <NavComponent>
-          <NCFormComponent />
+           <Suspense fallback={<div style={{ background: '#cae9cd' }}></div>}><NCFormComponent /></Suspense>
         </NavComponent>
-    
+     
     </>
   );
 };

@@ -31,7 +31,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   onRemove,
   onAddFilter,
   onRemoveFilter,
-  placeholder = "เลือกรายการ...",
+  placeholder = "",
   showAddRemove = false,
   className = "",
   disabled = false,

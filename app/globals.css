@@ -1,8 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Prompt:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
-@plugin "daisyui";
+/* @plugin "daisyui"; */
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
@@ -115,7 +116,47 @@
   * {
     @apply border-border outline-ring/50;
   }
+  
+  html {
+    font-family: 'Sarabun', 'Prompt', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+  }
+  
   body {
     @apply bg-background text-foreground;
+    font-size: 14px;
+    line-height: 1.6;
+    letter-spacing: 0.025em;
+  }
+  
+  /* Document-oriented typography */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Sarabun', 'Prompt', 'Inter', sans-serif;
+  }
+
+  /* Form and input styling for documents */
+  input, textarea, select {
+    font-family: inherit;
+  }
+  
+
+  
+  /* Print optimization */
+  @media print {
+    body {
+      font-size: 12pt;
+      line-height: 1.4;
+    }
+    
+    h1 {
+      font-size: 18pt;
+    }
+    
+    h2 {
+      font-size: 16pt;
+    }
+    
+    h3 {
+      font-size: 14pt;
+    }
   }
 }

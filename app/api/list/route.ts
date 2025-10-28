@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
   const apiPath = request.headers.get("x-api-path"); // ดึงค่า header
-
+  console.log("API Path:", apiPath);
   if (!apiPath) {
     return NextResponse.json({ error: "Missing X-Api-Path header" }, { status: 400 });
   }
@@ -13,22 +13,16 @@ export async function GET(request: Request) {
       headers: { 'Content-Type': 'application/json' },
     });
 
-    const text = await res.text(); // กันกรณี upstream ไม่ส่ง JSON
-    if (!res.ok) {
-      return NextResponse.json({ error: "Upstream API failed", detail: text }, { status: res.status });
-    }
-
-    // พยายาม parse เป็น JSON ถ้าไม่สำเร็จส่งเป็น string
-    try {
-      return NextResponse.json(JSON.parse(text));
-    } catch {
-      return NextResponse.json({ data: text });
-    }
-  } catch (err: any) {
-    return NextResponse.json({ error: "Internal Server Error", detail: err.message }, { status: 500 });
+ 
+    return NextResponse.json(await res.json());
+  } catch (error) {
+    console.error('Login API error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
-
 
 export async function POST(request: Request) {
   try {

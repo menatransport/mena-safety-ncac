@@ -23,12 +23,12 @@ const menuItems = [
 
 const formMenuItems = [
   {
-    title: "NC Form",
+    title: "สร้างรายงาน NC",
     url: "/nc-form",
     icon: SquarePen
   },
   {
-    title: "AC Form",
+    title: "สร้างรายงาน AC",
     url: "/ac-form",
     icon: SquarePen
   }
@@ -36,12 +36,12 @@ const formMenuItems = [
 
 const recordMenuItems = [
   {
-    title: "NC Records",
+    title: "ข้อมูล NC",
     url: "/nc-records",
     icon: Database
   },
   {
-    title: "AC Records",
+    title: "ข้อมูล AC",
     url: "/ac-records",
     icon: Database
   }
@@ -64,8 +64,8 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
   const [sidebarHidden, setSidebarHidden] = useState<string>("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState("");
-  const [formsExpanded, setFormsExpanded] = useState(false);
-  const [recordsExpanded, setRecordsExpanded] = useState(false);
+  const [formsExpanded, setFormsExpanded] = useState(true); // ปรับเป็น true เพื่อขยายเมนู Forms เริ่มต้น
+  const [recordsExpanded, setRecordsExpanded] = useState(true); // ปรับเป็น true เพื่อขยายเมนู Records เริ่มต้น
   const [showUserInfo, setShowUserInfo] = useState(false);
   const [userInfo, setUserInfo] = useState<any>(null);
   const router = useRouter();
@@ -197,8 +197,8 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
           
 
           <div>
-            <h3 className={`text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 ${(sidebarCollapsed && !isMobile) ? 'hidden' : ''}`}>
-              Menu
+            <h3 className={`text-md font-bold text-gray-500 uppercase tracking-wider mb-3 ${(sidebarCollapsed && !isMobile) ? 'hidden' : ''}`}>
+              เมนูหลัก
             </h3>
             <nav className="space-y-2">
   
@@ -207,7 +207,7 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                 <button
                   key={item.title}
                   onClick={() => handleNavigation(item.url)}
-                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ${
+                  className={`hidden w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ${
                     isActive(item.url)
                       ? 'bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-sm'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
@@ -241,7 +241,7 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                   <div className="flex items-center space-x-3">
                     <SquarePen size={sidebarCollapsed && !isMobile ? 24 : 20} className=" hover:rotate-45 hover:scale-110 text-gray-600" />
                     {(!sidebarCollapsed || isMobile) && (
-                      <span className="font-medium">Forms</span>
+                      <span className="font-bold">ฟอร์มรายงาน</span>
                     )}
                   </div>
                   {(!sidebarCollapsed || isMobile) && (
@@ -267,7 +267,7 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                         }`}
                       >
                         <div className="w-2 h-2 rounded-full bg-gray-400"></div>
-                        <span className="font-medium">{item.title}</span>
+                        <span className="font-medium text-sm">{item.title}</span>
                       </button>
                     ))}
                   </div>
@@ -290,7 +290,7 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                   <div className="flex items-center space-x-3">
                     <Database size={sidebarCollapsed && !isMobile ? 24 : 20} className="hover:rotate-45 hover:scale-110 text-gray-600" />
                     {(!sidebarCollapsed || isMobile) && (
-                      <span className="font-medium">Records</span>
+                      <span className="font-bold">ตารางข้อมูล</span>
                     )}
                   </div>
                   {(!sidebarCollapsed || isMobile) && (
@@ -316,7 +316,7 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                         }`}
                       >
                         <div className="w-2 h-2 rounded-full bg-gray-400"></div>
-                        <span className="font-medium">{item.title}</span>
+                        <span className="font-medium text-sm">{item.title}</span>
                       </button>
                     ))}
                   </div>
@@ -326,7 +326,7 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
           </div>
 
           {/* System Menu */}
-          <div>
+          {/* <div>
             <h3 className={`text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 ${(sidebarCollapsed && !isMobile) ? 'hidden' : ''}`}>
               System
             </h3>
@@ -353,7 +353,7 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                 </button>
               ))}
             </nav>
-          </div>
+          </div> */}
         </div>
 
       </div>

@@ -58,11 +58,12 @@ export function DateTimePicker24h (values: {
       <PopoverTrigger asChild>
         <Button
           variant="outline"
+          style={{ opacity: 1 }}
           disabled={values.disabled}
           className={cn(
-            "w-full justify-start text-left font-normal",
+            "w-full justify-start p-2 text-left font-normal",
             !date && "text-muted-foreground",
-            values.disabled && "cursor-not-allowed text-sm font-bold text-blue-600 p-2 bg-gray-100 border border-gray-300"
+            values.disabled && "cursor-not-allowed p-2 bg-gray-100 text-blue-600 font-bold"
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />

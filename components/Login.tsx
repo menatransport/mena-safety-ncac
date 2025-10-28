@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from 'next/navigation';
 import { LordIcon } from './LordIcon';
+import { useDropdownStore } from '../lib/dropdownlist';
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -11,6 +12,7 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const router = useRouter();
+  const { fetchDropdownData } = useDropdownStore();
 
   useEffect(() => {
 
@@ -52,18 +54,20 @@ export default function Login() {
 
       
       const data = await res.json();
-      console.log('Response data:', data);
-      console.log('Token:', data.access_token);
-      console.log('User:', data.user);
+      // console.log('Response data:', data);
+      // console.log('Token:', data.access_token);
+      // console.log('User:', data.user);
       if (data.access_token && data.user) {
         
           localStorage.setItem('authToken', data.access_token);
           localStorage.setItem('userData', JSON.stringify({ ...data.user, rememberMe , password }));
+          
+          
+          fetchDropdownData();
           setTimeout(() => {
             sessionStorage.setItem("showWelcome", "true")
-            router.push("/overview");
-            setIsLoading(false);
-          }, 1000)
+            router.push("/nc-form");
+          }, 8000)
 
         } else {
           alert('ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง');
@@ -82,6 +86,10 @@ export default function Login() {
 
       {/* Main Content */}
       <div className="w-full max-w-md mt-5">
+         {/* <img src="https://raw.githubusercontent.com/appzstory/appzstory-ribbon/main/black_ribbon_top_left.png" 
+     alt="Black Ribbon Top Left" 
+     className="fixed top-0 left-0 w-20 opacity-90 z-50 pointer-events-none"></img> */}
+
         {/* Logo section */}
         <div className="text-center mb-2">
           <div
