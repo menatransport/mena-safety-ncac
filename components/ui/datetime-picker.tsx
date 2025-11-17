@@ -21,6 +21,7 @@ export function DateTimePicker24h (values: {
 }) {
   const [date, setDate] = React.useState<Date>();
   const [isOpen, setIsOpen] = React.useState(false);
+  const [dateOnly, setDateOnly] = React.useState(false);
 
   // Sync internal date with external value
   React.useEffect(() => {
@@ -30,10 +31,47 @@ export function DateTimePicker24h (values: {
   }, [values.value]);
 
   const hours = Array.from({ length: 24 }, (_, i) => i);
+  
   const handleDateSelect = (selectedDate: Date | undefined) => {
     if (selectedDate && !values.disabled) {
-      setDate(selectedDate);
-      values.onChange?.(selectedDate);
+      const newDate = new Date(selectedDate);
+      if (dateOnly) {
+        // Set time to 00:00 for date-only mode
+        newDate.setHours(0, 0, 0, 0);
+      } else if (date) {
+        // Preserve existing time
+        newDate.setHours(date.getHours(), date.getMinutes());
+      }
+      setDate(newDate);
+      values.onChange?.(newDate);
+    }
+  };
+
+  const handleTodayClick = () => {
+    if (!values.disabled) {
+      const today = new Date();
+      // console.log("Setting date to today:", today);
+      if (dateOnly) {
+        today.setHours(0, 0, 0, 0);
+      }
+      setDate(today);
+      console.log("Setting date to today:", today);
+      values.onChange?.(today);
+    }
+  };
+
+  const handleDateOnlyToggle = () => {
+    if (!values.disabled) {
+      const newDateOnly = !dateOnly;
+      setDateOnly(newDateOnly);
+      
+      if (date && newDateOnly) {
+        // When switching to date-only, set time to 00:00
+        const newDate = new Date(date);
+        newDate.setHours(0, 0, 0, 0);
+        setDate(newDate);
+        values.onChange?.(newDate);
+      }
     }
   };
 
@@ -68,7 +106,7 @@ export function DateTimePicker24h (values: {
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
           {date ? (
-            format(date, "dd/MM/yyyy HH:mm")
+            dateOnly ? format(date, "dd/MM/yyyy") : format(date, "dd/MM/yyyy HH:mm")
           ) : (
             <span></span>
           )}
@@ -76,12 +114,35 @@ export function DateTimePicker24h (values: {
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0">
         <div className="sm:flex">
-          <Calendar
-            mode="single"
-            selected={date}
-            onSelect={handleDateSelect}
-            initialFocus
-          />
+          <div className="flex flex-col">
+            <Calendar
+              mode="single"
+              selected={date}
+              onSelect={handleDateSelect}
+              initialFocus
+            />
+            <div className="flex gap-2 p-3 border-t">
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1"
+                onClick={handleTodayClick}
+                disabled={values.disabled}
+              >
+                วันนี้
+              </Button>
+              <Button
+                size="sm"
+                variant={dateOnly ? "default" : "default"}
+                className="flex-1"
+                onClick={handleDateOnlyToggle}
+                disabled={values.disabled}
+              >
+                {dateOnly ? "datetime" : "dateonly"}
+              </Button>
+            </div>
+          </div>
+          {!dateOnly && (
           <div className="flex flex-col sm:flex-row sm:h-[300px] divide-y sm:divide-y-0 sm:divide-x">
             <ScrollArea className="w-64 sm:w-auto">
               <div className="p-2">
@@ -124,6 +185,7 @@ export function DateTimePicker24h (values: {
               <ScrollBar orientation="horizontal" className="sm:hidden" />
             </ScrollArea>
           </div>
+          )}
         </div>
       </PopoverContent>
     </Popover>

@@ -19,27 +19,28 @@ interface FileUploadProps {
   onFilesChange?: (files: CategoryFiles) => void;
   disabled?: boolean;
   existingFiles?: CategoryFiles;
+  case: string;
 }
 
 const DOCUMENT_CATEGORIES = [
   // ฝ่ายจัดส่ง (Delivery Department)
-  { value: "incident_photos", label: "รูปเหตุการณ์", department: "🚚จัดส่ง", icon: ImageIcon },
-  { value: "warning_notice", label: "ใบเตือน", department: "🚚จัดส่ง", icon: FileText },
-  { value: "daily_record", label: "บันทึกประจำวัน", department: "🚚จัดส่ง", icon: FileText },
+  { value: "incident_photos", label: "รูปเหตุการณ์", department: "🚚จัดส่ง", case: "all", icon: ImageIcon },
+  { value: "warning_notice", label: "ใบเตือน", department: "🚚จัดส่ง", case: "all", icon: FileText },
+  { value: "daily_record", label: "บันทึกประจำวัน", department: "🚚จัดส่ง", case: "ac", icon: FileText },
   
   // ฝ่ายความปลอดภัย (Safety Department)
-  { value: "medical_certificate", label: "ใบรับรองแพทย์", department: "🚨ความปลอดภัย", icon: FileText },
-  { value: "insurance_claim", label: "ใบเคลมจากประกัน", department: "🚨ความปลอดภัย", icon: FileText },
-  { value: "legal_document", label: "ใบคดีความ", department: "🚨ความปลอดภัย", icon: FileText },
+  { value: "medical_certificate", label: "ใบรับรองแพทย์", department: "🚨ความปลอดภัย", case: "ac", icon: FileText },
+  { value: "insurance_claim", label: "ใบเคลมจากประกัน", department: "🚨ความปลอดภัย", case: "all", icon: FileText },
+  { value: "legal_document", label: "ใบคดีความ", department: "🚨ความปลอดภัย", case: "ac", icon: FileText },
   
   // ฝ่ายยานยนต์ (Vehicle Department)
-  { value: "disposal_document", label: "ใบตัดจำหน่าย", department: "🔧ยานยนต์", icon: FileText },
+  { value: "disposal_document", label: "ใบตัดจำหน่าย", department: "🔧ยานยนต์", case: "all", icon: FileText },
 
   // ฝ่ายบัญชี (Accounting Department)
-  { value: "debt_acknowledgment", label: "ใบรับสภาพหนี้", department: "💼บัญชี", icon: FileText },
-  { value: "quotation", label: "ใบเสนอราคา", department: "💼บัญชี", icon: FileText },
-  { value: "customer_invoice", label: "ใบแจ้งหนี้ลูกค้า", department: "💼บัญชี", icon: FileText },
-  { value: "payment_evidence", label: "หลักฐานการชำระค่าเสียหาย", department: "💼บัญชี", icon: FileText },
+  { value: "debt_acknowledgment", label: "ใบรับสภาพหนี้", department: "💼บัญชี", case: "all", icon: FileText },
+  { value: "quotation", label: "ใบเสนอราคา", department: "💼บัญชี", case: "ac", icon: FileText },
+  { value: "customer_invoice", label: "ใบแจ้งหนี้ลูกค้า", department: "💼บัญชี", case: "all", icon: FileText },
+  { value: "payment_evidence", label: "หลักฐานการชำระค่าเสียหาย", department: "💼บัญชี", case: "all", icon: FileText },
 ];
 
 const DEPARTMENTS = [
@@ -49,7 +50,7 @@ const DEPARTMENTS = [
   { value: "💼บัญชี", label: "💼ฝ่ายบัญชี", color: " text-yellow-800" },
 ];
 
-export const FileUpload = ({ onFilesChange, disabled = false, existingFiles = {} }: FileUploadProps) => {
+export const FileUpload = ({ onFilesChange, disabled = false, existingFiles = {}, case: caseType }: FileUploadProps) => {
   const [attachedFiles, setAttachedFiles] = useState<CategoryFiles>(existingFiles);
   const [dragOver, setDragOver] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(DOCUMENT_CATEGORIES[0].value);
@@ -69,7 +70,7 @@ export const FileUpload = ({ onFilesChange, disabled = false, existingFiles = {}
     if (disabled) return;
     
     if (!selectedCategory) {
-      alert('กรุณาเลือกประเภทเอกสารก่อนอัปโหลดไฟล์');
+      alert('กรุณาเลือกชื่อเอกสารก่อนอัปโหลดไฟล์');
       return;
     }
 
@@ -157,7 +158,12 @@ export const FileUpload = ({ onFilesChange, disabled = false, existingFiles = {}
   const getGroupedCategories = () => {
     const grouped: { [key: string]: typeof DOCUMENT_CATEGORIES } = {};
     
-    DOCUMENT_CATEGORIES.forEach(category => {
+    // กรองเฉพาะ category ที่ตรงกับ case หรือ case เป็น "all"
+    const filteredCategories = DOCUMENT_CATEGORIES.filter(
+      category => category.case === caseType || category.case === "all"
+    );
+    
+    filteredCategories.forEach(category => {
       const dept = category.department;
       if (!grouped[dept]) {
         grouped[dept] = [];
@@ -166,6 +172,18 @@ export const FileUpload = ({ onFilesChange, disabled = false, existingFiles = {}
     });
     
     return grouped;
+  };
+
+  // ฟังก์ชันหาเอกสารที่ยังไม่ได้อัปโหลด
+  const getMissingDocuments = () => {
+    const filteredCategories = DOCUMENT_CATEGORIES.filter(
+      category => category.case === caseType || category.case === "all"
+    );
+    
+    return filteredCategories.filter(category => {
+      // ถ้ายังไม่มีไฟล์ในหมวดนี้เลย หรือมีแต่เป็นอาร์เรย์ว่าง
+      return !attachedFiles[category.value] || attachedFiles[category.value].length === 0;
+    });
   };
   const formatDT = (dateTimeString?: string) => {
     if (!dateTimeString) return "";
@@ -236,7 +254,7 @@ export const FileUpload = ({ onFilesChange, disabled = false, existingFiles = {}
             ${fileItem.file.type === 'application/pdf' ? 
               `<embed src="${fileItem.url}" type="application/pdf" class="document-viewer" />` :
               `<div style="text-align: center; padding: 50px;">
-                <p>ไม่สามารถแสดงตัวอย่างไฟล์ประเภทนี้ได้</p>
+                <p>ไม่สามารถแสดงตัวอย่างไฟล์ชื่อนี้ได้</p>
                 <a href="${fileItem.url}" download="${fileItem.file.name}" 
                    style="background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
                    ดาวน์โหลดไฟล์
@@ -254,9 +272,10 @@ export const FileUpload = ({ onFilesChange, disabled = false, existingFiles = {}
   return (
     <div className="space-y-6">
       {/* Category Selection */}
-      {!disabled && (<div>
+      {!disabled && (<div className="flex flex-row space-y-1">
+        <div className="w-1/2">
         <label className="block text-gray-700 font-medium mb-2 text-sm">
-          ประเภทเอกสาร:
+          ชื่อเอกสาร:
         </label>
         <select
           value={selectedCategory}
@@ -264,7 +283,7 @@ export const FileUpload = ({ onFilesChange, disabled = false, existingFiles = {}
           disabled={disabled}
           className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black disabled:bg-gray-100"
         >
-          <option value="">-- เลือกประเภทเอกสาร --</option>
+          <option value="">-- เลือกชื่อเอกสาร --</option>
           {Object.entries(getGroupedCategories()).map(([department, categories]) => (
             <optgroup key={department} label={`${DEPARTMENTS.find(dept => dept.value === department)?.label || department}`}>
               {categories.map((category) => (
@@ -275,6 +294,14 @@ export const FileUpload = ({ onFilesChange, disabled = false, existingFiles = {}
             </optgroup>
           ))}
         </select>
+        </div>
+        <div className="w-1/2 ml-4">
+        <label className="block text-gray-700 font-medium mb-2 text-sm">
+          เลขที่เอกสาร (ถ้ามี):
+        </label>
+          <input type="text" className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black disabled:bg-gray-100" >
+          </input>
+        </div>
       </div>
       )}
 
@@ -319,36 +346,38 @@ export const FileUpload = ({ onFilesChange, disabled = false, existingFiles = {}
       )}
 
       {/* Attached Files Display */}
-      {Object.keys(attachedFiles).length > 0 && (
+      {(Object.keys(attachedFiles).length > 0 ) && (
         <div className="space-y-4">
-          <h4 className="text-sm font-medium text-gray-800">ไฟล์ที่แนบ:</h4>
-          
-          <div className="border border-gray-200 rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
-                      ตัวอย่าง
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
-                      ชื่อไฟล์
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                      ประเภท
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                      ฝ่าย
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                      วันที่อัปโหลด
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
-                      จัดการ
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+          {Object.keys(attachedFiles).length > 0 && (
+            <>
+              <h4 className="text-sm font-medium text-gray-800">ไฟล์ที่แนบ:</h4>
+              
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+                          ตัวอย่าง
+                        </th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+                          ชื่อไฟล์
+                        </th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                          ชื่อ
+                        </th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                          ฝ่าย
+                        </th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                          วันที่อัปโหลด
+                        </th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+                          จัดการ
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
                   {getSortedFiles().map(({ category, fileItem }) => (
                     <tr key={fileItem.id} className="hover:bg-gray-50">
                       <td className="px-3 py-3 whitespace-nowrap">
@@ -376,7 +405,7 @@ export const FileUpload = ({ onFilesChange, disabled = false, existingFiles = {}
                             {fileItem.file.name}
                           </div>
                           <div className="text-xs font-medium text-gray-500 max-w-24 truncate" title={fileItem.file.type}>
-                            {fileItem.file.type || 'ไม่ทราบประเภท'}
+                            {fileItem.file.type || 'ไม่ทราบชื่อ'}
                           </div>
                         </div>
                       </td>
@@ -424,18 +453,69 @@ export const FileUpload = ({ onFilesChange, disabled = false, existingFiles = {}
                       </td>
                     </tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
-            
-            {/* Summary Footer */}
-            <div className="bg-gray-50 px-4 py-3 border-t border-gray-200">
-              <div className="flex items-center justify-between text-sm text-gray-600">
-                <span>รวมทั้งหมด {getTotalFileCount()} ไฟล์</span>
+                    </tbody>
+                  </table>
+                </div>
                 
+                {/* Summary Footer */}
+                <div className="bg-gray-50 px-4 py-3 border-t border-gray-200">
+                  <div className="flex items-center justify-between text-sm text-gray-600">
+                    <span>รวมทั้งหมด {getTotalFileCount()} ไฟล์</span>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            </>
+          )}
+
+          {/* Missing Documents Table Hidden  */} 
+          {getMissingDocuments().length > 0 && (
+            <>
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <td colSpan={4} className="px-3 py-2 text-left font-semibold text-xs text-red-700 uppercase tracking-wider">
+                          เอกสารแนบที่ขาด
+                        </td>
+                        <td colSpan={1} className="px-3 py-2 text-center text-xs text-gray-700 uppercase tracking-wider">
+                          ต้องมีเอกสารแนบหรือไม่
+                        </td>
+                        <td colSpan={2} className="px-3 py-2 text-center text-xs text-gray-700 uppercase tracking-wider">
+                          หมายเหตุ
+                        </td>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {getMissingDocuments().map((doc, index) => (
+                        <tr key={doc.value} className="hover:bg-red-50"> 
+                          <td colSpan={4} className="px-4 py-3 bg-gray-50 text-gray-700 text-xs font-medium">
+                            <div className="flex items-start">
+                              <span className="mr-2">{index + 1}.</span>
+                               <span>{doc.label} </span> {/* ({doc.department}) */}
+                            </div>
+                          </td>
+                          <td colSpan={1} className="px-2 py-3 bg-white text-center border-l border-gray-200">
+                            <select className="w-1/2 text-xs font-medium p-2 border border-gray-300 rounded bg-white text-center focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black">
+                              <option value="มี">มี</option>
+                              <option value="ไม่มี">ไม่มี</option>
+                            </select>
+                          </td>
+                          <td colSpan={2} className="px-4 py-3 bg-white">
+                            <input 
+                              type="text" 
+                              placeholder="โปรดระบุ (ถ้ามี)" 
+                              className="w-full text-xs p-2 font-medium border border-gray-300 rounded bg-white focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 

@@ -8,6 +8,7 @@ import { caseReport_AC } from "@/lib/caseReport";
 import { FileUpload } from "./FileUpload";
 import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
+import { useClipboard_ac } from "@/lib/clipboard";
 
 interface FileWithId {
   id: string;
@@ -21,7 +22,6 @@ interface CategoryFiles {
   [key: string]: FileWithId[];
 }
 export const ACFormComponent = () => {
-
   const router = useRouter();
 
   const {
@@ -37,6 +37,7 @@ export const ACFormComponent = () => {
     subdistricts,
     isLoading: isDropdownLoading,
     fetchDropdownData,
+    getData,
   } = useDropdownStore();
 
   // Form State - ปรับปรุงให้มี default values ที่ถูกต้อง
@@ -80,44 +81,46 @@ export const ACFormComponent = () => {
     provinces: provinces || [],
   });
 
-   useEffect(() => {
-
+  useEffect(() => {
     const loadUserInfo = async () => {
-    
       const userData = localStorage.getItem("userData");
       if (!userData) {
         alert("ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่");
         console.warn("No userData found in localStorage");
         router.push("/login");
-        
+
         return;
       }
-      
+
       try {
         const parsedUserData = JSON.parse(userData);
-        
-        if (!parsedUserData?.id || !parsedUserData?.firstname || !parsedUserData?.lastname) {
+
+        if (
+          !parsedUserData?.id ||
+          !parsedUserData?.firstname ||
+          !parsedUserData?.lastname
+        ) {
           console.error("Incomplete userData:", parsedUserData);
           return;
         }
 
         const newUserinfo = {
-          'id': parsedUserData.id,
-          'employee_id': parsedUserData.employee_id || '',
-          'name': `${parsedUserData.firstname} ${parsedUserData.lastname}`.trim(),
-          'department': parsedUserData.department || '',
-          'site': parsedUserData.site || '',
-          'position': parsedUserData.position || '',
-          'position_level': parsedUserData.position_level || '',
-          'position_level_id': parsedUserData.position_level_id || ''
+          id: parsedUserData.id,
+          employee_id: parsedUserData.employee_id || "",
+          name: `${parsedUserData.firstname} ${parsedUserData.lastname}`.trim(),
+          department: parsedUserData.department || "",
+          site: parsedUserData.site || "",
+          position: parsedUserData.position || "",
+          position_level: parsedUserData.position_level || "",
+          position_level_id: parsedUserData.position_level_id || "",
         };
-        
-        console.log("Setting userinfo:", newUserinfo);
+
+        // console.log("Setting userinfo:", newUserinfo);
         setUserinfo(newUserinfo);
-
+        if (sites?.length == 0) {
         await fetchDropdownData();
+        }
         getvaluesparams(newUserinfo.name);
-
       } catch (error) {
         console.error("Error parsing userData from localStorage:", error);
         setUserinfo(null);
@@ -127,229 +130,20 @@ export const ACFormComponent = () => {
     loadUserInfo();
   }, []);
 
-  const priorityIcon = (priority: string | undefined) => {
-    switch (priority) {
-      case "Minor":
-        return "🟡 Minor";
-      case "Significant":
-        return "🟣 Significant";
-      case "Major":
-        return "🟠 Major";
-      case "Crisis":
-        return "🔴 Crisis";
-      default:
-        return "⚪ null";
-    }
-  };
 
-  const handleInputChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
-  ) => {
-    const { name, type, checked, value } = e.target as HTMLInputElement;
-
-    let processedValue: any = value;
-
-    // Handle different input types
-    if (type === "checkbox") {
-      processedValue = checked;
-    } else if (type === "number") {
-      processedValue = value === "" ? 0 : Number(value);
-    }
-
-    setFormData({
-      ...formData,
-      [name]: processedValue,
-    });
-  };
-
-  
-
-  const handleRadioChange = (name: string, value: string) => {
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
-  };
-
-  // 
-  // useEffect(() => {
-  //   console.log("userinfo updated:", userinfo);
-  // }, [userinfo]);
-
-  // ========== Component Lifecycle & Data Loading ==========
   const searchParams = useSearchParams();
 
+  const getvaluesparams = async (name: string) => {
+    const docId = searchParams.get("doc");
 
-    const getvaluesparams = async (name: string) => {
-      const docId = searchParams.get("doc");
+    if (docId) {
+      // เปลี่ยน title ของหน้าเว็บเมื่อมี doc parameter
+      document.title = `${docId}`;
+      setIsLoadingFormData(true);
 
-      if (docId) {
-        // เปลี่ยน title ของหน้าเว็บเมื่อมี doc parameter
-        document.title = `${docId}`;
-        setIsLoadingFormData(true);
-
-        try {
-          const res = await fetch(
-            `/api/document/ac?case_id=${encodeURIComponent(docId)}`,
-            {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-              },
-            }
-          );
-
-          const data = await res.json();
-          if (res.ok) {               
-            if(data[0].reporter_name == name) {
-              setIsViewMode(false);
-            } else {
-            setIsViewMode(true);
-            }
-
-            setFormData(data[0]);
-            await mapTextDataToIds(data[0]);
-
-            // โหลดไฟล์แนบ
-            await loadExistingAttachments(docId);
-          } else {
-            throw new Error(
-              data.message || `HTTP ${res.status}: ${res.statusText}`
-            );
-          }
-        } catch (error) {
-          console.error("Error fetching AC record:", error);
-        } finally {
-          setIsLoadingFormData(false);
-        }
-      } else {
-        // ถ้าไม่มี doc parameter ให้ reset title กลับเป็นปกติ
-        document.title = "Mena Safety - AC Form";
-
-        setFormData((prev) => ({
-          ...prev,
-          record_datetime: new Date().toISOString(),
-        }));
-      }
-    };
-
-    // ========== Data Mapping Functions ==========
-    const mapTextDataToIds = async (data: any) => {
-      const mappedData: any = {};
-      const store = useDropdownStore.getState();
-      console.log("Store Data:", store);
-      if (data.site_name && store.sites) {
-        const site = store.sites.find(
-          (val: any) => val.site_name_th === data.site_name
-        );
-        if (site) mappedData.site_id = site.site_id;
-      }
-
-      if (data.department_name && store.departments) {
-        const department = store.departments.find(
-          (val: any) => val.department_name_th === data.department_name
-        );
-        if (department) mappedData.department_id = department.department_id;
-      }
-
-      if (data.client_name && store.clients) {
-        const client = store.clients.find(
-          (val: any) => val.client_name === data.client_name
-        );
-        if (client) mappedData.client_id = client.client_id;
-      }
-
-      if (data.origin_name && store.locations) {
-        const location = store.locations.find(
-          (val: any) => val.location_name === data.origin_name
-        );
-        if (location) mappedData.origin_id = location.location_id;
-      }
-
-      // Field จังหวัด อำเภอ ตำบล
-
-      if (data.province_name && store.provinces) {
-        const province = store.provinces.find(
-          (val: any) => val.province_name_th === data.province_name
-        );
-        if (province) {
-          mappedData.province_id = province.province_id;
-        }
-      }
-
-      if (data.district_name && store.districts) {
-        const district = store.districts.find(
-          (val: any) => val.district_name_th === data.district_name
-        );
-        if (district) {
-          mappedData.district_id = district.district_id;
-          setFilteredData((prev) => ({
-            ...prev,
-            districts: [district],
-          }));
-        }
-        
-      }
-
-      if (data.sub_district_name && store.subdistricts) {
-        const subdistrict = store.subdistricts.find(
-          (val: any) => val.sub_district_name_th === data.sub_district_name
-        );
-        if (subdistrict) {
-          mappedData.sub_district_id = subdistrict.sub_district_id;
-          setFilteredData((prev) => ({
-            ...prev,
-            subdistricts: [subdistrict],
-          }));
-        }
-      }
-
-      if (data.vehicle_head_plate && store.vehicles) {
-        const vehicle = store.vehicles.find(
-          (val: any) =>
-            val.vehicle_number_plate === data.vehicle_head_plate &&
-            val.plate_type === "head"
-        );
-        if (vehicle) {
-          mappedData.vehicle_truckno = vehicle.truck_no;
-          mappedData.vehicle_id_head = vehicle.vehicle_id;
-        }
-      }
-
-      if (data.vehicle_tail_plate && store.vehicles) {
-        const vehicle = store.vehicles.find(
-          (val: any) =>
-            val.vehicle_number_plate === data.vehicle_tail_plate &&
-            val.plate_type === "tail"
-        );
-        if (vehicle) mappedData.vehicle_id_tail = vehicle.vehicle_id;
-      }
-
-      if (data.driver_role_name && store.driver_roles) {
-        const role = store.driver_roles.find(
-          (val: any) => val.role_name === data.driver_role_name
-        );
-        if (role) mappedData.driver_role_id = role.driver_role_id;
-      }
-
-      if (data.driver_name && store.masterdrivers) {
-        const driver = store.masterdrivers.find((val: any) => {
-          const fullName = val.first_name + " " + val.last_name;
-          return fullName === data.driver_name;
-        });
-        if (driver) mappedData.driver_id = driver.driver_id;
-      }
-
-      setFormData((prev) => ({ ...prev, ...mappedData }));
-     
-    };
-
-    const loadExistingAttachments = async (document_no: string) => {
       try {
         const res = await fetch(
-          `/api/attachment?document_no=${encodeURIComponent(document_no)}`,
+          `/api/document/ac?case_id=${encodeURIComponent(docId)}`,
           {
             method: "GET",
             headers: {
@@ -358,63 +152,213 @@ export const ACFormComponent = () => {
           }
         );
 
+        const data = await res.json();
         if (res.ok) {
-          const data = await res.json();
-          console.log("GET รูปภาพที่ได้:", data.files);
-
-          const categorizedFiles: CategoryFiles = {};
-
-          if (data.files && Array.isArray(data.files)) {
-            data.files.forEach((file: any) => {
-              const fileName = file.fileName || "";
-              const parts = fileName.split("_");
-
-              if (parts.length >= 3) {
-                // ตัด docno และ number + extension ออก เหลือแค่ category
-                const category = parts.slice(1, -1).join("_");
-                // console.log('Category:', category);
-
-                if (!categorizedFiles[category]) {
-                  categorizedFiles[category] = [];
-                }
-
-                // สร้าง mock File object สำหรับไฟล์ที่มีอยู่แล้ว
-                const mockFile = new File([""], fileName, {
-                  type: fileName.toLowerCase().includes(".pdf")
-                    ? "application/pdf"
-                    : "image/jpeg",
-                });
-
-                categorizedFiles[category].push({
-                  id: file.key || Math.random().toString(36).substr(2, 9),
-                  file: mockFile,
-                  url: file.url,
-                  updateData: "existing",
-                  category: category,
-                  uploadDate: new Date(),
-                });
-              }
-            });
+          if (data[0].reporter_name == name) {
+            setIsViewMode(false);
+          } else {
+            setIsViewMode(true);
           }
-          setAttachedFiles(categorizedFiles);
+
+          setFormData(data[0]);
+          await mapTextDataToIds(data[0]);
+
+          // โหลดไฟล์แนบ
+          await loadExistingAttachments(docId);
         } else {
-          console.error("Failed to load attachments:", res.statusText);
+          throw new Error(
+            data.message || `HTTP ${res.status}: ${res.statusText}`
+          );
         }
       } catch (error) {
-        console.error("Error loading attachments:", error);
+        console.error("Error fetching AC record:", error);
+      } finally {
+        setIsLoadingFormData(false);
       }
-    };
+    } else {
+      // ถ้าไม่มี doc parameter ให้ reset title กลับเป็นปกติ
+      document.title = "Mena Safety - AC Form";
 
+      setFormData((prev) => ({
+        ...prev,
+        record_datetime: new Date().toISOString(),
+      }));
+    }
+  };
+
+  // ========== Data Mapping Functions ==========
+  const mapTextDataToIds = async (data: any) => {
+    const mappedData: any = {};
+    const store = getData();
+    if (data.site_name && store.sites) {
+      const site = store.sites.find(
+        (val: any) => val.site_name_th === data.site_name
+      );
+      if (site) mappedData.site_id = site.site_id;
+    }
+
+    if (data.department_name && store.departments) {
+      const department = store.departments.find(
+        (val: any) => val.department_name_th === data.department_name
+      );
+      if (department) mappedData.department_id = department.department_id;
+    }
+
+    if (data.client_name && store.clients) {
+      const client = store.clients.find(
+        (val: any) => val.client_name === data.client_name
+      );
+      if (client) mappedData.client_id = client.client_id;
+    }
+
+    if (data.origin_name && store.locations) {
+      const location = store.locations.find(
+        (val: any) => val.location_name === data.origin_name
+      );
+      if (location) mappedData.origin_id = location.location_id;
+    }
+
+    // Field จังหวัด อำเภอ ตำบล
+
+    if (data.province_name && store.provinces) {
+      const province = store.provinces.find(
+        (val: any) => val.province_name_th === data.province_name
+      );
+      if (province) {
+        mappedData.province_id = province.province_id;
+      }
+    }
+
+    if (data.district_name && store.districts) {
+      const district = store.districts.find(
+        (val: any) => val.district_name_th === data.district_name
+      );
+      if (district) {
+        mappedData.district_id = district.district_id;
+        setFilteredData((prev) => ({
+          ...prev,
+          districts: [district],
+        }));
+      }
+    }
+
+    if (data.sub_district_name && store.subdistricts) {
+      const subdistrict = store.subdistricts.find(
+        (val: any) => val.sub_district_name_th === data.sub_district_name
+      );
+      if (subdistrict) {
+        mappedData.sub_district_id = subdistrict.sub_district_id;
+        setFilteredData((prev) => ({
+          ...prev,
+          subdistricts: [subdistrict],
+        }));
+      }
+    }
+
+    if (data.vehicle_head_plate && store.vehicles) {
+      const vehicle = store.vehicles.find(
+        (val: any) =>
+          val.vehicle_number_plate === data.vehicle_head_plate &&
+          val.plate_type === "head"
+      );
+      if (vehicle) {
+        mappedData.vehicle_truckno = vehicle.truck_no;
+        mappedData.vehicle_id_head = vehicle.vehicle_id;
+      }
+    }
+
+    if (data.vehicle_tail_plate && store.vehicles) {
+      const vehicle = store.vehicles.find(
+        (val: any) =>
+          val.vehicle_number_plate === data.vehicle_tail_plate &&
+          val.plate_type === "tail"
+      );
+      if (vehicle) mappedData.vehicle_id_tail = vehicle.vehicle_id;
+    }
+
+    if (data.driver_role_name && store.driver_roles) {
+      const role = store.driver_roles.find(
+        (val: any) => val.role_name === data.driver_role_name
+      );
+      if (role) mappedData.driver_role_id = role.driver_role_id;
+    }
+
+    if (data.driver_name && store.masterdrivers) {
+      const driver = store.masterdrivers.find((val: any) => {
+        const fullName = val.first_name + " " + val.last_name;
+        return fullName === data.driver_name;
+      });
+      if (driver) mappedData.driver_id = driver.driver_id;
+    }
+
+    setFormData((prev) => ({ ...prev, ...mappedData }));
+  };
+
+  const loadExistingAttachments = async (document_no: string) => {
+    try {
+      const res = await fetch(
+        `/api/attachment?document_no=${encodeURIComponent(document_no)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        // console.log("GET รูปภาพที่ได้:", data.files);
+
+        const categorizedFiles: CategoryFiles = {};
+
+        if (data.files && Array.isArray(data.files)) {
+          data.files.forEach((file: any) => {
+            const fileName = file.fileName || "";
+            const parts = fileName.split("_");
+
+            if (parts.length >= 3) {
+              const category = parts.slice(1, -1).join("_");
+              // console.log('Category:', category);
+
+              if (!categorizedFiles[category]) {
+                categorizedFiles[category] = [];
+              }
+
+              const mockFile = new File([""], fileName, {
+                type: fileName.toLowerCase().includes(".pdf")
+                  ? "application/pdf"
+                  : "image/jpeg",
+              });
+
+              categorizedFiles[category].push({
+                id: file.key || Math.random().toString(36).substr(2, 9),
+                file: mockFile,
+                url: file.url,
+                updateData: "existing",
+                category: category,
+                uploadDate: new Date(),
+              });
+            }
+          });
+        }
+        setAttachedFiles(categorizedFiles);
+      } else {
+        console.error("Failed to load attachments:", res.statusText);
+      }
+    } catch (error) {
+      console.error("Error loading attachments:", error);
+    }
+  };
 
   // ========== File Handling Functions ==========
   const handleFilesFromUpload = (files: CategoryFiles) => {
-    console.log("Files received from FileUpload component:", files);
+    // console.log("Files received from FileUpload component:", files);
     setAttachedFiles(files);
   };
 
   // ========== Site Handling Functions ==========
   const handleSiteChange = (siteId: number) => {
- 
     setFormData((prev) => ({ ...prev, site_id: siteId }));
 
     if (siteId) {
@@ -452,7 +396,7 @@ export const ACFormComponent = () => {
   useEffect(() => {
     if (!formData.site_id) {
       setFilteredData((prev) => ({
-        ...prev,  
+        ...prev,
         masterdrivers: masterdrivers || [],
         locations: locations || [],
         vehicles: vehicles || [],
@@ -589,89 +533,59 @@ export const ACFormComponent = () => {
     }
   };
 
-  // ========== Utility Functions ==========
-  const formatDT = (dateTimeString?: string) => {
-    if (!dateTimeString) return "";
-    const date = new Date(dateTimeString);
-    if (isNaN(date.getTime())) return dateTimeString;
-
-    const options: Intl.DateTimeFormatOptions = {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    };
-    return new Intl.DateTimeFormat("en-GB", options).format(date);
-  };
 
   const clipboard = async () => {
     try {
       // หาข้อมูลจาก dropdown stores
-      const selectedSite = sites?.find(site => site.site_id === formData.site_id);
-      const selectedDepartment = departments?.find(dept => dept.department_id === formData.department_id);
-      const selectedClient = clients?.find(client => client.client_id === formData.client_id);
-      const selectedOrigin = locations?.find(loc => loc.location_id === formData.origin_id);
-      const selectedProvince = provinces?.find(prov => prov.province_id === formData.province_id);
-      const selectedDistrict = districts?.find(dist => dist.district_id === formData.district_id);
-      const selectedSubDistrict = subdistricts?.find(sub => sub.sub_district_id === formData.sub_district_id);
-      const selectedDriverRole = driver_roles?.find(role => role.driver_role_id === formData.driver_role_id);
-      const selectedDriver = masterdrivers?.find(driver => driver.driver_id === formData.driver_id);
-      const selectedVehicleHead = vehicles?.find(vehicle => vehicle.vehicle_id === formData.vehicle_id_head);
-      const selectedVehicleTail = vehicles?.find(vehicle => vehicle.vehicle_id === formData.vehicle_id_tail);
-   
-      const content = `🚨 รายงานอุบัติเหตุ AC ระดับ ${priorityIcon(formData.priority)}
-=====================
+      const selectedSite = sites?.find(
+        (site) => site.site_id === formData.site_id
+      );
+      const selectedDepartment = departments?.find(
+        (dept) => dept.department_id === formData.department_id
+      );
+      const selectedClient = clients?.find(
+        (client) => client.client_id === formData.client_id
+      );
+      const selectedOrigin = locations?.find(
+        (loc) => loc.location_id === formData.origin_id
+      );
+      const selectedProvince = provinces?.find(
+        (prov) => prov.province_id === formData.province_id
+      );
+      const selectedDistrict = districts?.find(
+        (dist) => dist.district_id === formData.district_id
+      );
+      const selectedSubDistrict = subdistricts?.find(
+        (sub) => sub.sub_district_id === formData.sub_district_id
+      );
+      const selectedDriverRole = driver_roles?.find(
+        (role) => role.driver_role_id === formData.driver_role_id
+      );
+      const selectedDriver = masterdrivers?.find(
+        (driver) => driver.driver_id === formData.driver_id
+      );
+      const selectedVehicleHead = vehicles?.find(
+        (vehicle) => vehicle.vehicle_id === formData.vehicle_id_head
+      );
+      const selectedVehicleTail = vehicles?.find(
+        (vehicle) => vehicle.vehicle_id === formData.vehicle_id_tail
+      );
 
-📄 เลขที่เอกสาร: ${formData.document_no_ac || 'ยังไม่ระบุ'}
-👤 ผู้รายงาน: ${userinfo?.name || 'ไม่ระบุ'}
-🏢 ศูนย์ปฏิบัติการ: ${selectedSite?.site_name_th || 'ไม่ระบุ'}
-🏛️ ฝ่าย: ${selectedDepartment?.department_name_th || 'ไม่ระบุ'}
-⏰ วันที่แจ้ง: ${formatDT(formData.record_datetime) || 'ไม่ระบุ'}
-🔥 วันที่เกิดเหตุ: ${formatDT(formData.incident_datetime) || 'ไม่ระบุ'}
-
-📍 ข้อมูลการขนส่ง
-=====================
-ลูกค้า: ${selectedClient?.client_name || 'ไม่ระบุ'}
-ต้นทาง: ${selectedOrigin?.location_name || 'ไม่ระบุ'}
-ปลายทาง: ${formData.destination || 'ไม่ระบุ'}
-สถานที่เกิดเหตุ: ${formData.case_location || 'ไม่ระบุ'}
-จังหวัด: ${selectedProvince?.province_name_th || 'ไม่ระบุ'}
-อำเภอ: ${selectedDistrict?.district_name_th || 'ไม่ระบุ'}
-ตำบล: ${selectedSubDistrict?.sub_district_name_th || 'ไม่ระบุ'}
-
-🚚 ข้อมูลรถและคนขับ
-=====================
-${selectedDriverRole?.role_name || 'ไม่ระบุ'}: ${selectedDriver ? `${selectedDriver.first_name} ${selectedDriver.last_name}` : 'ไม่ระบุ'}
-ทะเบียนรถหัว: ${selectedVehicleHead?.vehicle_number_plate || 'ไม่ระบุ'}
-ทะเบียนรถหาง: ${selectedVehicleTail?.vehicle_number_plate || 'ไม่ระบุ'}
-
-🩺 ผลการตรวจสอบ
-=====================
-ตรวจแอลกอฮอล์: ${formData.alcohol_test === 'yes' ? `ผลลัพธ์ (${formData.alcohol_test_result || 0} mg/%)` : formData.alcohol_test === 'no' ? 'ยังไม่ได้ตรวจ' : ''}
-ตรวจสารเสพติด: ${formData.drug_test === 'yes' ? `ผลลัพธ์ (${formData.drug_test_result || "ไม่พบ"})` : formData.drug_test === 'no' ? 'ยังไม่ได้ตรวจ' : ''}
-
-💔 ผู้ประสบเหตุ
-=====================
-เสียชีวิต: ${formData.fatalities || 0} คน
-บาดเจ็บส่งโรงพยาบาล: ${formData.injured_hospitalized || 0} คน
-บาดเจ็บไม่ส่งโรงพยาบาล: ${formData.injured_not_hospitalized || 0} คน
-
-📦 ความเสียหาย
-=====================
-สินค้าเสียหาย: ${formData.product_damage === 'yes' ? 'มี' : formData.product_damage === 'no' ? 'ไม่มี' : 'ไม่ระบุ'} ${formData.product_damage === 'yes' && formData.product_damage_details ? `รายละเอียด: ${formData.product_damage_details}` : ''}
-💵มูลค่าสินค้า (ประเมิน): ${formData.estimated_goods_damage_value ? `${Number(formData.estimated_goods_damage_value).toLocaleString()} บาท` : ''}
-💵มูลค่าสินค้า (จริง): ${formData.actual_goods_damage_value ? `${Number(formData.actual_goods_damage_value).toLocaleString()} บาท` : ''}
-
-รถเสียหาย: ${formData.truck_damage === 'yes' ? 'มี' : formData.truck_damage === 'no' ? 'ไม่มี' : ''} ${formData.truck_damage === 'yes' && formData.truck_damage_details ? `รายละเอียด: ${formData.truck_damage_details}` : ''}
-💵มูลค่ารถ (ประเมิน): ${formData.estimated_vehicle_damage_value ? `${Number(formData.estimated_vehicle_damage_value).toLocaleString()} บาท` : ''}
-💵มูลค่ารถ (จริง): ${formData.actual_vehicle_damage_value ? `${Number(formData.actual_vehicle_damage_value).toLocaleString()} บาท` : ''}
-
-📝 รายละเอียดเหตุการณ์
-=====================
-${formData.case_details || 'ไม่ระบุ'}
-
-`;
+     const content = useClipboard_ac({
+             formData,
+             userinfo,
+             selectedSite,
+             selectedDepartment,
+             selectedClient,
+             selectedOrigin,
+             selectedDriverRole,
+             selectedDriver,
+             selectedVehicleHead,
+             selectedVehicleTail,
+             selectedProvince,
+             selectedDistrict,
+             selectedSubDistrict    
+           });
 
       await navigator.clipboard.writeText(content);
       Swal.fire({
@@ -679,38 +593,106 @@ ${formData.case_details || 'ไม่ระบุ'}
         title: "คัดลอกข้อมูลสำเร็จ",
         text: "ข้อมูลได้ถูกคัดลอกไปยังคลิปบอร์ดแล้ว",
         timer: 2000,
-        showConfirmButton: false
+        showConfirmButton: false,
       });
     } catch (error) {
       console.error("Error copying to clipboard:", error);
       Swal.fire({
         icon: "error",
         title: "เกิดข้อผิดพลาด",
-        text: "ไม่สามารถคัดลอกข้อมูลได้"
+        text: "ไม่สามารถคัดลอกข้อมูลได้",
       });
     }
   };
 
+  const handleInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
+  ) => {
+    const { name, type, checked, value } = e.target as HTMLInputElement;
+
+    let processedValue: any = value;
+
+    if (type === "checkbox") {
+      processedValue = checked;
+    } else if (type === "number") {
+      processedValue = value === "" ? 0 : Number(value);
+    }
+
+    setFormData({
+      ...formData,
+      [name]: processedValue,
+    });
+  };
+
+  const handleRadioChange = (name: string, value: string) => {
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
+  };
+
   const validateRequiredFields = () => {
     const requiredFields = [
-      { field: 'site_id', label: 'ศูนย์ปฏิบัติการ', elementName: 'site_id' },
-      { field: 'department_id', label: 'ฝ่าย', elementName: 'department_id' },
-      { field: 'incident_datetime', label: 'วันที่และเวลา เกิดเหตุ', elementName: 'incident_datetime' },
-      { field: 'case_details', label: 'รายละเอียดเหตุการณ์', elementName: 'case_details' },
-      { field: 'client_id', label: 'ลูกค้า', elementName: 'client_id' },
-      { field: 'origin_id', label: 'ต้นทาง/แพล้น', elementName: 'origin_id' },
-      { field: 'destination', label: 'ปลายทาง', elementName: 'destination' },
-      { field: 'case_location', label: 'สถานที่เกิดเหตุ', elementName: 'case_location' },
-      { field: 'province_id', label: 'จังหวัด', elementName: 'province_id' },
-      { field: 'district_id', label: 'อำเภอ', elementName: 'district_id' },
-      { field: 'sub_district_id', label: 'ตำบล', elementName: 'sub_district_id' },
-      { field: 'vehicle_id_head', label: 'ทะเบียนรถหัว', elementName: 'vehicle_id_head' },
-      { field: 'vehicle_id_tail', label: 'ทะเบียนรถหาง', elementName: 'vehicle_id_tail' },
-      { field: 'driver_role_id', label: 'ประเภทคนขับ', elementName: 'driver_role_id' },
-      { field: 'driver_id', label: 'ชื่อ-สกุลคนขับ', elementName: 'driver_id' },
-      { field: 'alcohol_test', label: 'ตรวจแอลกอฮอล์', elementName: 'alcohol_test_radio' },
-      { field: 'drug_test', label: 'ตรวจสารเสพติด', elementName: 'drug_test_radio' },
-      { field: 'product_damage', label: 'ความเสียหายของสินค้า', elementName: 'product_damage_radio' }
+      { field: "site_id", label: "ศูนย์ปฏิบัติการ", elementName: "site_id" },
+      { field: "department_id", label: "ฝ่าย", elementName: "department_id" },
+      {
+        field: "incident_datetime",
+        label: "วันที่และเวลา เกิดเหตุ",
+        elementName: "incident_datetime",
+      },
+      {
+        field: "case_details",
+        label: "รายละเอียดเหตุการณ์",
+        elementName: "case_details",
+      },
+      { field: "client_id", label: "ลูกค้า", elementName: "client_id" },
+      // { field: "origin_id", label: "ต้นทาง/แพล้น", elementName: "origin_id" },
+      // { field: "destination", label: "ปลายทาง", elementName: "destination" },
+      {
+        field: "case_location",
+        label: "สถานที่เกิดเหตุ",
+        elementName: "case_location",
+      },
+      { field: "province_id", label: "จังหวัด", elementName: "province_id" },
+      { field: "district_id", label: "อำเภอ", elementName: "district_id" },
+      {
+        field: "sub_district_id",
+        label: "ตำบล",
+        elementName: "sub_district_id",
+      },
+      {
+        field: "vehicle_id_head",
+        label: "ทะเบียนรถหัว",
+        elementName: "vehicle_id_head",
+      },
+      {
+        field: "vehicle_id_tail",
+        label: "ทะเบียนรถหาง",
+        elementName: "vehicle_id_tail",
+      },
+      {
+        field: "driver_role_id",
+        label: "ประเภทคนขับ",
+        elementName: "driver_role_id",
+      },
+      { field: "driver_id", label: "ชื่อ-สกุลคนขับ", elementName: "driver_id" },
+      {
+        field: "alcohol_test",
+        label: "ตรวจแอลกอฮอล์",
+        elementName: "alcohol_test_radio",
+      },
+      {
+        field: "drug_test",
+        label: "ตรวจสารเสพติด",
+        elementName: "drug_test_radio",
+      },
+      {
+        field: "product_damage",
+        label: "ความเสียหายของสินค้า",
+        elementName: "product_damage_radio",
+      },
     ];
 
     const missingFields: string[] = [];
@@ -718,7 +700,13 @@ ${formData.case_details || 'ไม่ระบุ'}
 
     requiredFields.forEach(({ field, label, elementName }) => {
       const value = formData[field as keyof typeof formData];
-      if (!value || value === '' || value === 0 || value === undefined || value === null) {
+      if (
+        !value ||
+        value === "" ||
+        value === 0 ||
+        value === undefined ||
+        value === null
+      ) {
         missingFields.push(label);
         if (!firstMissingField) {
           firstMissingField = elementName;
@@ -726,13 +714,12 @@ ${formData.case_details || 'ไม่ระบุ'}
       }
     });
 
-    // ตรวจสอบฟิลด์เพิ่มเติมสำหรับการทดสอบแอลกอฮอล์
     if (formData.alcohol_test === "yes") {
       const alcoholResult = formData.alcohol_test_result;
       if (!alcoholResult && alcoholResult !== 0) {
-        missingFields.push('ผลตรวจแอลกอฮอล์ (ml/%)');
+        missingFields.push("ผลตรวจแอลกอฮอล์ (ml/%)");
         if (!firstMissingField) {
-          firstMissingField = 'alcohol_test_result';
+          firstMissingField = "alcohol_test_result";
         }
       }
     }
@@ -750,10 +737,10 @@ ${formData.case_details || 'ไม่ระบุ'}
 
     if (formData.product_damage === "yes") {
       const damageDetails = formData.product_damage_details;
-      if (!damageDetails || damageDetails.trim() === '') {
-        missingFields.push('รายละเอียดความเสียหายของสินค้า');
+      if (!damageDetails || damageDetails.trim() === "") {
+        missingFields.push("รายละเอียดความเสียหายของสินค้า");
         if (!firstMissingField) {
-          firstMissingField = 'product_damage_details';
+          firstMissingField = "product_damage_details";
         }
       }
     }
@@ -761,29 +748,25 @@ ${formData.case_details || 'ไม่ระบุ'}
     return { missingFields, firstMissingField };
   };
 
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const validation = validateRequiredFields();
-    
+
     if (validation.missingFields.length > 0) {
-      const missingFieldsList = validation.missingFields.join('\n• ');
+      const missingFieldsList = validation.missingFields.join("\n• ");
       Swal.fire({
-        icon: 'warning',
-        title: 'กรุณากรอกข้อมูล * ให้ครบถ้วน',
+        icon: "warning",
+        title: "กรุณากรอกข้อมูล * ให้ครบถ้วน",
         // html: `<div style="text-align: left;">กรุณากรอกข้อมูลในฟิลด์ดังต่อไปนี้:<br><br>• ${missingFieldsList.replace(/\n/g, '<br>')}</div>`,
-        confirmButtonText: 'ตกลง',
-        confirmButtonColor: '#d33'
+        confirmButtonText: "ตกลง",
+        confirmButtonColor: "#d33",
       });
       return;
     }
-    
+
     // console.log("AC Form submitted:", formData);
     try {
-
-  
-
       if (!userinfo?.id) {
         alert("ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่");
         setUserinfo(null);
@@ -804,7 +787,7 @@ ${formData.case_details || 'ไม่ระบุ'}
         reporter_id: userinfo.id,
       };
 
-      console.log("AC Form data to submit:", submitData);
+      // console.log("AC Form data to submit:", submitData);
 
       const res = await fetch("/api/document/ac", {
         method: "POST",
@@ -827,10 +810,10 @@ ${formData.case_details || 'ไม่ระบุ'}
         });
         setFormData((prev) => ({
           ...prev,
+          reporter_name: responseData.reporter_name,
           document_no_ac: responseData.document_no_ac,
           casestatus: responseData.casestatus,
         }));
-
         if (
           responseData.document_no_ac &&
           Object.keys(attachedFiles).length > 0
@@ -849,34 +832,34 @@ ${formData.case_details || 'ไม่ระบุ'}
       console.error("Error submitting AC form:", error);
     }
   };
-  
+
   const handleUpdate = async () => {
     const validation = validateRequiredFields();
     if (validation.missingFields.length > 0) {
-      const missingFieldsList = validation.missingFields.join('\n• ');
+      const missingFieldsList = validation.missingFields.join("\n• ");
       Swal.fire({
-        icon: 'warning',
+        icon: "warning",
         title: 'กรุณากรอกข้อมูลที่มีเครื่องหมาย " * " ให้ครบถ้วน',
         // html: `<div style="text-align: left;">กรุณากรอกข้อมูลในฟิลด์ดังต่อไปนี้:<br><br>• ${missingFieldsList.replace(/\n/g, '<br>')}</div>`,
-        confirmButtonText: 'ตกลง',
-        confirmButtonColor: '#d33'
+        confirmButtonText: "ตกลง",
+        confirmButtonColor: "#d33",
       });
       return;
     }
-    delete formData.priority; 
+    delete formData.priority;
 
     console.log("AC Form Update <><><><> :", formData);
 
     const res = await fetch("/api/document/ac", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(formData),
+    });
     const responseData = await res.json();
     console.log("API Response on Update:", responseData);
-    if(res.ok){
+    if (res.ok) {
       Swal.fire({
         icon: "success",
         title: "อัปเดตข้อมูลเรียบร้อย",
@@ -885,16 +868,16 @@ ${formData.case_details || 'ไม่ระบุ'}
         allowOutsideClick: false,
       });
     }
-     setFormData((prev) => ({
-          ...prev,
-          priority: responseData.priority,
-        }));
-        // console.log("Attached Files on Update:", attachedFiles);
-        if (responseData.document_no_ac && Object.keys(attachedFiles).length > 0) {
-          await attatchments_post(responseData.document_no_ac);
-        }
-        // }
-  }
+    setFormData((prev) => ({
+      ...prev,
+      priority: responseData.priority,
+    }));
+    // console.log("Attached Files on Update:", attachedFiles);
+    if (responseData.document_no_ac && Object.keys(attachedFiles).length > 0) {
+      await attatchments_post(responseData.document_no_ac);
+    }
+    // }
+  };
 
   const attatchments_post = async (document_no_ac: string) => {
     if (!document_no_ac) {
@@ -910,7 +893,7 @@ ${formData.case_details || 'ไม่ระบุ'}
               // Skip existing files
               return;
             }
-           
+
             const fileExtension = fileItem.file.name.split(".").pop();
             const randomNumber = String(
               Math.floor(Math.random() * 100)
@@ -922,8 +905,6 @@ ${formData.case_details || 'ไม่ระบุ'}
             });
             uploadFormData.append("files", renamedFile);
             uploadFormData.append("categories", category);
-
-        
           });
         }
       });
@@ -1034,7 +1015,7 @@ ${formData.case_details || 'ไม่ระบุ'}
                         }))}
                         value={formData?.site_id || ""}
                         onChange={(value) => handleSiteChange(Number(value))}
-                        disabled={formData?.casestatus !== "" }
+                        disabled={formData?.casestatus !== ""}
                         className="w-full"
                       />
                     </div>
@@ -1069,17 +1050,31 @@ ${formData.case_details || 'ไม่ระบุ'}
                         name="record_datetime"
                         disabled={isViewMode}
                         value={
-                          formData?.record_datetime
-                            ? formatDT(formData.record_datetime)
-                            : new Date().toLocaleString("en-UK", {
-                                year: "numeric",
-                                month: "2-digit",
-                                day: "2-digit",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                hour12: false,
-                              })
-                        }
+                            formData?.record_datetime
+                              ? (() => {
+                                  const date = new Date(formData.record_datetime);
+                                  const localDate = new Date(
+                                    date.getTime() +
+                                      date.getTimezoneOffset() * 60000
+                                  );
+                                  return localDate.toLocaleString("en-UK", {
+                                    year: "numeric",
+                                    month: "2-digit",
+                                    day: "2-digit",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    hour12: false,
+                                  });
+                                })()
+                              : new Date().toLocaleString("en-UK", {
+                                  year: "numeric",
+                                  month: "2-digit",
+                                  day: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  hour12: false,
+                                })
+                          }
                         readOnly
                         className="w-full text-sm p-2 bg-gray-100 border border-gray-300 rounded focus:outline-none text-black cursor-not-allowed disabled:text-blue-600 disabled:font-bold"
                       />
@@ -1087,7 +1082,8 @@ ${formData.case_details || 'ไม่ระบุ'}
 
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
-                        วันที่และเวลา เกิดเหตุ: <span className="text-red-500">*</span>
+                        วันที่และเวลา เกิดเหตุ:{" "}
+                        <span className="text-red-500">*</span>
                       </label>
                       <DateTimePicker24h
                         value={
@@ -1108,7 +1104,8 @@ ${formData.case_details || 'ไม่ระบุ'}
                   <div className="mt-6">
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
-                        รายละเอียดเหตุการณ์: <span className="text-red-500">*</span>
+                        รายละเอียดเหตุการณ์:{" "}
+                        <span className="text-red-500">*</span>
                       </label>
                       <textarea
                         name="case_details"
@@ -1160,7 +1157,7 @@ ${formData.case_details || 'ไม่ระบุ'}
 
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
-                        ต้นทาง/แพล้น: <span className="text-red-500">*</span>
+                        ต้นทาง/แพล้น: 
                       </label>
                       <SearchableSelect
                         options={(filteredData.locations || []).map(
@@ -1183,7 +1180,7 @@ ${formData.case_details || 'ไม่ระบุ'}
 
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
-                        ปลายทาง: <span className="text-red-500">*</span>
+                        ปลายทาง: 
                       </label>
                       <input
                         type="text"
@@ -1280,7 +1277,7 @@ ${formData.case_details || 'ไม่ระบุ'}
 
                     <div className="md:col-span-3">
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
-                        พื้นที่สถานีตำรวจ: 
+                        พื้นที่สถานีตำรวจ:
                       </label>
                       <input
                         type="text"
@@ -1333,7 +1330,7 @@ ${formData.case_details || 'ไม่ระบุ'}
 
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
-                        รหัสรถ: 
+                        รหัสรถ:
                       </label>
                       <SearchableSelect
                         options={Array.from(
@@ -1486,7 +1483,8 @@ ${formData.case_details || 'ไม่ระบุ'}
                       {formData.alcohol_test === "yes" && (
                         <div>
                           <label className="block text-gray-700 font-medium mb-1 text-sm">
-                            ผลตรวจแอลกอฮอล์ (ml/%): <span className="text-red-500">*</span>
+                            ผลตรวจแอลกอฮอล์ (ml/%):{" "}
+                            <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="number"
@@ -1551,7 +1549,7 @@ ${formData.case_details || 'ไม่ระบุ'}
                       {formData.drug_test === "yes" && (
                         <div>
                           <label className="block text-gray-700 font-medium mb-1 text-sm">
-                            ชนิดสารเสพติดที่ตรวจพบ: 
+                            ชนิดสารเสพติดที่ตรวจพบ:
                           </label>
                           <input
                             type="text"
@@ -1586,7 +1584,8 @@ ${formData.case_details || 'ไม่ระบุ'}
                       <div className="space-y-4">
                         <div>
                           <label className="block text-gray-700 font-medium mb-2 text-sm">
-                            สินค้าเสียหาย: <span className="text-red-500">*</span>
+                            สินค้าเสียหาย:{" "}
+                            <span className="text-red-500">*</span>
                           </label>
                           <div className="flex items-center space-x-6">
                             <label className="flex items-center">
@@ -1678,7 +1677,8 @@ ${formData.case_details || 'ไม่ระบุ'}
                         {formData.product_damage === "yes" && (
                           <div>
                             <label className="block text-gray-700 font-medium mb-1 text-sm">
-                              รายละเอียดความเสียหายของสินค้า: <span className="text-red-500">*</span>
+                              รายละเอียดความเสียหายของสินค้า:{" "}
+                              <span className="text-red-500">*</span>
                             </label>
                             <textarea
                               name="product_damage_details"
@@ -1700,7 +1700,8 @@ ${formData.case_details || 'ไม่ระบุ'}
                         {formData.truck_damage === "yes" && (
                           <div>
                             <label className="block text-gray-700 font-medium mb-1 text-sm">
-                              รายละเอียดความเสียหายของรถ: <span className="text-red-500">*</span>
+                              รายละเอียดความเสียหายของรถ:{" "}
+                              <span className="text-red-500">*</span>
                             </label>
                             <textarea
                               name="truck_damage_details"
@@ -1733,88 +1734,87 @@ ${formData.case_details || 'ไม่ระบุ'}
                       </div>
                        )} */}
 
-                    
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-gray-700 font-medium mb-1 text-sm">
-                        ประเมินค่าเสียหายสินค้า (บาท):
-                      </label>
-                      <input
-                        type="number"
-                        name="estimated_goods_damage_value"
-                        min="0"
-                        step="0.01"
-                        onChange={handleInputChange}
-                        disabled={isViewMode}
-                        value={formData?.estimated_goods_damage_value || ""}
-                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${
-                          isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
-                        }`}
-                      />
-                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-gray-700 font-medium mb-1 text-sm">
+                          ประเมินค่าเสียหายสินค้า (บาท):
+                        </label>
+                        <input
+                          type="number"
+                          name="estimated_goods_damage_value"
+                          min="0"
+                          step="0.01"
+                          onChange={handleInputChange}
+                          disabled={isViewMode}
+                          value={formData?.estimated_goods_damage_value || ""}
+                          className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${
+                            isViewMode
+                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                              : ""
+                          }`}
+                        />
+                      </div>
 
-                    <div>
-                      <label className="block text-gray-700 font-medium mb-1 text-sm">
-                        ประเมินค่าเสียหายรถ (บาท):
-                      </label>
-                      <input
-                        type="number"
-                        name="estimated_vehicle_damage_value"
-                        min="0"
-                        step="0.01"
-                        onChange={handleInputChange}
-                        disabled={isViewMode}
-                        value={formData?.estimated_vehicle_damage_value || ""}
-                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${
-                          isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
-                        }`}
-                      />
-                    </div>
+                      <div>
+                        <label className="block text-gray-700 font-medium mb-1 text-sm">
+                          ประเมินค่าเสียหายรถ (บาท):
+                        </label>
+                        <input
+                          type="number"
+                          name="estimated_vehicle_damage_value"
+                          min="0"
+                          step="0.01"
+                          onChange={handleInputChange}
+                          disabled={isViewMode}
+                          value={formData?.estimated_vehicle_damage_value || ""}
+                          className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${
+                            isViewMode
+                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                              : ""
+                          }`}
+                        />
+                      </div>
 
-                    <div>
-                      <label className="block text-gray-700 font-medium mb-1 text-sm">
-                        ค่าเสียหายสินค้าจริง (บาท):
-                      </label>
-                      <input
-                        type="number"
-                        name="actual_goods_damage_value"
-                        min="0"
-                        step="0.01"
-                        onChange={handleInputChange}
-                        disabled={isViewMode}
-                        value={formData?.actual_goods_damage_value || ""}
-                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${
-                          isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
-                        }`}
-                      />
-                    </div>
+                      <div>
+                        <label className="block text-gray-700 font-medium mb-1 text-sm">
+                          ค่าเสียหายสินค้าจริง (บาท):
+                        </label>
+                        <input
+                          type="number"
+                          name="actual_goods_damage_value"
+                          min="0"
+                          step="0.01"
+                          onChange={handleInputChange}
+                          disabled={isViewMode}
+                          value={formData?.actual_goods_damage_value || ""}
+                          className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${
+                            isViewMode
+                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                              : ""
+                          }`}
+                        />
+                      </div>
 
-                    <div>
-                      <label className="block text-gray-700 font-medium mb-1 text-sm">
-                        ค่าเสียหายรถจริง (บาท):
-                      </label>
-                      <input
-                        type="number"
-                        name="actual_vehicle_damage_value"
-                        min="0"
-                        step="0.01"
-                        onChange={handleInputChange}
-                        disabled={isViewMode}
-                        value={formData?.actual_vehicle_damage_value || ""}
-                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${
-                          isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
-                        }`}
-                      />
+                      <div>
+                        <label className="block text-gray-700 font-medium mb-1 text-sm">
+                          ค่าเสียหายรถจริง (บาท):
+                        </label>
+                        <input
+                          type="number"
+                          name="actual_vehicle_damage_value"
+                          min="0"
+                          step="0.01"
+                          onChange={handleInputChange}
+                          disabled={isViewMode}
+                          value={formData?.actual_vehicle_damage_value || ""}
+                          className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${
+                            isViewMode
+                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                              : ""
+                          }`}
+                        />
+                      </div>
                     </div>
-                  </div>
                   </div>
                 </div>
 
@@ -1917,7 +1917,7 @@ ${formData.case_details || 'ไม่ระบุ'}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
-                        ชื่อ-สกุลคู่กรณี: 
+                        ชื่อ-สกุลคู่กรณี:
                       </label>
                       <input
                         type="text"
@@ -2061,9 +2061,6 @@ ${formData.case_details || 'ไม่ระบุ'}
                   </div>
                 </div>
 
-              
-            
-
                 <div className="border-t border-gray-400 md:col-span-3"></div>
                 {/*แนบเอกสาร */}
                 <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 font-bold mb-3 text-sm">
@@ -2077,6 +2074,7 @@ ${formData.case_details || 'ไม่ระบุ'}
                     onFilesChange={handleFilesFromUpload}
                     disabled={isViewMode}
                     existingFiles={attachedFiles}
+                    case="ac"
                   />
                 </div>
                 {/* Button Submit */}
@@ -2090,15 +2088,16 @@ ${formData.case_details || 'ไม่ระบุ'}
                       คัดลอกข้อมูล
                     </button>
                   )}
-                  {formData?.casestatus !== "" && userinfo.name == formData?.reporter_name && (
-                    <button
-                      type="button"
-                      onClick={handleUpdate}
-                      className="py-2 px-4 cursor-pointer rounded-lg text-sm inline-block bg-gray-600 hover:bg-gray-700 focus:text-gray-600 focus:bg-gray-200 text-white font-semibold leading-loose transition duration-200"
-                    >
-                      อัปเดตข้อมูล
-                    </button>
-                  )}
+                  {formData?.casestatus !== "" &&
+                    userinfo.name == formData?.reporter_name && (
+                      <button
+                        type="button"
+                        onClick={handleUpdate}
+                        className="py-2 px-4 cursor-pointer rounded-lg text-sm inline-block bg-gray-600 hover:bg-gray-700 focus:text-gray-600 focus:bg-gray-200 text-white font-semibold leading-loose transition duration-200"
+                      >
+                        อัปเดตข้อมูล
+                      </button>
+                    )}
                   {formData?.casestatus == "" && (
                     <button
                       type="submit"

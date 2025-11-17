@@ -37,9 +37,7 @@ export default function Login() {
     
     setIsLoading(true);
     
-    try {
-      console.log('กำลังเข้าสู่ระบบด้วย:', { username, password });
-      
+    try {   
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -61,7 +59,6 @@ export default function Login() {
         
           localStorage.setItem('authToken', data.access_token);
           localStorage.setItem('userData', JSON.stringify({ ...data.user, rememberMe , password }));
-          
           
           fetchDropdownData();
           setTimeout(() => {

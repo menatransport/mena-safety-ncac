@@ -21,6 +21,7 @@ interface DropdownlistStore extends DropdownlistData {
   fetchDropdownData: () => Promise<void>;
   clearData: () => void;
   setData: (data: Partial<DropdownlistData>) => void;
+  getData: () => DropdownlistData;
 }
 
 export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
@@ -42,6 +43,14 @@ export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
 
   // Actions
   fetchDropdownData: async () => {
+    const state = get();
+    const hasData = state.sites && state.sites.length > 0;
+    console.log('state : ', state.lastUpdated);
+    if (hasData && state.lastUpdated) {
+      console.log('ข้อมูล dropdown มีอยู่แล้ว ไม่ต้องดึงใหม่');
+      return;
+    }
+
     set({ isLoading: true, error: undefined });
 
     const list_api = [
@@ -60,38 +69,46 @@ export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
 
     try {
       const authToken = localStorage.getItem('authToken');
-      
+
       if (!authToken) {
         alert('ไม่พบการยืนยันตัวตน กรุณาเข้าสู่ระบบใหม่');
         window.location.href = '/login';
         throw new Error('ไม่พบ Token การยืนยันตัวตน');
-      } 
-      const fetchPromises = list_api.map(async (api) => { 
-        const response = await fetch("/api/list", {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${authToken}`,
-            "X-Api-Path": api,
-          },
-        });
+      }
+      async function parallelBatches(list: string[], batchSize: number, token: string) {
+        const result = [];
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch ${api}: ${response.status} ${response.statusText}`);
+        for (let i = 0; i < list.length; i += batchSize) {
+          const batch = list.slice(i, i + batchSize);
+
+          const res = await Promise.all(
+            batch.map((api) =>
+              fetch("/api/list", {
+                method: "GET",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${token}`,
+                  "X-Api-Path": api,
+                },
+              }).then((r) => r.json())
+            )
+          );
+
+          result.push(...res);
         }
 
-        return response.json();
-      });
+        return result;
+      }
 
-      const data = await Promise.all(fetchPromises);
+      const data = await parallelBatches(list_api, 3, authToken);
       const dropdownObj: DropdownlistData = {};
       list_api.forEach((api, index) => {
         let key = api.substring(1);
         let sortedData = data[index];
-        
+
         // Sort data based on the type
         if (Array.isArray(sortedData)) {
-          switch(key) {
+          switch (key) {
             case "sites":
               sortedData = sortedData.sort((a, b) => (a.site_name_th || '').localeCompare(b.site_name_th || ''));
               break;
@@ -134,8 +151,8 @@ export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
               break;
           }
         }
-        
-        if(key === "sub-districts") {
+
+        if (key === "sub-districts") {
           dropdownObj["subdistricts"] = sortedData;
         } else {
           dropdownObj[key as keyof DropdownlistData] = sortedData;
@@ -160,6 +177,11 @@ export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
       ...data,
       lastUpdated: new Date().toISOString()
     }));
+  },
+
+  getData: () => {
+    const val = get();
+    return val;
   },
 
   clearData: () => {

@@ -99,3 +99,22 @@ export interface caseReport_AC {
     accident_case_id: number,
     document_no_ac: string
 }
+
+export interface investigate_NC {
+ root_cause_analysis: string,
+  claim_type: string,
+  insurance_claim: number,
+  product_resellable: number,
+  remaining_damage_cost: number,
+  driver_cost: number,
+  company_cost: number,
+  corrective_actions: [
+    {
+      id: number,
+      corrective_action: string,
+      pic_contract: string,
+      plan_date: string,
+      action_completed_date: string
+    }
+  ]
+}

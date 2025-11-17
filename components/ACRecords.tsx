@@ -230,8 +230,6 @@ export const ACRecordsComponent = () => {
         }
       });
 
-      console.log("AC Search params:", params.toString());
-
       const response = await fetch(`/api/document/ac?${params.toString()}`);
 
       if (response.ok) {
@@ -266,7 +264,7 @@ export const ACRecordsComponent = () => {
   const clearFilters = () => {
     setFilterCriteria({});
     setDateRangePreset("7days");
-    handleDatePresetChange("7days"); // Reset to 7 days back
+    handleDatePresetChange("7days"); 
   };
 
   // Sort function
@@ -471,8 +469,6 @@ export const ACRecordsComponent = () => {
   };
 
   const handleRouter = (id: string) => {
-
-    // const selectedRecord = records.find((record) => record.id === id);
 
     window.open(`/ac-form?doc=${id}`, "_blank");
   };
@@ -1017,7 +1013,7 @@ export const ACRecordsComponent = () => {
                   ? Array.from({ length: 5 }).map((_, index) => (
                       <tr key={`loading-${index}`} className="animate-pulse">
                         <td className="px-6 py-4">
-                          <div className="h-4 bg-gray-200 rounded w-24"></div>
+                          <div className="h-4 bg-gray-200 rounded w-32"></div>
                         </td>
                         <td className="px-6 py-4">
                           <div className="h-4 bg-gray-200 rounded w-24"></div>
@@ -1093,12 +1089,12 @@ export const ACRecordsComponent = () => {
                         <td className="px-6 py-4 text-xs text-gray-600">
                           {record.department || "ไม่ระบุ"}
                         </td>
-                        <td className="px-6 py-4 text-xs text-gray-600">
+                        <td className="px-6 py-4 text-xs text-gray-600 max-w-[140px] truncate">
                           {record.driver || "ไม่ระบุ"}
                         </td>
                         <td className="px-6 py-4">
                           <span
-                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(
+                            className={`px-3 py-1 rounded-full text-xs font-medium text-center min-w-[100px] shadow-sm border ${getStatusColor(
                               record.status
                             )}`}
                           >

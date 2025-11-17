@@ -86,7 +86,6 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
     // ดึง URL parameters หลังจาก component mount
     const params = new URLSearchParams(window.location.search);
     const currentDocId = params.get("doc");
-    console.log("Document ID from URL:", currentDocId);
     
     if (currentDocId) {
       setSidebarCollapsed(true);

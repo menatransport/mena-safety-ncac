@@ -230,8 +230,6 @@ export const NCRecordsComponent = () => {
         }
       });
 
-      console.log("Search params:", params.toString());
-
       const response = await fetch(`/api/document/nc?${params.toString()}`);
 
       if (response.ok) {
@@ -1077,7 +1075,7 @@ export const NCRecordsComponent = () => {
                         <td className="px-6 py-4 text-xs text-gray-600">
                           {record.department || "ไม่ระบุ"}
                         </td>
-                        <td className="px-6 py-4 text-xs text-gray-600">
+                        <td className="px-6 py-4 text-xs text-gray-600  max-w-[140px] truncate">
                           {record.driver || "ไม่ระบุ"}
                         </td>
                         <td className="px-6 py-4">

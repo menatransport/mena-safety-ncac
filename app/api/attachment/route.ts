@@ -79,8 +79,7 @@ export async function GET(req: NextRequest) {
     });
 
     const response = await s3.send(listCommand);
-    
-    // สร้าง signed URL สำหรับแต่ละไฟล์
+
     const filesWithUrls = await Promise.all(
       (response.Contents || []).map(async (obj) => {
         if (!obj.Key) return null;
