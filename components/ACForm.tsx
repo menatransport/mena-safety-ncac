@@ -9,6 +9,7 @@ import { FileUpload } from "./FileUpload";
 import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import { useClipboard_ac } from "@/lib/clipboard";
+import { LoaderPage } from "./LoaderPage";
 
 interface FileWithId {
   id: string;
@@ -40,7 +41,6 @@ export const ACFormComponent = () => {
     getData,
   } = useDropdownStore();
 
-  // Form State - ปรับปรุงให้มี default values ที่ถูกต้อง
   const [formData, setFormData] = useState<Partial<caseReport_AC>>({
     alcohol_test: "",
     casestatus: "",
@@ -57,12 +57,15 @@ export const ACFormComponent = () => {
     alcohol_test_result: 0,
   });
 
-  // UI State
+
+
+
   const [displayPIC, setDisplayPIC] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
   const [isLoadingFormData, setIsLoadingFormData] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<CategoryFiles>({});
   const [userinfo, setUserinfo] = useState<any>(null);
+  const [docValue, setDocValue] = useState<any[]>([]);
 
   // Filtered Data for Site Dependencies
   const [filteredData, setFilteredData] = useState<{
@@ -118,7 +121,7 @@ export const ACFormComponent = () => {
         // console.log("Setting userinfo:", newUserinfo);
         setUserinfo(newUserinfo);
         if (sites?.length == 0) {
-        await fetchDropdownData();
+          await fetchDropdownData();
         }
         getvaluesparams(newUserinfo.name);
       } catch (error) {
@@ -129,7 +132,6 @@ export const ACFormComponent = () => {
 
     loadUserInfo();
   }, []);
-
 
   const searchParams = useSearchParams();
 
@@ -178,11 +180,6 @@ export const ACFormComponent = () => {
     } else {
       // ถ้าไม่มี doc parameter ให้ reset title กลับเป็นปกติ
       document.title = "Mena Safety - AC Form";
-
-      setFormData((prev) => ({
-        ...prev,
-        record_datetime: new Date().toISOString(),
-      }));
     }
   };
 
@@ -308,7 +305,6 @@ export const ACFormComponent = () => {
 
       if (res.ok) {
         const data = await res.json();
-        // console.log("GET รูปภาพที่ได้:", data.files);
 
         const categorizedFiles: CategoryFiles = {};
 
@@ -351,13 +347,10 @@ export const ACFormComponent = () => {
     }
   };
 
-  // ========== File Handling Functions ==========
   const handleFilesFromUpload = (files: CategoryFiles) => {
-    // console.log("Files received from FileUpload component:", files);
     setAttachedFiles(files);
   };
 
-  // ========== Site Handling Functions ==========
   const handleSiteChange = (siteId: number) => {
     setFormData((prev) => ({ ...prev, site_id: siteId }));
 
@@ -383,8 +376,6 @@ export const ACFormComponent = () => {
         // vehicles: vehicles || [],
       }));
     }
-
-    // Reset dependent fields
     setFormData((prev) => ({
       ...prev,
       driver_id: "",
@@ -392,7 +383,6 @@ export const ACFormComponent = () => {
     }));
   };
 
-  // Update filtered data when store data changes
   useEffect(() => {
     if (!formData.site_id) {
       setFilteredData((prev) => ({
@@ -533,7 +523,6 @@ export const ACFormComponent = () => {
     }
   };
 
-
   const clipboard = async () => {
     try {
       // หาข้อมูลจาก dropdown stores
@@ -571,21 +560,21 @@ export const ACFormComponent = () => {
         (vehicle) => vehicle.vehicle_id === formData.vehicle_id_tail
       );
 
-     const content = useClipboard_ac({
-             formData,
-             userinfo,
-             selectedSite,
-             selectedDepartment,
-             selectedClient,
-             selectedOrigin,
-             selectedDriverRole,
-             selectedDriver,
-             selectedVehicleHead,
-             selectedVehicleTail,
-             selectedProvince,
-             selectedDistrict,
-             selectedSubDistrict    
-           });
+      const content = useClipboard_ac({
+        formData,
+        userinfo,
+        selectedSite,
+        selectedDepartment,
+        selectedClient,
+        selectedOrigin,
+        selectedDriverRole,
+        selectedDriver,
+        selectedVehicleHead,
+        selectedVehicleTail,
+        selectedProvince,
+        selectedDistrict,
+        selectedSubDistrict,
+      });
 
       await navigator.clipboard.writeText(content);
       Swal.fire({
@@ -757,7 +746,7 @@ export const ACFormComponent = () => {
       const missingFieldsList = validation.missingFields.join("\n• ");
       Swal.fire({
         icon: "warning",
-        title: "กรุณากรอกข้อมูล * ให้ครบถ้วน",
+        title: 'กรุณากรอกข้อมูลที่มีเครื่องหมาย " * " ให้ครบถ้วน',
         // html: `<div style="text-align: left;">กรุณากรอกข้อมูลในฟิลด์ดังต่อไปนี้:<br><br>• ${missingFieldsList.replace(/\n/g, '<br>')}</div>`,
         confirmButtonText: "ตกลง",
         confirmButtonColor: "#d33",
@@ -773,18 +762,11 @@ export const ACFormComponent = () => {
         return;
       }
 
-      const now = new Date();
-      const localDateTime = new Date(
-        now.getTime() - now.getTimezoneOffset() * 60000
-      ).toISOString();
-
-      // console.log("userData from localStorage:", userinfo.id);
-      // console.log("Local DateTime:", localDateTime);
-
       const submitData = {
         ...formData,
-        record_date: localDateTime,
+        record_datetime: formatLocalDateTime(new Date()),
         reporter_id: userinfo.id,
+        docs: [docValue as any]
       };
 
       // console.log("AC Form data to submit:", submitData);
@@ -798,7 +780,7 @@ export const ACFormComponent = () => {
       });
 
       const responseData = await res.json();
-      console.log("API Response:", responseData);
+      // console.log("API Response:", responseData);
 
       if (res.ok) {
         Swal.fire({
@@ -820,9 +802,6 @@ export const ACFormComponent = () => {
         ) {
           await attatchments_post(responseData.document_no_ac);
         }
-
-        // Optional: Reload page after successful submission
-        // window.location.reload();
       } else {
         throw new Error(
           responseData.message || `HTTP ${res.status}: ${res.statusText}`
@@ -830,13 +809,18 @@ export const ACFormComponent = () => {
       }
     } catch (error) {
       console.error("Error submitting AC form:", error);
+      alert(
+        `เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
   };
 
   const handleUpdate = async () => {
     const validation = validateRequiredFields();
     if (validation.missingFields.length > 0) {
-      const missingFieldsList = validation.missingFields.join("\n• ");
+      // const missingFieldsList = validation.missingFields.join("\n• ");
       Swal.fire({
         icon: "warning",
         title: 'กรุณากรอกข้อมูลที่มีเครื่องหมาย " * " ให้ครบถ้วน',
@@ -846,16 +830,17 @@ export const ACFormComponent = () => {
       });
       return;
     }
+
     delete formData.priority;
+    delete formData.record_datetime;
 
-    console.log("AC Form Update <><><><> :", formData);
-
+    const data = { ...formData, docs: [docValue as any] };
     const res = await fetch("/api/document/ac", {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(formData),
+      body: JSON.stringify(data),
     });
     const responseData = await res.json();
     console.log("API Response on Update:", responseData);
@@ -932,35 +917,39 @@ export const ACFormComponent = () => {
     }
   };
 
+  // ========== Helper Functions ==========
+  const formatLocalDateTime = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const seconds = String(date.getSeconds()).padStart(2, "0");
+
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+  };
+
+  const formatLocalDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+  };
+
   // ========== Loading States ==========
   if (isLoadingFormData || (isDropdownLoading && searchParams.get("doc"))) {
-    return (
-      <div className="min-h-screen bg-[#eef8ef] flex items-center justify-center">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-          <div className="text-center">
-            <p className="text-gray-700 font-medium text-lg">
-              กำลังโหลดข้อมูลฟอร์ม AC...
-            </p>
-            <p className="text-gray-500 text-sm mt-1">
-              {isDropdownLoading
-                ? "กำลังโหลดรายการข้อมูล"
-                : "กำลังโหลดข้อมูลเอกสาร"}
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+    return <LoaderPage />;
   }
 
   return (
     <>
-      <div className="min-h-screen bg-[#eef8ef]">
+      <div className="min-h-screen bg-[#d1ffe1]">
         <div className="p-6 space-y-6">
           <div className="flex items-center justify-center">
             <div
               id="printable-area"
-              className="md:w-4xl sm:w-full mx-4 space-y-6 bg-white p-8 rounded-xl shadow-sm border border-gray-500"
+              className="md:w-4xl sm:w-full m-4 space-y-6 bg-white p-8 rounded-xl shadow-sm border border-gray-500"
             >
               <div className="text-center border-b border-gray-400 pb-4 mb-4">
                 <h2 className="text-xl font-bold text-gray-800">
@@ -1049,32 +1038,9 @@ export const ACFormComponent = () => {
                         type="text"
                         name="record_datetime"
                         disabled={isViewMode}
-                        value={
-                            formData?.record_datetime
-                              ? (() => {
-                                  const date = new Date(formData.record_datetime);
-                                  const localDate = new Date(
-                                    date.getTime() +
-                                      date.getTimezoneOffset() * 60000
-                                  );
-                                  return localDate.toLocaleString("en-UK", {
-                                    year: "numeric",
-                                    month: "2-digit",
-                                    day: "2-digit",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                    hour12: false,
-                                  });
-                                })()
-                              : new Date().toLocaleString("en-UK", {
-                                  year: "numeric",
-                                  month: "2-digit",
-                                  day: "2-digit",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                  hour12: false,
-                                })
-                          }
+                        value={formatLocalDateTime(
+                          new Date(formData.record_datetime || "")
+                        )}
                         readOnly
                         className="w-full text-sm p-2 bg-gray-100 border border-gray-300 rounded focus:outline-none text-black cursor-not-allowed disabled:text-blue-600 disabled:font-bold"
                       />
@@ -1157,7 +1123,7 @@ export const ACFormComponent = () => {
 
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
-                        ต้นทาง/แพล้น: 
+                        ต้นทาง/แพล้น:
                       </label>
                       <SearchableSelect
                         options={(filteredData.locations || []).map(
@@ -1180,7 +1146,7 @@ export const ACFormComponent = () => {
 
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
-                        ปลายทาง: 
+                        ปลายทาง:
                       </label>
                       <input
                         type="text"
@@ -2070,13 +2036,15 @@ export const ACFormComponent = () => {
                   </p>
                 </div>
                 <div className="p-6">
-                  <FileUpload
-                    onFilesChange={handleFilesFromUpload}
-                    disabled={isViewMode}
-                    existingFiles={attachedFiles}
-                    case="ac"
-                  />
-                </div>
+                      <FileUpload
+                        onFilesChange={handleFilesFromUpload}
+                        disabled={isViewMode}
+                        existingFiles={attachedFiles}
+                        onChangedocs={(docs) => setDocValue(docs as any)}
+                        docs={formData.docs?.[0]}
+                        case="ac"
+                      />
+                    </div>
                 {/* Button Submit */}
                 <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
                   {formData?.casestatus !== "" && (

@@ -6,7 +6,7 @@ export async function POST(request: Request) {
     console.log("POST request data:",data);
     const document_no = request.headers.get("document_no") || "";
     console.log("Document No from headers:", document_no);
-    const res = await fetch(`https://api-ncac.onrender.com/case-report-investigate/${document_no}`, {
+    const res = await fetch(`${process.env.nc_investigation_url}/${document_no}`, {
       method: 'POST',
       headers: {  
         'Content-Type': 'application/json',
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const document_no = searchParams.get('document_no');
 
-    const res = await fetch(`https://api-ncac.onrender.com/case-report-investigate/${document_no}`, {
+    const res = await fetch(`${process.env.nc_investigation_url}/${document_no}`, {
       method: 'GET',
       headers: {  
         'Content-Type': 'application/json',

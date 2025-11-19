@@ -398,15 +398,15 @@ export const ACRecordsComponent = () => {
   const endIndex = startIndex + recordsPerPage;
   const currentRecords = filteredRecords.slice(startIndex, endIndex);
 
-  const getStatusColor = (status: string) => {
+const getStatusColor = (status: string) => {
     switch (status) {
-      case "canceled":
+      case "Voided":
         return "bg-red-100 text-red-800 border-red-200";
-      case "OPEN":
-        return "bg-blue-100 text-blue-800 border-blue-200";
-      case "pending":
+      // case (status.startsWith("W")):
+      //   return "bg-blue-100 text-blue-800 border-blue-200";
+      case "Pending":
         return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "completed":
+      case "Completed Investigate":
         return "bg-green-100 text-green-800 border-green-200";
       default:
         return "bg-gray-100 text-gray-800 border-gray-200";
@@ -474,8 +474,8 @@ export const ACRecordsComponent = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#eef8ef] p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-[#d1ffe1] p-6">
+      <div className="max-w-7xl mx-auto m-4">
         {/* Filter Section */}
         <div className="bg-white z-[10] relative backdrop-blur-md rounded-2xl shadow-xl border border-white/30 p-6 mb-6">
           <div className="flex justify-between items-center mb-4">
@@ -752,13 +752,12 @@ export const ACRecordsComponent = () => {
                 </label>
                 <SearchableSelect
                   options={[
-                    { value: "OPEN", label: "เปิด (OPEN)" },
+                    { value: "Pending", label: "Pending" },
                     {
-                      value: "In Progress",
-                      label: "กำลังดำเนินการ (In Progress)",
+                      value: "Completed Investigate",
+                      label: "Completed Investigate",
                     },
-                    { value: "Completed", label: "เสร็จสิ้น (Completed)" },
-                    { value: "Canceled", label: "ยกเลิก (Canceled)" },
+                    { value: "Voided", label: "Voided" },
                   ]}
                   value={filterCriteria.casestatus || ""}
                   onChange={(value) =>
@@ -930,7 +929,7 @@ export const ACRecordsComponent = () => {
               <thead className="bg-gray-300">
                 <tr>
                   <th
-                    className="px-6 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
+                    className="w-50 px-6 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
                     onClick={() => handleSort("id")}
                   >
                     <div className="flex items-center gap-2">
@@ -1094,7 +1093,7 @@ export const ACRecordsComponent = () => {
                         </td>
                         <td className="px-6 py-4">
                           <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium text-center min-w-[100px] shadow-sm border ${getStatusColor(
+                            className={`flex justify-center px-3 py-1 rounded-full text-xs font-medium text-center shadow-sm border ${getStatusColor(
                               record.status
                             )}`}
                           >

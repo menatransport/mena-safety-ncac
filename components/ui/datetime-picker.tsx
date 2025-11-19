@@ -55,7 +55,7 @@ export function DateTimePicker24h (values: {
         today.setHours(0, 0, 0, 0);
       }
       setDate(today);
-      console.log("Setting date to today:", today);
+      // console.log("Setting date to today:", today);
       values.onChange?.(today);
     }
   };

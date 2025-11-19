@@ -4,7 +4,7 @@ export async function POST(request: Request) {
   try {
     const { username, password } = await request.json();
 
-    const res = await fetch('https://api-ncac.onrender.com/auth/login', {
+    const res = await fetch(process.env.login_url!, {
       method: 'POST',
       headers: {  
         'Content-Type': 'application/json',

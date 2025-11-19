@@ -3,11 +3,11 @@ import { S3Client, PutObjectCommand, ListObjectsV2Command, GetObjectCommand, Del
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const s3 = new S3Client({
-  region: 'sgp1',
-  endpoint: 'https://sgp1.digitaloceanspaces.com', 
+  region: process.env.region,
+  endpoint: process.env.endpoint, 
   credentials: {
-    accessKeyId: 'DO00FB9KEAJ6KG2A8TTK',
-    secretAccessKey: 'LLrB/5TOpWirsxbCAPSiQVq4EtVJ3CNnIrFt0nim/9c',
+    accessKeyId: process.env.accessKeyId!,
+    secretAccessKey: process.env.secretAccessKey!,
   },
 });
 

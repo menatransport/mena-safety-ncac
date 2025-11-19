@@ -15,7 +15,7 @@ import {
 
 const menuItems = [
   {
-    title: "Overview",
+    title: "ภาพรวมระบบ",
     url: "/overview",
     icon: LayoutDashboard
   }
@@ -259,9 +259,9 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                       <button
                         key={item.title}
                         onClick={() => handleNavigation(item.url)}
-                        className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
+                        className={`w-full flex items-center space-x-3 px-3 py-2 rounded-sm text-sm transition-all duration-200 ${
                           isActive(item.url)
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-sm'
+                            ? 'bg-teal-100 text-teal-800 scale-105 border border-teal-200 shadow-sm'
                             : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
                         }`}
                       >
@@ -308,9 +308,9 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                       <button
                         key={item.title}
                         onClick={() => handleNavigation(item.url)}
-                        className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
+                        className={`w-full flex items-center space-x-3 px-3 py-2 rounded-sm text-sm transition-all duration-200 ${
                           isActive(item.url)
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-sm'
+                            ? 'bg-teal-100 text-teal-800 scale-105 border border-teal-200 shadow-sm'
                             : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
                         }`}
                       >
@@ -375,7 +375,7 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
         )}
         
         {/* Top Header Bar - Fixed */}
-        <header className="bg-gradient-to-r from-white via-emerald-50 to-emerald-100 shadow-lg border-b border-emerald-200 p-3 md:p-4 fixed top-0 right-0 left-0 z-20 backdrop-blur-sm" 
+        <header className="bg-gradient-to-r from-white via-white to-white shadow-lg border-b border-emerald-200 p-3 md:p-4 fixed top-0 right-0 left-0 z-20 backdrop-blur-sm" 
                 style={{marginLeft: isMobile ? '0px' : sidebarCollapsed ? '64px' : '256px'}}>
           <div className="flex items-center justify-between">
             
@@ -387,7 +387,7 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                     onClick={() => setShowUserInfo(!showUserInfo)}
                     className="flex items-center space-x-2 p-2 rounded-lg hover:bg-white/50 transition-all duration-200"
                   >
-                    <div className="w-8 h-8 bg-gradient-to-r from-emerald-600 to-emerald-700 rounded-full flex items-center justify-center shadow-sm">
+                    <div className={`w-8 h-8 bg-gradient-to-r ${userInfo?.employee_id % 2 === 0 ? 'from-blue-600 to-blue-700' : 'from-green-600 to-green-700'} rounded-full flex items-center justify-center shadow-sm`}>
                       <span className="text-white text-xs font-bold">{userInfo?.firstname.charAt(0)}{userInfo?.lastname.charAt(0)}</span>
                     </div>
                     <div className="flex items-center space-x-1">
@@ -430,12 +430,12 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                 </div>
               ) : (
                 <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 bg-gradient-to-r from-emerald-600 to-emerald-700 rounded-full flex items-center justify-center shadow-sm">
+                  <div className={`w-10 h-10 bg-gradient-to-r ${userInfo?.employee_id % 2 === 0 ? 'from-blue-600 to-blue-700' : 'from-green-600 to-green-700'} rounded-full flex items-center justify-center shadow-sm`}>
                     <span className="text-white text-sm font-bold">{userInfo?.firstname.charAt(0)}{userInfo?.lastname.charAt(0)}</span>
                   </div>
                   <div>
                     <h1 className="text-lg font-semibold text-gray-900">
-                      {userInfo?.firstname} {userInfo?.lastname} <span className="text-emerald-600">{userInfo?.employee_id}</span>
+                      {userInfo?.firstname} {userInfo?.lastname} <span className={`${userInfo?.employee_id % 2 === 0 ? 'text-blue-800' : 'text-green-800'}`}>{userInfo?.employee_id}</span>
                     </h1>
                     <p className="text-sm text-gray-600">
                       {userInfo?.position} • {userInfo?.department} • ระดับ {userInfo?.position_level_id}
@@ -456,14 +456,87 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                 </div>
               )}
               
-              {/* Notifications */}
-              <div className="relative">
-                <button className="relative p-2 hover:bg-white/60 rounded-xl transition-all duration-200 group">
-                  <Bell size={isMobile ? 22 : 24} className="text-gray-700 group-hover:text-emerald-600 transition-colors" />
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-r from-red-500 to-red-600 rounded-full text-xs text-white flex items-center justify-center font-medium shadow-sm animate-pulse">
-                    3
-                  </span>
-                </button>
+              {/* Weather Snowy */}
+              <div className="flex items-center justify-center">
+                <style jsx>{`
+                  @keyframes am-weather-sun {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                  }
+
+                  @keyframes am-weather-snow {
+                    0% { transform: translateX(0) translateY(0); }
+                    33.33% { transform: translateX(-1.2px) translateY(2px); }
+                    66.66% { transform: translateX(1.4px) translateY(4px); opacity: 1; }
+                    100% { transform: translateX(-1.6px) translateY(6px); opacity: 0; }
+                  }
+
+                  .am-weather-sun {
+                    animation: am-weather-sun 9s linear infinite;
+                  }
+
+                  .am-weather-snow-1 {
+                    animation: am-weather-snow 2s linear infinite;
+                  }
+
+                  .am-weather-snow-2 {
+                    animation: am-weather-snow 2s linear infinite;
+                    animation-delay: 1.2s;
+                  }
+                `}</style>
+                <svg xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" version="1.1" width="64" height="64" viewBox="0 0 64 64">
+                  <defs>
+                    <filter id="blur" width="200%" height="200%">
+                      <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
+                      <feOffset dx="0" dy="4" result="offsetblur"/>
+                      <feComponentTransfer>
+                        <feFuncA type="linear" slope="0.05"/>
+                      </feComponentTransfer>
+                      <feMerge> 
+                        <feMergeNode/>
+                        <feMergeNode in="SourceGraphic"/> 
+                      </feMerge>
+                    </filter>
+                  </defs>
+                  <g filter="url(#blur)" id="snowy-1">
+                    <g transform="translate(20,10)">
+                      <g transform="translate(0,16) scale(1.2)">
+                        <g className="am-weather-sun">
+                          <g><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3"/></g>
+                          <g transform="rotate(45)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3"/></g>
+                          <g transform="rotate(90)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3"/></g>
+                          <g transform="rotate(135)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3"/></g>
+                          <g transform="rotate(180)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3"/></g>
+                          <g transform="rotate(225)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3"/></g>
+                          <g transform="rotate(270)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3"/></g>
+                          <g transform="rotate(315)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3"/></g>
+                        </g>
+                        <circle cx="0" cy="0" fill="orange" r="5" stroke="orange" strokeWidth="2"/>
+                      </g>
+                      <g>
+                        <path d="M47.7,35.4c0-4.6-3.7-8.2-8.2-8.2c-1,0-1.9,0.2-2.8,0.5c-0.3-3.4-3.1-6.2-6.6-6.2c-3.7,0-6.7,3-6.7,6.7c0,0.8,0.2,1.6,0.4,2.3c-0.3-0.1-0.7-0.1-1-0.1c-3.7,0-6.7,3-6.7,6.7c0,3.6,2.9,6.6,6.5,6.7l17.2,0C44.2,43.3,47.7,39.8,47.7,35.4z" fill="#57A0EE" stroke="white" strokeLinejoin="round" strokeWidth="1.5" transform="translate(-15,-5) scale(0.85)"/>
+                      </g>
+                    </g>
+                    <g transform="translate(20,9)">
+                      <g className="am-weather-snow-1">
+                        <g transform="translate(7,28)">
+                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1.2" transform="translate(0,9) rotate(0)" x1="0" x2="0" y1="-2.5" y2="2.5"/>
+                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(45)" x1="0" x2="0" y1="-2.5" y2="2.5"/>
+                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(90)" x1="0" x2="0" y1="-2.5" y2="2.5"/>
+                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(135)" x1="0" x2="0" y1="-2.5" y2="2.5"/>
+                        </g>
+                      </g>
+                      <g className="am-weather-snow-2">
+                        <g transform="translate(16,28)">
+                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1.2" transform="translate(0,9) rotate(0)" x1="0" x2="0" y1="-2.5" y2="2.5"/>
+                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(45)" x1="0" x2="0" y1="-2.5" y2="2.5"/>
+                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(90)" x1="0" x2="0" y1="-2.5" y2="2.5"/>
+                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(135)" x1="0" x2="0" y1="-2.5" y2="2.5"/>
+                        </g>
+                      </g>
+                    </g>
+                  </g>
+                </svg>
               </div>
 
        

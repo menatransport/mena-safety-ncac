@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
-  const apiPath = request.headers.get("x-api-path"); // ดึงค่า header
-  console.log("API Path:", apiPath);
+  const apiPath = request.headers.get("x-api-path"); 
   if (!apiPath) {
     return NextResponse.json({ error: "Missing X-Api-Path header" }, { status: 400 });
   }

@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 export async function POST(request: Request) {
   const { email, password } = await request.json();
   console.log('Received register request:', { email, password });
-  const res = await fetch('https://api-ncac.onrender.com/auth/register', {
+  const res = await fetch(process.env.register_url!, {
     method: 'POST',
     headers: {  
       'Content-Type': 'application/json',

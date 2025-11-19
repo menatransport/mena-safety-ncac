@@ -1,34 +1,30 @@
 ﻿"use client";
 import { useEffect, useState, Suspense, act } from "react";
 import { useSearchParams } from "next/navigation";
-import { LordIcon } from "./LordIcon";
 import { DateTimePicker24h } from "./ui/datetime-picker";
 import { SearchableSelect } from "./ui/searchable-select";
 import { FileUpload } from "./FileUpload";
 import { caseReport_NC, investigate_NC } from "@/lib/caseReport";
 import { useDropdownStore } from "@/lib/dropdownlist";
-import { useClipboard_nc } from "@/lib/clipboard";
-import {
-  CirclePlus,
-  CircleMinus,
-} from "lucide-react";
+import { CirclePlus, CircleMinus } from "lucide-react";
 import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
+import { useClipboard_nc } from "@/lib/clipboard";
+import { LoaderPage } from "./LoaderPage";
 
 interface FileWithId {
   id: string;
   file: File;
   url: string;
-  updateData: string;
   category: string;
   uploadDate: Date;
+  updateData: string;
 }
 interface CategoryFiles {
   [key: string]: FileWithId[];
 }
 
 export const NCFormComponent = () => {
-  // ========== Hooks และ State ==========
   const router = useRouter();
 
   const {
@@ -45,9 +41,9 @@ export const NCFormComponent = () => {
     getData,
   } = useDropdownStore();
 
-  // Form State
   const [formData, setFormData] = useState<Partial<caseReport_NC>>({
     casestatus: "",
+    record_date: new Date().toISOString(),
     products: [{ product_id: 1, product_name: "", amount: 0, unit: "" }] as [
       {
         product_id: number;
@@ -63,7 +59,6 @@ export const NCFormComponent = () => {
     Partial<investigate_NC>
   >({});
 
-  // UI State
   const [displayPIC, setDisplayPIC] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
   const [isLoadingFormData, setIsLoadingFormData] = useState(false);
@@ -71,6 +66,7 @@ export const NCFormComponent = () => {
   const [userinfo, setUserinfo] = useState<any>(null);
   const [thisform, setThisform] = useState<string>("initial"); // initial or investigate
   const [isAnimating, setIsAnimating] = useState(false);
+  const [docValue, setDocValue] = useState<any[]>([]);
   const [corrective_actions, setCorrectiveActions] = useState<
     [
       {
@@ -177,11 +173,9 @@ export const NCFormComponent = () => {
           } else {
             setIsViewMode(true);
           }
-
           setFormData(data);
           await mapTextDataToIds(data);
 
-          // โหลดไฟล์แนบ
           await loadExistingAttachments(docId);
         } else {
           throw new Error(
@@ -194,56 +188,56 @@ export const NCFormComponent = () => {
         setIsLoadingFormData(false);
       }
     } else {
-      // ถ้าไม่มี doc parameter ให้ reset title กลับเป็นปกติ
       document.title = "Mena Safety - NC Form";
-
-      setFormData((prev) => ({
-        ...prev,
-        record_date: new Date().toISOString(),
-      }));
     }
   };
 
-const thisformtype = async (type: string) => {
-  if (type !== thisform) {
-    setIsAnimating(true);
-    setTimeout(async () => {
-      if (type === "investigate") {
-        setThisform("investigate");
-        console.log("status: ", formData.casestatus);
-        if (formData.casestatus !== "Pending") {
-          try {
-            const res = await fetch(`/api/investigate/nc?document_no=${formData.document_no}`, {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-              }
-            });
+  const thisformtype = async (type: string) => {
+    if (type !== thisform) {
+      setIsAnimating(true);
+      setTimeout(async () => {
+        if (type === "investigate") {
+          setThisform("investigate");
+          console.log("status: ", formData.casestatus);
+          if (formData.casestatus !== "Pending") {
+            try {
+              const res = await fetch(
+                `/api/investigate/nc?document_no=${formData.document_no}`,
+                {
+                  method: "GET",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                }
+              );
 
-            if (res.ok) {
-              const data = await res.json();
-              // console.log("Investigate data:", data);
-              setFormInvestigate(data);
-              setCorrectiveActions(
-              data.corrective_actions.map((action: any, index: number) => ({
-                ...action,
-                action_id: index + 1
-              })) as any
-            );
-            } else {
-              console.error("Failed to fetch investigate data:", res.statusText);
+              if (res.ok) {
+                const data = await res.json();
+                // console.log("Investigate data:", data);
+                setFormInvestigate(data);
+                setCorrectiveActions(
+                  data.corrective_actions.map((action: any, index: number) => ({
+                    ...action,
+                    action_id: index + 1,
+                  })) as any
+                );
+              } else {
+                console.error(
+                  "Failed to fetch investigate data:",
+                  res.statusText
+                );
+              }
+            } catch (error) {
+              console.error("Error fetching investigate data:", error);
             }
-          } catch (error) {
-            console.error("Error fetching investigate data:", error);
           }
+        } else {
+          setThisform("initial");
         }
-      } else {
-        setThisform("initial");
-      }
-      setTimeout(() => setIsAnimating(false), 100);
-    }, 150);
-  }
-};
+        setTimeout(() => setIsAnimating(false), 100);
+      }, 150);
+    }
+  };
   // ========== Data Mapping Functions ==========
   const mapTextDataToIds = async (data: any) => {
     const mappedData: any = {};
@@ -379,19 +373,7 @@ const thisformtype = async (type: string) => {
       console.error("Error loading attachments:", error);
     }
   };
-
-  // ========== Form Initialization ==========
-  useEffect(() => {
-    const now = new Date();
-    const localDateTime = new Date(
-      now.getTime() - now.getTimezoneOffset() * 60000
-    ).toISOString();
-
-    setFormData((prev) => ({
-      ...prev,
-      record_date: localDateTime,
-    }));
-  }, []);
+  //
 
   // const adddropdownData = (value: any) => {
   //   setDropdownData((prevData) => ({
@@ -402,7 +384,6 @@ const thisformtype = async (type: string) => {
 
   // ========== File Handling Functions ==========
   const handleFilesFromUpload = (files: CategoryFiles) => {
-    // console.log("Files received from FileUpload component:", files);
     setAttachedFiles(files);
   };
 
@@ -451,25 +432,23 @@ const thisformtype = async (type: string) => {
 
   // ========== Auto Resize Textarea ==========
   useEffect(() => {
-
     const rootCauseTextarea = document.querySelector(
       'textarea[name="root_cause_analysis"]'
     ) as HTMLTextAreaElement;
     if (rootCauseTextarea) {
       rootCauseTextarea.style.height = "auto";
-      rootCauseTextarea.style.height = `${
-        Math.max(100, rootCauseTextarea.scrollHeight)
-      }px`;
+      rootCauseTextarea.style.height = `${Math.max(
+        100,
+        rootCauseTextarea.scrollHeight
+      )}px`;
     }
 
     const correctiveTextareas = document.querySelectorAll(
-      'textarea[data-action-id]'
+      "textarea[data-action-id]"
     ) as NodeListOf<HTMLTextAreaElement>;
     correctiveTextareas.forEach((textarea) => {
       textarea.style.height = "auto";
-      textarea.style.height = `${
-        Math.max(50, textarea.scrollHeight)
-      }px`;
+      textarea.style.height = `${Math.max(50, textarea.scrollHeight)}px`;
     });
   }, [formInvestigate.root_cause_analysis, corrective_actions]);
 
@@ -559,27 +538,6 @@ const thisformtype = async (type: string) => {
       }));
     }
   };
-
-  // const handleTailPlateChange = (vehicleId: number) => {
-  //   const selectedVehicle = dropdownData.vehicles?.find(vehicle =>
-  //     vehicle.vehicle_id === vehicleId && vehicle.plate_type === 'tail'
-  //   );
-
-  //   if (selectedVehicle) {
-  //     // หา head vehicle ที่มี truck_no เดียวกัน
-  //     const headVehicle = dropdownData.vehicles?.find(vehicle =>
-  //       vehicle.truck_no === selectedVehicle.truck_no && vehicle.plate_type === 'head'
-  //     );
-
-  //     setFormData(prev => ({
-  //       ...prev,
-  //       vehicle_truckno: headVehicle?.truck_no || selectedVehicle.truck_no,
-  //       vehicle_id_head: headVehicle?.vehicle_id,
-  //       vehicle_id_tail: selectedVehicle.vehicle_id
-  //     }));
-  //   }
-  // };
-  // ========== Utility Functions ==========
 
   const clipboard = async () => {
     try {
@@ -680,12 +638,6 @@ const thisformtype = async (type: string) => {
     });
   };
 
-  // const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  //   setFormData({
-  //     ...formData,
-  //     attachments: e.target.files ? e.target.files.length.toString() : "",
-  //   });
-  // };
 
   const addProductItem = () => {
     const items = formData.products || [];
@@ -859,18 +811,11 @@ const thisformtype = async (type: string) => {
         return;
       }
 
-      const now = new Date();
-      const localDateTime = new Date(
-        now.getTime() - now.getTimezoneOffset() * 60000
-      ).toISOString();
-
-      // console.log("userData from localStorage:", userinfo.id);
-      // console.log("Local DateTime:", localDateTime);
-
       const submitData = {
         ...formData,
-        record_date: localDateTime,
+        record_date: formatLocalDateTime(new Date()),
         reporter_id: userinfo.id,
+        docs: [docValue as any]
       };
 
       // console.log("NC Form data to submit:", submitData);
@@ -905,9 +850,6 @@ const thisformtype = async (type: string) => {
         if (responseData.document_no && Object.keys(attachedFiles).length > 0) {
           await attatchments_post(responseData.document_no);
         }
-
-        // Optional: Reload page after successful submission
-        // window.location.reload();
       } else {
         throw new Error(
           responseData.message || `HTTP ${res.status}: ${res.statusText}`
@@ -926,8 +868,6 @@ const thisformtype = async (type: string) => {
   const handleUpdate = async () => {
     const validation = validateRequiredFields();
     if (validation.missingFields.length > 0) {
-      // const missingFieldsList = validation.missingFields.join("\n• ");
-      //  console.log("Missing Fields:", missingFieldsList);
       Swal.fire({
         icon: "warning",
         title: 'กรุณากรอกข้อมูลที่มีเครื่องหมาย " * " ให้ครบถ้วน',
@@ -936,7 +876,12 @@ const thisformtype = async (type: string) => {
       });
       return;
     }
+
     delete formData.priority;
+    delete formData.record_date;
+
+    const data = { ...formData, docs: [docValue as any] };
+    console.log("Data to be updated:", data);
     //  console.log("NC Form Update <><><><> :", formData);
 
     const res = await fetch("/api/document/nc", {
@@ -944,10 +889,10 @@ const thisformtype = async (type: string) => {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(formData),
+      body: JSON.stringify(data),
     });
     const responseData = await res.json();
-    //  console.log("API Response on Update:", responseData);
+    console.log("API Response on Update:", responseData);
     if (res.ok) {
       Swal.fire({
         icon: "success",
@@ -961,7 +906,7 @@ const thisformtype = async (type: string) => {
       ...prev,
       priority: responseData.priority,
     }));
-    //  console.log("Attached Files on Update:", attachedFiles);
+    console.log("Attached Files on Update:", attachedFiles);
     if (responseData.document_no && Object.keys(attachedFiles).length > 0) {
       await attatchments_post(responseData.document_no);
     }
@@ -1047,6 +992,7 @@ const thisformtype = async (type: string) => {
 
       if (res.ok) {
         const result = await res.json();
+        console.log("Attachments upload result:", result);
       } else {
         throw new Error(`Failed to upload attachments: ${res.statusText}`);
       }
@@ -1058,59 +1004,32 @@ const thisformtype = async (type: string) => {
   // ========== Helper Functions ==========
   const formatLocalDateTime = (date: Date): string => {
     const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
-    
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
   };
 
   const formatLocalDate = (date: Date): string => {
     const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
     return `${year}-${month}-${day}`;
   };
   // ========== Loading States ==========
   if (isLoadingFormData || (isDropdownLoading && searchParams.get("doc"))) {
-    return (
-      <div className="min-h-screen bg-[#eef8ef] flex items-center justify-center">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-          <div className="text-center">
-            <p className="text-gray-700 font-medium text-lg">
-              กำลังโหลดข้อมูลฟอร์ม NC...
-            </p>
-            <p className="text-gray-500 text-sm mt-1">
-              {isDropdownLoading
-                ? "กำลังโหลดรายการข้อมูล"
-                : "กำลังโหลดข้อมูลเอกสาร"}
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+    return <LoaderPage />;
   }
 
   return (
     <>
-      <div className="min-h-screen bg-[#eef8ef]">
+      <div className="min-h-screen bg-[#d1ffe1]">
         <div className="p-6 space-y-6">
           {formData?.casestatus !== "" && (
             <div className="fixed right-6 bottom-6 flex flex-col items-center space-y-4 z-50">
-              {/* Progress Line */}
-              {/* <div className="absolute top-10 w-1 h-20 bg-gray-300 rounded-full overflow-hidden">
-                <div 
-                  className={`w-full bg-gradient-to-b from-green-500 to-emerald-600 transition-all duration-500 ease-out ${
-                    thisform === "investigate" ? "h-full" : "h-0"
-                  }`}
-                />
-              </div> */}
-
-              {/* Button 1: Initial Report */}
               <div className="flex flex-col items-center group relative">
                 <button
                   type="button"
@@ -1121,8 +1040,8 @@ const thisformtype = async (type: string) => {
                     disabled:cursor-not-allowed overflow-hidden
                     ${
                       thisform === "initial"
-                        ? "bg-gradient-to-br from-green-500 via-green-600 to-emerald-600 text-white scale-110 shadow-2xl"
-                        : "bg-white text-gray-600 hover:text-green-600 hover:scale-105 hover:shadow-xl border-2 border-gray-300 hover:border-green-400"
+                        ? "bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 text-white scale-110 shadow-2xl"
+                        : "bg-white text-gray-600 hover:text-blue-600 hover:scale-105 hover:shadow-xl border-2 border-gray-300 hover:border-blue-400"
                     }`}
                 >
                   <span className="relative z-10">1</span>
@@ -1134,8 +1053,8 @@ const thisformtype = async (type: string) => {
                   <span
                     className={`text-xs font-semibold tracking-wide transition-colors duration-300 ${
                       thisform === "initial"
-                        ? "text-green-600"
-                        : "text-gray-600 group-hover:text-green-500"
+                        ? "text-blue-600"
+                        : "text-gray-600 group-hover:text-blue-500"
                     }`}
                   >
                     Initial Report
@@ -1154,8 +1073,8 @@ const thisformtype = async (type: string) => {
                     disabled:cursor-not-allowed overflow-hidden
                     ${
                       thisform === "investigate"
-                        ? "bg-gradient-to-br from-emerald-500 via-emerald-600 to-green-600 text-white scale-110 shadow-2xl"
-                        : "bg-white text-gray-600 hover:text-green-600 hover:scale-105 hover:shadow-xl border-2 border-gray-300 hover:border-green-400"
+                        ? "bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 text-white scale-110 shadow-2xl"
+                        : "bg-white text-gray-600 hover:text-blue-600 hover:scale-105 hover:shadow-xl border-2 border-gray-300 hover:border-blue-400"
                     }`}
                 >
                   <span className="relative z-10">2</span>
@@ -1167,8 +1086,8 @@ const thisformtype = async (type: string) => {
                   <span
                     className={`text-xs font-semibold tracking-wide transition-colors duration-300 ${
                       thisform === "investigate"
-                        ? "text-emerald-600"
-                        : "text-gray-600 group-hover:text-emerald-500"
+                        ? "text-blue-600"
+                        : "text-gray-600 group-hover:text-blue-500"
                     }`}
                   >
                     Investigation
@@ -1181,7 +1100,7 @@ const thisformtype = async (type: string) => {
           <div className="flex items-center justify-center">
             <div
               id="printable-area"
-              className="md:w-4xl sm:w-full mx-4 space-y-6 bg-white p-8 rounded-xl shadow-sm border border-gray-500"
+              className="md:w-4xl sm:w-full m-4 space-y-6 bg-white p-8 rounded-xl shadow-sm border border-gray-500"
             >
               <div className="text-center border-b border-gray-400 pb-4 mb-4">
                 <h2 className="text-xl font-bold text-gray-800">
@@ -1248,7 +1167,7 @@ const thisformtype = async (type: string) => {
                             onChange={(value) =>
                               handleSiteChange(Number(value))
                             }
-                            onAdd={() => handleAddItem("site")}
+                            // onAdd={() => handleAddItem("site")}
                             showAddRemove={!isViewMode}
                             disabled={isViewMode}
                             className="w-full"
@@ -1271,7 +1190,7 @@ const thisformtype = async (type: string) => {
                                 department_id: Number(value),
                               }))
                             }
-                            onAdd={() => handleAddItem("department")}
+                            // onAdd={() => handleAddItem("department")}
                             disabled={isViewMode}
                             showAddRemove={true}
                             className="w-full"
@@ -1286,65 +1205,34 @@ const thisformtype = async (type: string) => {
                             type="text"
                             name="record_date"
                             disabled={isViewMode}
-                            value={
-                              formatLocalDateTime(
-                                new Date(formData.record_date || "")
-                              )
-                            }
+                            value={formatLocalDateTime(
+                              new Date(formData.record_date || "")
+                            )}
                             readOnly
                             className="w-full text-sm p-2 bg-gray-100 border border-gray-300 rounded focus:outline-none text-black cursor-not-allowed disabled:text-blue-600 disabled:font-bold"
                           />
                         </div>
 
-                        <div>
-                          <label className="block text-gray-700 font-medium mb-1 text-sm">
-                            วันที่และเวลา เกิดเหตุ:{" "}
-                            <span className="text-red-500">*</span>
-                          </label>
-                          {isViewMode ? (
-                            <input
-                              type="text"
-                              value={
-                                formData?.incident_date
-                                  ? (() => {
-                                      const date = new Date(
-                                        formData.incident_date
-                                      );
-                                      const localDate = new Date(
-                                        date.getTime() +
-                                          date.getTimezoneOffset() * 60000
-                                      );
-                                      return localDate.toLocaleString("en-UK", {
-                                        year: "numeric",
-                                        month: "2-digit",
-                                        day: "2-digit",
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                        hour12: false,
-                                      });
-                                    })()
-                                  : ""
-                              }
-                              readOnly
-                              className="w-full cursor-not-allowed text-sm font-bold text-blue-600 p-2 bg-gray-100 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black"
-                            />
-                          ) : (
-                            <DateTimePicker24h
-                              value={
-                                formData?.incident_date
-                                  ? new Date(formData.incident_date)
-                                  : undefined
-                              }
-                              onChange={(date) =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  incident_date: date?.toISOString() || "",
-                                }))
-                              }
-                              disabled={isViewMode}
-                            />
-                          )}
-                        </div>
+                         <div>
+                        <label className="block text-gray-700 font-medium mb-1 text-sm">
+                          วันที่และเวลา เกิดเหตุ:{" "}
+                          <span className="text-red-500">*</span>
+                        </label>
+                        <DateTimePicker24h
+                          value={
+                            formData?.incident_date
+                              ? new Date(formData.incident_date)
+                              : undefined
+                          }
+                          onChange={(value) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              incident_date: value ? value.toISOString() : "",
+                            }))
+                          }
+                          disabled={isViewMode}
+                        />
+                      </div>
                         <div>
                           <label className="block text-gray-700 font-medium mb-1 text-sm">
                             สาเหตุ NC: <span className="text-red-500">*</span>
@@ -1361,7 +1249,7 @@ const thisformtype = async (type: string) => {
                                 incident_cause_id: Number(value),
                               }))
                             }
-                            onAdd={() => handleAddItem("mastercause")}
+                            // onAdd={() => handleAddItem("mastercause")}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -1416,7 +1304,7 @@ const thisformtype = async (type: string) => {
                                 client_id: Number(value),
                               }))
                             }
-                            onAdd={() => handleAddItem("client")}
+                            // onAdd={() => handleAddItem("client")}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -1441,7 +1329,7 @@ const thisformtype = async (type: string) => {
                                 origin_id: Number(value),
                               }))
                             }
-                            onAdd={() => handleAddItem("locations")}
+                            // onAdd={() => handleAddItem("locations")}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -1515,7 +1403,7 @@ const thisformtype = async (type: string) => {
                             onChange={(value) =>
                               handleHeadPlateChange(Number(value))
                             }
-                            onAdd={() => handleAddItem("vehicle")}
+                            // onAdd={() => handleAddItem("vehicle")}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -1544,7 +1432,7 @@ const thisformtype = async (type: string) => {
                             onChange={(value) =>
                               handleVehicleCodeChange(String(value))
                             }
-                            onAdd={() => handleAddItem("vehicle")}
+                            // onAdd={() => handleAddItem("vehicle")}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -1572,7 +1460,7 @@ const thisformtype = async (type: string) => {
                                 vehicle_id_tail: Number(value),
                               }))
                             }
-                            onAdd={() => handleAddItem("vehicle")}
+                            // onAdd={() => handleAddItem("vehicle")}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -1595,7 +1483,7 @@ const thisformtype = async (type: string) => {
                                 driver_role_id: Number(value),
                               }))
                             }
-                            onAdd={() => handleAddItem("driver_role")}
+                            // onAdd={() => handleAddItem("driver_role")}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -1621,7 +1509,7 @@ const thisformtype = async (type: string) => {
                                 driver_id: String(value),
                               }))
                             }
-                            onAdd={() => handleAddItem("masterdriver")}
+                            // onAdd={() => handleAddItem("masterdriver")}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -1796,6 +1684,8 @@ const thisformtype = async (type: string) => {
                         onFilesChange={handleFilesFromUpload}
                         disabled={isViewMode}
                         existingFiles={attachedFiles}
+                        onChangedocs={(docs) => setDocValue(docs as any)}
+                        docs={formData.docs?.[0]}
                         case="nc"
                       />
                     </div>
@@ -1843,9 +1733,10 @@ const thisformtype = async (type: string) => {
                               handleInvestigateInputChange(e);
                               // Auto resize on change
                               e.target.style.height = "auto";
-                              e.target.style.height = `${
-                                Math.max(100, e.target.scrollHeight)
-                              }px`;
+                              e.target.style.height = `${Math.max(
+                                100,
+                                e.target.scrollHeight
+                              )}px`;
                             }}
                             maxLength={2000}
                             disabled={isViewMode}
@@ -1921,9 +1812,10 @@ const thisformtype = async (type: string) => {
                                       );
                                       // Auto resize on change
                                       e.target.style.height = "auto";
-                                      e.target.style.height = `${
-                                        Math.max(50, e.target.scrollHeight)
-                                      }px`;
+                                      e.target.style.height = `${Math.max(
+                                        50,
+                                        e.target.scrollHeight
+                                      )}px`;
                                     }}
                                     style={{ minHeight: "50px" }}
                                     className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black resize-none overflow-hidden ${
@@ -1997,7 +1889,7 @@ const thisformtype = async (type: string) => {
                     <div className="border-t border-gray-400"></div>
 
                     {/* Claim Information */}
-                     <div className="flex flex-row justify-between p-2 bg-gray-200 font-bold text-gray-800 text-sm">
+                    <div className="flex flex-row justify-between p-2 bg-gray-200 font-bold text-gray-800 text-sm">
                       <div className="flex flex-col">
                         <h3>ข้อมูลการเคลมและค่าใช้จ่าย</h3>
                         <p className="font-semibold text-xs text-gray-600">
@@ -2005,17 +1897,25 @@ const thisformtype = async (type: string) => {
                         </p>
                       </div>
                       <div className={`flex flex-col text-right`}>
-                       <label className={`text-sm text-gray-800 ${formData?.actual_price == 0 ? "" : "hidden"} `}> 
-                         มูลค่าความเสียหายประมาณการ: {""}
-                         <span className="font-bold text-blue-600">
-                           {formData?.estimated_cost} บาท
-                         </span>
+                        <label
+                          className={`text-sm text-gray-800 ${
+                            formData?.actual_price == 0 ? "" : "hidden"
+                          } `}
+                        >
+                          มูลค่าความเสียหายประมาณการ: {""}
+                          <span className="font-bold text-blue-600">
+                            {formData?.estimated_cost} บาท
+                          </span>
                         </label>
-                        <label className={`text-sm text-gray-800 ${formData?.actual_price == 0 ? "hidden" : ""} `}>
-                         มูลค่าความเสียหายจริง: {""}
-                         <span className="font-bold text-blue-600">
-                           {formData?.actual_price} บาท
-                         </span>
+                        <label
+                          className={`text-sm text-gray-800 ${
+                            formData?.actual_price == 0 ? "hidden" : ""
+                          } `}
+                        >
+                          มูลค่าความเสียหายจริง: {""}
+                          <span className="font-bold text-blue-600">
+                            {formData?.actual_price} บาท
+                          </span>
                         </label>
                       </div>
                     </div>
