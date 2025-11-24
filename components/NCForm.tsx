@@ -167,6 +167,7 @@ export const NCFormComponent = () => {
         );
 
         const data = await res.json();
+        console.log("Fetched record data:", data);
         if (res.ok) {
           if (data.reporter == name) {
             setIsViewMode(false);
@@ -213,7 +214,7 @@ export const NCFormComponent = () => {
 
               if (res.ok) {
                 const data = await res.json();
-                // console.log("Investigate data:", data);
+                console.log("Investigate data:", data);
                 setFormInvestigate(data);
                 setCorrectiveActions(
                   data.corrective_actions.map((action: any, index: number) => ({
@@ -435,6 +436,7 @@ export const NCFormComponent = () => {
     const rootCauseTextarea = document.querySelector(
       'textarea[name="root_cause_analysis"]'
     ) as HTMLTextAreaElement;
+    console.log("rootCauseTextarea :", rootCauseTextarea);
     if (rootCauseTextarea) {
       rootCauseTextarea.style.height = "auto";
       rootCauseTextarea.style.height = `${Math.max(
@@ -446,9 +448,15 @@ export const NCFormComponent = () => {
     const correctiveTextareas = document.querySelectorAll(
       "textarea[data-action-id]"
     ) as NodeListOf<HTMLTextAreaElement>;
+    console.log("correctiveTextareas :", correctiveTextareas);
     correctiveTextareas.forEach((textarea) => {
+      if (textarea) {
       textarea.style.height = "auto";
-      textarea.style.height = `${Math.max(50, textarea.scrollHeight)}px`;
+      textarea.style.height = `${Math.max(
+        100,
+        textarea.scrollHeight
+      )}px`;
+    }
     });
   }, [formInvestigate.root_cause_analysis, corrective_actions]);
 
@@ -1100,7 +1108,7 @@ export const NCFormComponent = () => {
           <div className="flex items-center justify-center">
             <div
               id="printable-area"
-              className="md:w-4xl sm:w-full m-4 space-y-6 bg-white p-8 rounded-xl shadow-sm border border-gray-500"
+              className="md:w-4xl sm:w-full md:m-4 space-y-6 bg-white p-4 md:p-8 rounded-xl shadow-sm border border-gray-500"
             >
               <div className="text-center border-b border-gray-400 pb-4 mb-4">
                 <h2 className="text-xl font-bold text-gray-800">
@@ -1817,7 +1825,7 @@ export const NCFormComponent = () => {
                                         e.target.scrollHeight
                                       )}px`;
                                     }}
-                                    style={{ minHeight: "50px" }}
+                                      
                                     className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black resize-none overflow-hidden ${
                                       isViewMode
                                         ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"

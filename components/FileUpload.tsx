@@ -131,11 +131,43 @@ const DOCUMENT_CATEGORIES = [
     icon: FileText,
   },
   {
-    value: "account_attachment",
-    label: "เอกสารแนบทางบัญชี",
+    value: "account_attachment_sell",
+    label: "เอกสารแนบทางบัญชี > ขายสินค้า",
     department: "💼บัญชี",
     case: "all",
-    no: true,
+    no: false,
+    icon: FileText,
+  },
+  {
+    value: "account_attachment_insurance",
+    label: "เอกสารแนบทางบัญชี > ประกัน",
+    department: "💼บัญชี",
+    case: "all",
+    no: false,
+    icon: FileText,
+  },
+  {
+    value: "account_attachment_pjs_pay",
+    label: "เอกสารแนบทางบัญชี > พจส. จ่าย",
+    department: "💼บัญชี",
+    case: "all",
+    no: false,
+    icon: FileText,
+  },
+  {
+    value: "account_attachment_company_pay",
+    label: "เอกสารแนบทางบัญชี > บริษัทจ่ายลูกค้า",
+    department: "💼บัญชี",
+    case: "all",
+    no: false,
+    icon: FileText,
+  },
+  {
+    value: "investigate_report",
+    label: "รายงานการสอบสวน",
+    department: "🚨ความปลอดภัย",
+    case: "ac",
+    no: false,
     icon: FileText,
   },
 ];
@@ -386,7 +418,7 @@ export const FileUpload = ({
   };
 
   const handleChanges = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { id, value } = e.target;
     console.log("Handling doc change for id:", id, "with value:", value);
@@ -713,8 +745,7 @@ export const FileUpload = ({
                           >
                             <div className="flex items-start">
                               <span className="mr-2">{index + 1}.</span>
-                              <span>{doc.label} </span>{" "}
-                              {/* ({doc.department}) */}
+                              <span>{doc.label}</span>
                             </div>
                           </td>
                           <td

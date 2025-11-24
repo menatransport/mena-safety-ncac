@@ -36,7 +36,11 @@ export async function GET(request: Request) {
       }
     });
    if (!res.ok) {
-      throw new Error(`API responded with status: ${res.status}`);
+      console.log(`API responded with status: ${res.status}`);
+      return NextResponse.json(
+        { error: 'Failed to fetch data from external API' },
+        { status: res.status }
+      );
     }
     const data = await res.json();
     console.log('API response data:', data);
