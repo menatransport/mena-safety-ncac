@@ -972,7 +972,7 @@ export const ACFormComponent = () => {
                 </div>
 
                 {/*ข้อมูลเบื้องต้น */}
-                <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 font-bold mb-3 text-sm">
+                <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 mb-3 text-sm">
                   <h3>ข้อมูลเบื้องต้น</h3>
                   <p className="font-semibold text-xs text-gray-600">
                     Basic Information
@@ -989,7 +989,7 @@ export const ACFormComponent = () => {
                         name="document_no_ac"
                         value={formData?.document_no_ac || "Auto Generated"}
                         disabled
-                        className="w-full cursor-not-allowed text-sm font-bold text-blue-600 p-2 bg-gray-100 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black"
+                        className="w-full cursor-not-allowed text-sm font-bold text-blue-600 p-2 bg-gray-100 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none"
                       />
                     </div>
 
@@ -1092,7 +1092,7 @@ export const ACFormComponent = () => {
 
                 <div className="border-t border-gray-400 md:col-span-3"></div>
                 {/*ข้อมูลการขนส่งและสถานที่ */}
-                <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 font-bold mb-3 text-sm">
+                <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 mb-3 text-sm">
                   <h3>ข้อมูลการขนส่งและสถานที่</h3>
                   <p className="font-semibold text-xs text-gray-600">
                     Transportation and Location Information
@@ -1263,7 +1263,7 @@ export const ACFormComponent = () => {
 
                 <div className="border-t border-gray-400 md:col-span-3"></div>
                 {/*ข้อมูลรถและคนขับ */}
-                <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 font-bold mb-3 text-sm">
+                <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 mb-3 text-sm">
                   <h3>ข้อมูลพนักงานจัดส่ง</h3>
                   <p className="font-semibold text-xs text-gray-600">
                     Delivery Personnel Information
@@ -1395,7 +1395,7 @@ export const ACFormComponent = () => {
 
                 <div className="border-t border-gray-400 md:col-span-3"></div>
                 {/*การตรวจแอลกอฮอล์และสารเสพติด */}
-                <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 font-bold mb-3 text-sm">
+                <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 mb-3 text-sm">
                   <h3>การตรวจแอลกอฮอล์และสารเสพติด</h3>
                   <p className="font-semibold text-xs text-gray-600">
                     Alcohol & Drug Testing
@@ -1538,7 +1538,7 @@ export const ACFormComponent = () => {
                 <div className="border-t border-gray-400 md:col-span-3"></div>
                 {/* ความเสียหาย */}
 
-                <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 font-bold mb-3 text-sm">
+                <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 mb-3 text-sm">
                   <h3>ความเสียหาย</h3>
                   <p className="font-semibold text-xs text-gray-600">
                     Damage Assessment
@@ -1786,7 +1786,7 @@ export const ACFormComponent = () => {
 
                 <div className="border-t border-gray-400 md:col-span-3"></div>
                 {/* การบาดเจ็บ */}
-                <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 font-bold mb-3 text-sm">
+                <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 mb-3 text-sm">
                   <h3>ข้อมูลการบาดเจ็บและเสียชีวิต</h3>
                   <p className="font-semibold text-xs text-gray-600">
                     Injury & Fatality Information
@@ -1873,7 +1873,7 @@ export const ACFormComponent = () => {
 
                 <div className="border-t border-gray-400 md:col-span-3"></div>
                 {/* ข้อมูลคู่กรณี */}
-                <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 font-bold mb-3 text-sm">
+                <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 mb-3 text-sm">
                   <h3>ข้อมูลคู่กรณี และการเคลม</h3>
                   <p className="font-semibold text-xs text-gray-600">
                     Other Party Information & Claim Officer Information
@@ -2029,7 +2029,7 @@ export const ACFormComponent = () => {
 
                 <div className="border-t border-gray-400 md:col-span-3"></div>
                 {/*แนบเอกสาร */}
-                <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 font-bold mb-3 text-sm">
+                <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 mb-3 text-sm">
                   <h3>แนบเอกสาร</h3>
                   <p className="font-semibold text-xs text-gray-600">
                     Document Attachments

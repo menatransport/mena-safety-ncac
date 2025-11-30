@@ -52,9 +52,6 @@ export default function Login() {
 
       
       const data = await res.json();
-      // console.log('Response data:', data);
-      // console.log('Token:', data.access_token);
-      // console.log('User:', data.user);
       if (data.access_token && data.user) {
         
           localStorage.setItem('authToken', data.access_token);
@@ -63,8 +60,8 @@ export default function Login() {
           fetchDropdownData();
           setTimeout(() => {
             sessionStorage.setItem("showWelcome", "true")
-            router.push("/nc-form");
-          }, 8000)
+            router.push("/overview");
+          }, 3000)
 
         } else {
           alert('ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง');
@@ -125,7 +122,6 @@ export default function Login() {
             <h2 className="text-xl font-semibold text-gray-800 mb-1">
               เข้าสู่ระบบ
             </h2>
-            {/* <p className="text-gray-500 text-sm">ยินดีต้อนรับกลับมา</p> */}
           </div>
         {/* Login Form */}
           <form onSubmit={handleLogin} className="space-y-6">
@@ -181,12 +177,6 @@ export default function Login() {
                   placeholder="กรอกรหัสผ่าน"
                   required
                 />
-              </div>
-              <div className="hidden text-xs text-gray-500 flex items-center space-x-1">
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>รหัสผ่านควรมีความยาวอย่างน้อย 8 ตัวอักษร</span>
               </div>
             </div>
 

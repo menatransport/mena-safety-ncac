@@ -67,6 +67,7 @@ export interface caseReport_NC {
 export interface caseReport_AC {
     site_id: number,
     case_id: string,
+    site_name: string,
     department_id: number,
     client_id: number,
     origin_id: number,

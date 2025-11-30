@@ -64,16 +64,14 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
   const [sidebarHidden, setSidebarHidden] = useState<string>("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState("");
-  const [formsExpanded, setFormsExpanded] = useState(true); // ปรับเป็น true เพื่อขยายเมนู Forms เริ่มต้น
-  const [recordsExpanded, setRecordsExpanded] = useState(true); // ปรับเป็น true เพื่อขยายเมนู Records เริ่มต้น
+  const [formsExpanded, setFormsExpanded] = useState(false); // ปรับเป็น true เพื่อขยายเมนู Forms เริ่มต้น
+  const [recordsExpanded, setRecordsExpanded] = useState(false); // ปรับเป็น true เพื่อขยายเมนู Records เริ่มต้น
   const [showUserInfo, setShowUserInfo] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [userInfo, setUserInfo] = useState<any>(null);
   const router = useRouter();
   const pathname = usePathname();
-  // const searchParams = useSearchParams();
-
-  // Mobile breakpoint detection
-  const [isMobile, setIsMobile] = useState(false);
+  
 
   useEffect(() => {
     const storedUserData = localStorage.getItem("userData");
@@ -83,7 +81,6 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
   }, []);
   
   useEffect(() => {
-    // ดึง URL parameters หลังจาก component mount
     const params = new URLSearchParams(window.location.search);
     const currentDocId = params.get("doc");
     
@@ -91,7 +88,7 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
       setSidebarCollapsed(true);
       setSidebarHidden("hidden");
     }
-  }, [pathname]); // เรียกใหม่เมื่อ pathname เปลี่ยน
+  }, [pathname]); 
   
   useEffect(() => {
     const checkMobile = () => {
@@ -116,14 +113,6 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
       setRecordsExpanded(true);
     }
   }, [pathname]);
-
-  // useEffect(() => {
-  //   const currentId = searchParams.get("doc");
-  //   if (currentId) {
-  //    setSidebarCollapsed(true);
-  //    setSidebarHidden("hidden");
-  //   }
-  // }, [searchParams]);
 
   const isActive = (path: string) => {
     if (path === "/") return pathname === "/";
@@ -206,9 +195,9 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                 <button
                   key={item.title}
                   onClick={() => handleNavigation(item.url)}
-                  className={`hidden w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ${
+                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ${
                     isActive(item.url)
-                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-sm'
+                      ? 'bg-teal-100 text-teal-800 scale-105 border border-teal-200 shadow-sm'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
                   }`}
                 >

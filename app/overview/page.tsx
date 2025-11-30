@@ -5,7 +5,7 @@ const DashboardPage = () => {
   return (
 
       <NavComponent>
-        {/* <DashboardComponent /> */}
+        <DashboardComponent />
       </NavComponent>
 
   );

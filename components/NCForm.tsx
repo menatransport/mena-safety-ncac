@@ -1139,7 +1139,7 @@ export const NCFormComponent = () => {
                       </label>
                     </div>
                     {/*ข้อมูลเบื้องต้น */}
-                    <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 font-bold mb-3 text-sm">
+                    <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 mb-3 text-sm">
                       <h3>ข้อมูลเบื้องต้น</h3>
                       <p className="font-semibold text-xs text-gray-600">
                         Basic Information
@@ -1157,7 +1157,7 @@ export const NCFormComponent = () => {
                             value={formData?.document_no || "Auto Generated"}
                             onChange={handleInputChange}
                             disabled
-                            className="w-full cursor-not-allowed text-sm font-bold text-blue-600 p-2 bg-gray-100 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black"
+                            className="w-full cursor-not-allowed text-sm font-bold text-blue-600 p-2 bg-gray-100 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none"
                           />
                         </div>
 
@@ -1288,7 +1288,7 @@ export const NCFormComponent = () => {
 
                     <div className="border-t border-gray-400 md:col-span-3"></div>
                     {/*ข้อมูลการขนส่งและสถานที่ */}
-                    <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 font-bold mb-3 text-sm">
+                    <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 mb-3 text-sm">
                       <h3>ข้อมูลการขนส่งและสถานที่</h3>
                       <p className="font-semibold text-xs text-gray-600">
                         Transportation and Location Information
@@ -1385,7 +1385,7 @@ export const NCFormComponent = () => {
 
                     <div className="border-t border-gray-400 md:col-span-3"></div>
                     {/*ข้อมูลรถและคนขับ */}
-                    <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 font-bold mb-3 text-sm">
+                    <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 mb-3 text-sm">
                       <h3>ข้อมูลพนักงานจัดส่ง</h3>
                       <p className="font-semibold text-xs text-gray-600">
                         Delivery Personnel Information
@@ -1527,7 +1527,7 @@ export const NCFormComponent = () => {
                     </div>
 
                     <div className="border-t border-gray-400 md:col-span-3"></div>
-                    <div className="flex flex-row justify-between p-2 bg-gray-200 font-bold text-gray-800 font-bold text-sm">
+                    <div className="flex flex-row justify-between p-2 bg-gray-200 font-bold text-gray-800 text-sm">
                       <div className="flex flex-col ">
                         <h3>ความเสียหาย และค่าใช้จ่าย</h3>
                         <p className="font-semibold text-xs text-gray-600">
@@ -1681,7 +1681,7 @@ export const NCFormComponent = () => {
 
                     <div className="border-t border-gray-400 md:col-span-3"></div>
                     {/*แนบเอกสาร */}
-                    <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 font-bold mb-3 text-sm">
+                    <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 text-sm mb-3">
                       <h3>แนบเอกสาร</h3>
                       <p className="font-semibold text-xs text-gray-600">
                         Document Attachments
