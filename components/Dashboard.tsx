@@ -252,7 +252,7 @@ export const DashboardComponent = () => {
 
     // กรองตาม Center
     if (selectedCenter !== 'all') {
-      filteredNcData = filteredNcData.filter(item => item.site === selectedCenter);
+      filteredNcData = filteredNcData.filter(item => item.site_name === selectedCenter);
       filteredAcData = filteredAcData.filter(item => item.site_name === selectedCenter);
     }
 
@@ -407,7 +407,7 @@ export const DashboardComponent = () => {
 
     // กรองตาม Center
     if (selectedCenter !== 'all') {
-      filteredNcData = filteredNcData.filter(item => item.site === selectedCenter);
+      filteredNcData = filteredNcData.filter(item => item.site_name === selectedCenter);
       filteredAcData = filteredAcData.filter(item => item.site_name === selectedCenter);
     }
 
@@ -503,7 +503,7 @@ export const DashboardComponent = () => {
 
     // กรองตาม Center
     if (selectedCenter !== 'all') {
-      filteredNcData = filteredNcData.filter(item => item.site === selectedCenter);
+      filteredNcData = filteredNcData.filter(item => item.site_name === selectedCenter);
       filteredAcData = filteredAcData.filter(item => item.site_name === selectedCenter);
     }
 
@@ -683,8 +683,8 @@ export const DashboardComponent = () => {
   }, [activeView, ncData, acData, selectedCaseType, selectedCenter]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#d1ffe1] to-indigo-100">
-      <div className="p-6 space-y-6">
+    <div className="min-h-screen p-10 bg-gradient-to-br from-[#d1ffe1] to-indigo-100">
+      <div className="space-y-6">
         {/* Header - Mock Data Toggle */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 bg-white rounded-xl shadow-md px-4 py-2 border border-gray-200">

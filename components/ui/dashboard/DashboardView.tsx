@@ -326,14 +326,14 @@ export const DashboardView = ({
                   colors={['#e4930a', '#df3f3f', '#8156e5']}
                   borderColor={{ from: 'color', modifiers: [['darker', 1.6]] }}
                   axisTop={null}
-                  axisRight={{
+                  axisLeft={{
                     tickSize: 5,
                     tickPadding: 5,
                     tickRotation: 0,
                     legend: 'จำนวนเหตุการณ์',
                     legendPosition: 'middle',
-                    legendOffset: 40,
-                    tickValues: 'auto'
+                    legendOffset: -40,
+                    tickValues: 5
                   }}
                   axisBottom={{
                     tickSize: 5,
@@ -343,21 +343,7 @@ export const DashboardView = ({
                     legendPosition: 'middle',
                     legendOffset: 45
                   }}
-                  axisLeft={{
-                    tickSize: 5,
-                    tickPadding: 5,
-                    tickRotation: 0,
-                    legend: 'เปอร์เซ็นต์',
-                    legendPosition: 'middle',
-                    legendOffset: -50,
-                    tickValues: 10,
-                    format: (value) => {
-                      const maxValue = Math.max(...data.stackedBarData.map(d => 
-                        (d.Minor || 0) + (d.Major || 0) + (d.Crisis || 0)
-                      ));
-                      return maxValue > 0 ? `${Math.round((value / maxValue) * 100)}%` : '0%';
-                    }
-                  }}
+               
                   enableLabel={false}
                   labelSkipWidth={12}
                   labelSkipHeight={12}
@@ -484,15 +470,14 @@ export const DashboardView = ({
               )}
             </div>
     </div>
-
-    {/* TOP CAUSES */}  
-       <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+ <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    {/* TOP CAUSES  */}  
+       {(selectedCaseType === 'all' || selectedCaseType === 'nc') && ( <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
       <div className="flex items-center gap-3 mb-6">
         <AlertTriangle className="w-6 h-6" style={{ color: dashboardColors.red[600] }} />
         <h2 className="text-xl font-bold" style={{ color: dashboardColors.gray[800] }}>
-          สาเหตุที่เกิดขึ้นบ่อยที่สุด (Top 5)
+          สาเหตุที่เกิดขึ้นบ่อยที่สุด NC (Top 5)
           {selectedCaseType === 'nc' && ' - NC'}
-          {selectedCaseType === 'ac' && ' - AC'}
         </h2>
       </div>
       <div className="space-y-4">
@@ -536,7 +521,12 @@ export const DashboardView = ({
         )}
       </div>
     </div>
+    )}
 
+    {/* Bar chart Status */}
+
+  
+</div>
     </>
   );
 };

@@ -28,7 +28,6 @@ interface DocumentInfo {
 
 interface FileUploadProps {
   onFilesChange?: (files: CategoryFiles) => void;
-  disabled?: boolean;
   existingFiles?: CategoryFiles;
   case: string;
   onChangedocs?: (docs: DocumentInfo) => void;
@@ -185,7 +184,6 @@ const DEPARTMENTS = [
 
 export const FileUpload = ({
   onFilesChange,
-  disabled = false,
   existingFiles = {},
   case: caseType,
   onChangedocs,
@@ -198,7 +196,44 @@ export const FileUpload = ({
     DOCUMENT_CATEGORIES[0].value
   );
   const [previewFile, setPreviewFile] = useState<FileWithId | null>(null);
+  const [previewPosition, setPreviewPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [documentInfo, setDocumentInfo] = useState<DocumentInfo>(docs);
+
+  // ตั้งค่า default สำหรับเอกสารทั้งหมดที่ยังไม่มีข้อมูล
+  useEffect(() => {
+    const filteredCategories = DOCUMENT_CATEGORIES.filter(
+      (category) => category.case === caseType || category.case === "all"
+    );
+
+    const defaultDocInfo: DocumentInfo = { ...documentInfo };
+    let hasChanges = false;
+
+    filteredCategories.forEach((doc) => {
+      // ตั้งค่าเริ่มต้น "มี" ถ้ายังไม่มีข้อมูล
+      if (!defaultDocInfo[doc.value]) {
+        defaultDocInfo[doc.value] = "มี";
+        hasChanges = true;
+      }
+
+      // ตั้งค่า remark เป็นค่าว่างถ้ายังไม่มี
+      if (!defaultDocInfo[`${doc.value}_remark`]) {
+        defaultDocInfo[`${doc.value}_remark`] = "";
+        hasChanges = true;
+      }
+
+      // ตั้งค่า number เป็นค่าว่างถ้ามี no และยังไม่มีข้อมูล
+      if (doc.no && !defaultDocInfo[`${doc.value}_no`]) {
+        defaultDocInfo[`${doc.value}_no`] = "";
+        hasChanges = true;
+      }
+    });
+
+    // อัปเดตเฉพาะเมื่อมีการเปลี่ยนแปลง
+    if (hasChanges) {
+      setDocumentInfo(defaultDocInfo);
+      onChangedocs?.(defaultDocInfo);
+    }
+  }, [caseType]); // เรียกใช้เมื่อ caseType เปลี่ยน
 
   const handleFilesChange = useCallback(
     (newFiles: CategoryFiles) => {
@@ -214,7 +249,6 @@ export const FileUpload = ({
   };
 
   const handleFiles = (files: File[]) => {
-    if (disabled) return;
 
     if (!selectedCategory) {
       alert("กรุณาเลือกชื่อเอกสารก่อนอัปโหลดไฟล์");
@@ -240,6 +274,11 @@ export const FileUpload = ({
     ];
 
     handleFilesChange(updatedFiles);
+
+    // อัปเดต documentInfo เป็น "มี" เมื่อมีการแนบไฟล์
+    const updatedDocInfo = { ...documentInfo, [selectedCategory]: "มี" };
+    setDocumentInfo(updatedDocInfo);
+    onChangedocs?.(updatedDocInfo);
   };
 
   const handleDrop = (event: React.DragEvent) => {
@@ -260,7 +299,6 @@ export const FileUpload = ({
   };
 
   const removeFile = (category: string, fileId: string) => {
-    if (disabled) return;
 
     const updatedFiles = { ...attachedFiles };
     if (updatedFiles[category]) {
@@ -274,6 +312,10 @@ export const FileUpload = ({
 
       if (updatedFiles[category].length === 0) {
         delete updatedFiles[category];
+        // อัปเดต documentInfo เป็น "ไม่มี" เมื่อลบไฟล์สุดท้ายออก
+        const updatedDocInfo = { ...documentInfo, [category]: "" };
+        setDocumentInfo(updatedDocInfo);
+        onChangedocs?.(updatedDocInfo);
       }
     }
     handleFilesChange(updatedFiles);
@@ -378,6 +420,15 @@ export const FileUpload = ({
     return allFiles.sort((a, b) => a.category.localeCompare(b.category));
   };
 
+  const handleOpenPreview = (fileItem: FileWithId, event: React.MouseEvent) => {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    setPreviewPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2
+    });
+    setPreviewFile(fileItem);
+  };
+
   const handleOpenDocument = (fileItem: FileWithId) => {
     // เปิดไฟล์ในหน้าใหม่
     const newWindow = window.open();
@@ -431,7 +482,7 @@ export const FileUpload = ({
   return (
     <div className="space-y-6">
       {/* Category Selection */}
-      {!disabled && (
+   
         <div className="flex flex-row space-y-1">
           <div className="w-1/2">
             <label className="block text-gray-700 font-medium mb-2 text-sm">
@@ -440,7 +491,6 @@ export const FileUpload = ({
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              disabled={disabled}
               className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black disabled:bg-gray-100"
             >
               <option value="">-- เลือกชื่อเอกสาร --</option>
@@ -475,16 +525,14 @@ export const FileUpload = ({
           />
         </div> */}
         </div>
-      )}
+    
 
       {/* File Upload Area */}
-      {!disabled && (
+    
         <div
           className={`border-2 border-dashed rounded-lg p-6 transition-colors ${
             dragOver
               ? "border-green-500 bg-green-50"
-              : disabled
-              ? "border-gray-300 bg-gray-50"
               : "border-gray-400 bg-gray-50 hover:border-gray-500"
           }`}
           onDrop={handleDrop}
@@ -493,21 +541,15 @@ export const FileUpload = ({
         >
           <div className="text-center">
             <Upload
-              className={`mx-auto h-12 w-12 ${
-                disabled ? "text-gray-300" : "text-gray-400"
-              }`}
+              className={`mx-auto h-12 w-12 "text-gray-400"
+              `}
             />
             <p className="mt-2 text-sm text-gray-600">
-              {disabled
-                ? "ไม่สามารถอัปโหลดไฟล์ได้"
-                : "ลากและวางไฟล์ที่นี่ หรือ"}
+                 ลากและวางไฟล์ที่นี่ หรือ
             </p>
             <label
-              className={`mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md ${
-                disabled
-                  ? "text-gray-400 bg-gray-100 cursor-not-allowed"
-                  : "text-gray-600 bg-gray-100 hover:bg-gray-200 cursor-pointer"
-              }`}
+              className={`mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-gray-600 bg-gray-100 hover:bg-gray-200 cursor-pointer"
+              `}
             >
               เลือกไฟล์
               <input
@@ -516,7 +558,6 @@ export const FileUpload = ({
                 accept="image/*,.pdf,.doc,.docx"
                 multiple
                 onChange={handleFileSelect}
-                disabled={disabled}
               />
             </label>
             <p className="mt-2 text-xs text-gray-500">
@@ -524,7 +565,7 @@ export const FileUpload = ({
             </p>
           </div>
         </div>
-      )}
+    
 
       {/* Attached Files Display */}
       {Object.keys(attachedFiles).length > 0 && (
@@ -564,9 +605,9 @@ export const FileUpload = ({
                           <td className="px-3 py-3 whitespace-nowrap">
                             <div
                               className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden cursor-pointer"
-                              onClick={() =>
+                              onClick={(e) =>
                                 isImageFile(fileItem.file)
-                                  ? setPreviewFile(fileItem)
+                                  ? handleOpenPreview(fileItem, e)
                                   : handleOpenDocument(fileItem)
                               }
                               title={
@@ -642,7 +683,6 @@ export const FileUpload = ({
                                 documentInfo[`${fileItem.category}_no`] || ""
                               }
                               onChange={handleChanges}
-                              disabled={disabled}
                               placeholder="เลขที่เอกสาร"
                               className={`${
                                 DOCUMENT_CATEGORIES.find(
@@ -657,11 +697,10 @@ export const FileUpload = ({
                           <td className="px-3 py-3 whitespace-nowrap text-xs font-medium">
                             <div className="flex items-center justify-center space-x-2">
                               {/* ปุ่มดูไฟล์ */}
-                              {disabled && (
                                 <div
-                                  onClick={() =>
+                                  onClick={(e) =>
                                     isImageFile(fileItem.file)
-                                      ? setPreviewFile(fileItem)
+                                      ? handleOpenPreview(fileItem, e)
                                       : handleOpenDocument(fileItem)
                                   }
                                   className="text-blue-600 hover:text-blue-800 cursor-pointer hover:bg-blue-50 p-1 rounded-md transition-colors"
@@ -677,9 +716,7 @@ export const FileUpload = ({
                                     <ExternalLink className="w-4 h-4" />
                                   )}
                                 </div>
-                              )}
 
-                              {!disabled && (
                                 <div
                                   onClick={() =>
                                     removeFile(fileItem.category, fileItem.id)
@@ -689,7 +726,6 @@ export const FileUpload = ({
                                 >
                                   <Trash className="w-4 h-4" />
                                 </div>
-                              )}
                             </div>
                           </td>
                         </tr>
@@ -756,7 +792,6 @@ export const FileUpload = ({
                               id={doc.value}
                               value={documentInfo[doc.value] || "มี"}
                               onChange={handleChanges}
-                              disabled={disabled}
                               className="w-1/2 text-xs font-medium p-2 border border-gray-300 rounded bg-white text-center focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black disabled:bg-gray-100"
                             >
                               <option value="มี">มี</option>
@@ -769,7 +804,6 @@ export const FileUpload = ({
                               id={`${doc.value}_remark`}
                               value={documentInfo[`${doc.value}_remark`] || ""}
                               onChange={handleChanges}
-                              disabled={disabled}
                               placeholder=" ไม่บังคับ"
                               className="w-full text-xs p-2 font-medium border border-gray-300 rounded bg-white focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black disabled:bg-gray-100"
                             />
@@ -788,24 +822,46 @@ export const FileUpload = ({
       {/* Preview Modal */}
       {previewFile && (
         <div
-          className="absolute inset-0 backdrop-blur-sm bg-opacity-75 z-60 flex items-center justify-center"
-          onClick={() => setPreviewFile(null)}
+          className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center"
+          // onClick={() => setPreviewFile(null)}
         >
-          <div className="p-4 relative">
+          <div 
+            className="relative max-w-[90vw] max-h-[90vh]"
+            style={{
+              animation: 'scaleIn 0.2s ease-out'
+            }}
+          >
             <button
               onClick={() => setPreviewFile(null)}
-              className="absolute top-2 right-2 z-70 p-2 bg-red-600 rounded-full text-white hover:bg-red-700"
+              className="absolute -top-4 -right-4 z-50 p-2 bg-red-600 rounded-full text-white hover:bg-red-700 shadow-lg"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
             <img
               src={previewFile.url}
               alt="Preview"
-              className="min-h-[300px] max-h-[90vh] max-w-[90vw] p-6 bg-gray-900 rounded-lg shadow-lg"
+              className="max-h-[85vh] max-w-[85vw] rounded-lg shadow-2xl object-contain"
             />
+            <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-3 rounded-b-lg">
+              <p className="text-sm font-medium truncate">{previewFile.file.name}</p>
+              <p className="text-xs text-gray-300">{formatFileSize(previewFile.file.size)}</p>
+            </div>
           </div>
         </div>
       )}
+
+      <style jsx>{`
+        @keyframes scaleIn {
+          from {
+            transform: scale(0.9);
+            opacity: 0;
+          }
+          to {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
   );
 };

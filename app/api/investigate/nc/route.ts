@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 ///case-report-investigate/{document_no}
 export async function POST(request: Request) {
   try {
-    const data = await request.json();
-    console.log("POST request data:",data);
+    const requestData = await request.json();
+    console.log("POST request data:",requestData);
     const document_no = request.headers.get("document_no") || "";
     console.log("Document No from headers:", document_no);
     const res = await fetch(`${process.env.nc_investigation_url}/${document_no}`, {
@@ -11,10 +11,20 @@ export async function POST(request: Request) {
       headers: {  
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify(requestData),
     });
-    console.log("POST DB API response status:", res);
-    return NextResponse.json(await res);
+
+
+    if(!res.ok){
+      console.log(`API responded with status: ${res.status}`);
+      return NextResponse.json(
+        { error: 'Failed to post data to external API' },
+        { status: res.status }
+      );
+    } 
+    const data = await res.json();
+    console.log('API response data:', data);
+    return NextResponse.json(data, { status: 200 });
   } catch (error) {
     console.error('POST DB API error:', error);
     return NextResponse.json(

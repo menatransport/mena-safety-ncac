@@ -21,16 +21,18 @@ import { useRouter } from "next/navigation";
 import { SearchableSelect } from "./ui/searchable-select";
 import { Calendar as CalendarComponent } from "./ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import Swal from "sweetalert2";
+import * as XLSX from 'xlsx';
 
 interface NCRecord {
   id: string;
   date: string;
-  customer: string;
-  reporter: string;
-  site: string;
-  department: string;
+  client_name: string;
+  reporter_name: string;
+  site_name: string;
+  department_name: string;
   plateNumber: string;
-  driver: string;
+  driver_name: string;
   priority: string;
   status: string;
   description: string;
@@ -101,34 +103,27 @@ export const NCRecordsComponent = () => {
           responses.map((res) => res.json())
         );
 
+        const sortedSites = sitesData.sort((a: any, b: any) => {
+          const nameA = (a.site_name_th || a.site_name || "").toLowerCase();
+          const nameB = (b.site_name_th || b.site_name || "").toLowerCase();
+          return nameA.localeCompare(nameB, 'th');
+        });
+
+        const sortedDrivers = driversData.sort((a: any, b: any) => {
+          const nameA = `${a.first_name || ""} ${a.last_name || ""}`.trim().toLowerCase();
+          const nameB = `${b.first_name || ""} ${b.last_name || ""}`.trim().toLowerCase();
+          return nameA.localeCompare(nameB, 'th');
+        });
+
         setDropdownData({
-          sites: sitesData,
-          drivers: driversData,
+          sites: sortedSites,
+          drivers: sortedDrivers,
           documentNumbers: [],
         });
 
-        fetchDocumentNumbers();
+
       } catch (error) {
         console.error("Error fetching dropdown data:", error);
-      }
-    };
-
-    const fetchDocumentNumbers = async () => {
-      try {
-        const response = await fetch("/api/document/nc");
-        if (response.ok) {
-          const data = await response.json();
-          const docNumbers = data
-            .map((record: any) => record.document_no || record.id)
-            .filter((doc: string) => doc);
-
-          setDropdownData((prev) => ({
-            ...prev,
-            documentNumbers: [...new Set(docNumbers)] as string[], // Remove duplicates
-          }));
-        }
-      } catch (error) {
-        console.error("Error fetching document numbers:", error);
       }
     };
 
@@ -146,6 +141,7 @@ export const NCRecordsComponent = () => {
   }, [filterCriteria]);
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return "";
     const [year, month, day] = dateString.split("T")[0].split("-");
     const [hours, minutes, seconds] = dateString
       .split("T")[1]
@@ -229,21 +225,26 @@ export const NCRecordsComponent = () => {
           params.append(key, value.toString());
         }
       });
-
-      const response = await fetch(`/api/document/nc?${params.toString()}`);
-
+      
+      const response = await fetch(`/api/record/nc?${params.toString()}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
       if (response.ok) {
         const data = await response.json();
+        console.log('data :',data)
         const transformedRecords = data.map((record: any) => ({
           id: record.document_no,
           date: record.record_date,
-          customer: record.client,
-          reporter: record.reporter,
+          client_name: record.client_name,
+          reporter_name: record.reporter_name,
           priority: record.priority,
-          site: record.site,
-          department: record.department,
+          site_name: record.site_name,
+          department_name: record.department_name,
           plateNumber: record.vehicle_truckno,
-          driver: record.driver,
+          driver_name: record.driver_name,
           status: record.casestatus,
           description: record.case_details,
           location: record.case_location,
@@ -334,7 +335,6 @@ export const NCRecordsComponent = () => {
       record.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.description.toLowerCase().includes(searchTerm.toLowerCase());
 
-    // Filter by status using filterCriteria
     const matchesStatus =
       !filterCriteria.casestatus ||
       filterCriteria.casestatus
@@ -342,31 +342,34 @@ export const NCRecordsComponent = () => {
         .map((s) => s.trim())
         .includes(record.status);
 
-    // Filter by priority using filterCriteria
-    const matchesPriority =
-      !filterCriteria.priority ||
-      filterCriteria.priority
-        .split(",")
-        .map((p) => p.trim())
-        .includes(record.priority);
-
-    // Filter by site using filterCriteria
     const matchesSite =
       !filterCriteria.site_id ||
       filterCriteria.site_id
         .split(",")
         .map((s) => s.trim())
-        .includes(record.site);
-
-    // Filter by driver using filterCriteria
+        .some((siteId) => {
+          const site = dropdownData.sites.find(
+            (s) => s.site_id?.toString() === siteId
+          );
+          return site && record.site_name === (site.site_name_th || site.site_name);
+        });
+        
     const matchesDriver =
       !filterCriteria.driver_id ||
       filterCriteria.driver_id
         .split(",")
         .map((d) => d.trim())
-        .includes(record.driver);
+        .some((driverId) => {
+          const driver = dropdownData.drivers.find(
+            (d) => d.driver_id?.toString() === driverId
+          );
+          return (
+            driver &&
+            record.driver_name ===
+            `${driver.first_name || ""} ${driver.last_name || ""}`.trim()
+          );
+        });
 
-    // Filter by document number using filterCriteria
     const matchesDocumentNo =
       !filterCriteria.document_no ||
       filterCriteria.document_no
@@ -374,13 +377,20 @@ export const NCRecordsComponent = () => {
         .map((d) => d.trim())
         .some((docNo) => record.id.toLowerCase().includes(docNo.toLowerCase()));
 
+    const matchesPriority =
+      !filterCriteria.priority ||
+      filterCriteria.priority
+        .split(",")
+        .map((p) => p.trim())
+        .includes(record.priority);
+
     return (
       matchesSearch &&
       matchesStatus &&
-      matchesPriority &&
       matchesSite &&
       matchesDriver &&
-      matchesDocumentNo
+      matchesDocumentNo &&
+      matchesPriority
     );
   });
 
@@ -460,6 +470,100 @@ export const NCRecordsComponent = () => {
     window.open(`/nc-form?doc=${id}`, "_blank");
   };
 
+  const handleVoided = (id: string) => {
+
+    Swal.fire({
+      title: "คุณแน่ใจที่จะลบ หรือไม่",
+      text: "รายการที่คุณจะลบ คือ " + id,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "ใช่",
+      cancelButtonText: "ไม่"
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        const res = await fetch("/api/document/nc", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ 'document_no': id, 'casestatus': 'Voided' }),
+        });
+        if (res.ok) {
+          Swal.fire({
+            title: "สำเร็จ!",
+            text: "คุณลบรายการนี้สำเร็จแล้ว",
+            icon: "success"
+          });
+        } else {
+          Swal.fire({
+            title: "ไม่สำเร็จ!",
+            text: "โปรดลองใหม่อีกครั้ง",
+            icon: "error"
+          });
+        }
+      }
+    });
+
+  }
+
+  const exportToExcel = () => {
+    if (filteredRecords.length === 0) {
+      Swal.fire({
+        title: "ไม่มีข้อมูล",
+        text: "ไม่มีข้อมูลให้ Export",
+        icon: "warning"
+      });
+      return;
+    }
+
+    // เตรียมข้อมูลสำหรับ Excel
+    const excelData = filteredRecords.map(record => ({
+      'เลขที่เอกสาร': record.id,
+      'วันที่': record.date ? formatDate(record.date) : 'ไม่ระบุ',
+      'ลูกค้า': record.client_name || 'ไม่ระบุ',
+      'ผู้รายงาน': record.reporter_name || 'ไม่ระบุ',
+      'สำนักงาน/ศูนย์': record.site_name || 'ไม่ระบุ',
+      'แผนก': record.department_name || 'ไม่ระบุ',
+      'ทะเบียนรถ': record.plateNumber || 'ไม่ระบุ',
+      'พนักงานขับรถ': record.driver_name || 'ไม่ระบุ',
+      'ระดับความรุนแรง': record.priority || 'ไม่ระบุ',
+      'สถานะ': record.status,
+      'รายละเอียด': record.description || 'ไม่ระบุ',
+      'สถานที่เกิดเหตุ': record.location || 'ไม่ระบุ'
+    }));
+
+    // สร้าง workbook และ worksheet
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'NC Records');
+
+    // ตั้งชื่อไฟล์: NC_วันที่_เวลา
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('th-TH', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).replace(/\//g, '-');
+    const timeStr = now.toLocaleTimeString('th-TH', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    }).replace(/:/g, '-');
+    const fileName = `NC_${dateStr}_${timeStr}.xlsx`;
+
+    // Download file
+    XLSX.writeFile(wb, fileName);
+
+    Swal.fire({
+      title: "สำเร็จ!",
+      text: `Export ข้อมูล ${filteredRecords.length} รายการเรียบร้อย`,
+      icon: "success",
+      timer: 2000
+    });
+  }
+
   return (
     <div className="min-h-screen bg-[#d1ffe1] p-6">
       <div className="max-w-7xl mx-auto m-4">
@@ -500,11 +604,10 @@ export const NCRecordsComponent = () => {
                   <button
                     key={preset.key}
                     onClick={() => handleDatePresetChange(preset.key)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                      dateRangePreset === preset.key
-                        ? "border-1 border-emerald-500 bg-green-100 shadow-md"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-105 border border-gray-300"
-                    }`}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${dateRangePreset === preset.key
+                      ? "border-1 border-emerald-500 bg-green-100 shadow-md"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-105 border border-gray-300"
+                      }`}
                   >
                     {preset.label}
                   </button>
@@ -618,34 +721,16 @@ export const NCRecordsComponent = () => {
                 <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
                   เลขที่เอกสาร
                 </label>
-                <SearchableSelect
-                  options={dropdownData.documentNumbers.map((doc) => ({
-                    value: doc,
-                    label: doc,
-                  }))}
-                  value={filterCriteria.document_no || ""}
-                  onChange={(value) =>
+                <input
+                className="flex items-center justify-between w-full text-sm p-2 border  rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black bg-white cursor-pointer "
+                type="text"  
+                value={filterCriteria.document_no || ""}
+                  onChange={(e) =>
                     setFilterCriteria((prev) => ({
                       ...prev,
-                      document_no: value.toString(),
+                      document_no: e.target.value,
                     }))
                   }
-                  onAddFilter={(value) => {
-                    const currentValue = filterCriteria.document_no || "";
-                    const currentItems = currentValue
-                      .split(",")
-                      .map((item) => item.trim())
-                      .filter(Boolean);
-                    const newValue = value.toString();
-
-                    if (!currentItems.includes(newValue)) {
-                      const updatedItems = [...currentItems, newValue];
-                      setFilterCriteria((prev) => ({
-                        ...prev,
-                        document_no: updatedItems.join(", "),
-                      }));
-                    }
-                  }}
                   placeholder="ค้นหาเลขที่เอกสาร..."
                 />
               </div>
@@ -653,7 +738,7 @@ export const NCRecordsComponent = () => {
               {/* Site Selection */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                  ศูนย์ปฏิบัติการ (Site)
+                 สำนักงาน/ศูนย์ปฏิบัติการ (Site)
                 </label>
                 <SearchableSelect
                   options={
@@ -670,23 +755,23 @@ export const NCRecordsComponent = () => {
                       site_id: value.toString(),
                     }))
                   }
-                  onAddFilter={(value) => {
-                    const currentValue = filterCriteria.site_id || "";
-                    const currentItems = currentValue
-                      .split(",")
-                      .map((item) => item.trim())
-                      .filter(Boolean);
-                    const newValue = value.toString();
+                  // onAddFilter={(value) => {
+                  //   const currentValue = filterCriteria.site_id || "";
+                  //   const currentItems = currentValue
+                  //     .split(",")
+                  //     .map((item) => item.trim())
+                  //     .filter(Boolean);
+                  //   const newValue = value.toString();
 
-                    if (!currentItems.includes(newValue)) {
-                      const updatedItems = [...currentItems, newValue];
-                      setFilterCriteria((prev) => ({
-                        ...prev,
-                        site_id: updatedItems.join(", "),
-                      }));
-                    }
-                  }}
-                  placeholder="เลือกศูนย์ปฏิบัติการ"
+                  //   if (!currentItems.includes(newValue)) {
+                  //     const updatedItems = [...currentItems, newValue];
+                  //     setFilterCriteria((prev) => ({
+                  //       ...prev,
+                  //       site_id: updatedItems.join(", "),
+                  //     }));
+                  //   }
+                  // }}
+                  placeholder="เลือกสำนักงาน/ศูนย์ปฏิบัติการ"
                 />
               </div>
 
@@ -700,9 +785,8 @@ export const NCRecordsComponent = () => {
                     dropdownData.drivers?.map((driver: any) => ({
                       value: driver.driver_id?.toString() || "",
                       label:
-                        `${driver.first_name || ""} ${
-                          driver.last_name || ""
-                        }`.trim() || "ไม่ระบุชื่อ",
+                        `${driver.first_name || ""} ${driver.last_name || ""
+                          }`.trim() || "ไม่ระบุชื่อ",
                     })) || []
                   }
                   value={filterCriteria.driver_id || ""}
@@ -712,22 +796,22 @@ export const NCRecordsComponent = () => {
                       driver_id: value.toString(),
                     }))
                   }
-                  onAddFilter={(value) => {
-                    const currentValue = filterCriteria.driver_id || "";
-                    const currentItems = currentValue
-                      .split(",")
-                      .map((item) => item.trim())
-                      .filter(Boolean);
-                    const newValue = value.toString();
+                  // onAddFilter={(value) => {
+                  //   const currentValue = filterCriteria.driver_id || "";
+                  //   const currentItems = currentValue
+                  //     .split(",")
+                  //     .map((item) => item.trim())
+                  //     .filter(Boolean);
+                  //   const newValue = value.toString();
 
-                    if (!currentItems.includes(newValue)) {
-                      const updatedItems = [...currentItems, newValue];
-                      setFilterCriteria((prev) => ({
-                        ...prev,
-                        driver_id: updatedItems.join(", "),
-                      }));
-                    }
-                  }}
+                  //   if (!currentItems.includes(newValue)) {
+                  //     const updatedItems = [...currentItems, newValue];
+                  //     setFilterCriteria((prev) => ({
+                  //       ...prev,
+                  //       driver_id: updatedItems.join(", "),
+                  //     }));
+                  //   }
+                  // }}
                   placeholder="เลือกพนักงานขับรถ"
                 />
               </div>
@@ -742,7 +826,7 @@ export const NCRecordsComponent = () => {
                     { value: "Pending", label: "Pending" },
                     {
                       value: "Completed Investigate",
-                      label: "Completed Investigate",
+                      label: "Completed",
                     },
                     { value: "Voided", label: "Voided" },
                   ]}
@@ -753,22 +837,22 @@ export const NCRecordsComponent = () => {
                       casestatus: value.toString(),
                     }))
                   }
-                  onAddFilter={(value) => {
-                    const currentValue = filterCriteria.casestatus || "";
-                    const currentItems = currentValue
-                      .split(",")
-                      .map((item) => item.trim())
-                      .filter(Boolean);
-                    const newValue = value.toString();
+                  // onAddFilter={(value) => {
+                  //   const currentValue = filterCriteria.casestatus || "";
+                  //   const currentItems = currentValue
+                  //     .split(",")
+                  //     .map((item) => item.trim())
+                  //     .filter(Boolean);
+                  //   const newValue = value.toString();
 
-                    if (!currentItems.includes(newValue)) {
-                      const updatedItems = [...currentItems, newValue];
-                      setFilterCriteria((prev) => ({
-                        ...prev,
-                        casestatus: updatedItems.join(", "),
-                      }));
-                    }
-                  }}
+                  //   if (!currentItems.includes(newValue)) {
+                  //     const updatedItems = [...currentItems, newValue];
+                  //     setFilterCriteria((prev) => ({
+                  //       ...prev,
+                  //       casestatus: updatedItems.join(", "),
+                  //     }));
+                  //   }
+                  // }}
                   placeholder="เลือกสถานะ"
                 />
               </div>
@@ -791,22 +875,22 @@ export const NCRecordsComponent = () => {
                       priority: value.toString(),
                     }))
                   }
-                  onAddFilter={(value) => {
-                    const currentValue = filterCriteria.priority || "";
-                    const currentItems = currentValue
-                      .split(",")
-                      .map((item) => item.trim())
-                      .filter(Boolean);
-                    const newValue = value.toString();
+                  // onAddFilter={(value) => {
+                  //   const currentValue = filterCriteria.priority || "";
+                  //   const currentItems = currentValue
+                  //     .split(",")
+                  //     .map((item) => item.trim())
+                  //     .filter(Boolean);
+                  //   const newValue = value.toString();
 
-                    if (!currentItems.includes(newValue)) {
-                      const updatedItems = [...currentItems, newValue];
-                      setFilterCriteria((prev) => ({
-                        ...prev,
-                        priority: updatedItems.join(", "),
-                      }));
-                    }
-                  }}
+                  //   if (!currentItems.includes(newValue)) {
+                  //     const updatedItems = [...currentItems, newValue];
+                  //     setFilterCriteria((prev) => ({
+                  //       ...prev,
+                  //       priority: updatedItems.join(", "),
+                  //     }));
+                  //   }
+                  // }}
                   placeholder="เลือกระดับความรุนแรง"
                 />
               </div>
@@ -814,9 +898,8 @@ export const NCRecordsComponent = () => {
           </div>
 
           <div
-            className={`flex flex-col sm:flex-row gap-3 mt-6 ${
-              showFilters ? "block" : "hidden md:flex"
-            }`}
+            className={`flex flex-col sm:flex-row gap-3 mt-6 ${showFilters ? "block" : "hidden md:flex"
+              }`}
           >
             <button
               onClick={handleSearch}
@@ -869,22 +952,25 @@ export const NCRecordsComponent = () => {
                   key !== "end_date" &&
                   filterCriteria[key as keyof FilterCriteria]
               ).length > 0 && (
-                <p className="text-xs text-gray-200">
-                  มีการใช้ตัวกรองเพิ่มเติม:{" "}
-                  {
-                    Object.keys(filterCriteria).filter(
-                      (key) =>
-                        key !== "start_date" &&
-                        key !== "end_date" &&
-                        filterCriteria[key as keyof FilterCriteria]
-                    ).length
-                  }{" "}
-                  รายการ
-                </p>
-              )}
+                  <p className="text-xs text-gray-200">
+                    มีการใช้ตัวกรองเพิ่มเติม:{" "}
+                    {
+                      Object.keys(filterCriteria).filter(
+                        (key) =>
+                          key !== "start_date" &&
+                          key !== "end_date" &&
+                          filterCriteria[key as keyof FilterCriteria]
+                      ).length
+                    }{" "}
+                    รายการ
+                  </p>
+                )}
             </div>
             <div className="absolute top-4 right-4 flex flex-col sm:flex-row gap-2">
-              <button className="bg-emerald-600 border border-white hover:bg-emerald-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 shadow-lg hover:shadow-xl">
+              <button 
+                onClick={exportToExcel}
+                className="bg-emerald-600 border border-white hover:bg-emerald-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
                 <FileSpreadsheet size={20} />
                 <span className="hidden sm:inline">Excel</span>
               </button>
@@ -934,47 +1020,47 @@ export const NCRecordsComponent = () => {
                   </th>
                   <th
                     className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
-                    onClick={() => handleSort("customer")}
+                    onClick={() => handleSort("client_name")}
                   >
                     <div className="flex items-center gap-2">
                       <span>ลูกค้า</span>
-                      {getSortIcon("customer")}
+                      {getSortIcon("client_name")}
                     </div>
                   </th>
                   <th
                     className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
-                    onClick={() => handleSort("reporter")}
+                    onClick={() => handleSort("reporter_name")}
                   >
                     <div className="flex items-center gap-2">
                       <span>ชื่อผู้แจ้ง</span>
-                      {getSortIcon("reporter")}
+                      {getSortIcon("reporter_name")}
                     </div>
                   </th>
                   <th
                     className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
-                    onClick={() => handleSort("site")}
+                    onClick={() => handleSort("site_name")}
                   >
                     <div className="flex items-center gap-2">
-                      <span>ศูนย์ปฏิบัติการ</span>
-                      {getSortIcon("site")}
+                      <span>สำนักงาน/ศูนย์ปฏิบัติการ</span>
+                      {getSortIcon("site_name")}
                     </div>
                   </th>
                   <th
                     className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
-                    onClick={() => handleSort("department")}
+                    onClick={() => handleSort("department_name")}
                   >
                     <div className="flex items-center gap-2">
                       <span>ฝ่าย</span>
-                      {getSortIcon("department")}
+                      {getSortIcon("department_name")}
                     </div>
                   </th>
                   <th
                     className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
-                    onClick={() => handleSort("driver")}
+                    onClick={() => handleSort("driver_name")}
                   >
                     <div className="flex items-center gap-2">
                       <span>ชื่อคนขับ</span>
-                      {getSortIcon("driver")}
+                      {getSortIcon("driver_name")}
                     </div>
                   </th>
 
@@ -988,7 +1074,7 @@ export const NCRecordsComponent = () => {
                     </div>
                   </th>
                   <th className="px-4 py-4 text-center text-sm font-medium text-gray-600">
-                    <span>ดูรายละเอียด</span>
+                    <span>จัดการ</span>
                   </th>
                 </tr>
               </thead>
@@ -996,115 +1082,131 @@ export const NCRecordsComponent = () => {
               <tbody className="divide-y divide-white">
                 {loading
                   ? Array.from({ length: 5 }).map((_, index) => (
-                      <tr key={`loading-${index}`} className="animate-pulse">
-                        <td className="px-6 py-4">
-                          <div className="h-4 bg-gray-200 rounded w-24"></div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="h-4 bg-gray-200 rounded w-24"></div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="h-4 bg-gray-200 rounded w-28"></div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="h-4 bg-gray-200 rounded w-28"></div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="h-4 bg-gray-200 rounded w-28"></div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="h-4 bg-gray-200 rounded w-28"></div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="h-4 bg-gray-200 rounded w-36"></div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="h-6 bg-gray-200 rounded-full w-20"></div>
-                        </td>
-                        <td className="px-6 py-4 bg-gray-50">
-                          <div className="flex justify-center gap-2">
-                            <div className="h-8 w-8 bg-gray-200 rounded-lg"></div>
-                            <div className="h-8 w-8 bg-gray-200 rounded-lg"></div>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                    <tr key={`loading-${index}`} className="animate-pulse">
+                      <td className="px-6 py-4">
+                        <div className="h-4 bg-gray-200 rounded w-24"></div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 bg-gray-200 rounded w-24"></div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 bg-gray-200 rounded w-28"></div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 bg-gray-200 rounded w-28"></div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 bg-gray-200 rounded w-28"></div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 bg-gray-200 rounded w-28"></div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 bg-gray-200 rounded w-36"></div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-6 bg-gray-200 rounded-full w-20"></div>
+                      </td>
+                      <td className="px-6 py-4 bg-gray-50">
+                        <div className="flex justify-center gap-2">
+                          <div className="h-8 w-8 bg-gray-200 rounded-lg"></div>
+                          <div className="h-8 w-8 bg-gray-200 rounded-lg"></div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                   : currentRecords.map((record) => (
-                      <tr className="hover:bg-gray-100 transition-colors">
-                        <td className="px-6 py-4 text-xs font-medium text-gray-800">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={`flex items-center justify-center w-6 h-6 rounded-full ${
-                                getPriorityIcon(record.priority).bgColor
-                              } ${
-                                getPriorityIcon(record.priority).borderColor
+                    <tr className="hover:bg-gray-100 transition-colors">
+                      <td className="px-6 py-4 text-xs font-medium text-gray-800">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={`flex items-center justify-center w-6 h-6 rounded-full ${getPriorityIcon(record.priority).bgColor
+                              } ${getPriorityIcon(record.priority).borderColor
                               } border`}
-                            >
-                              <span className="text-sm">
-                                {getPriorityIcon(record.priority).icon}
-                              </span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="font-medium">{record.id}</span>
-                              <span
-                                className={`text-xs ${
-                                  getPriorityIcon(record.priority).color
-                                } font-medium`}
-                              >
-                                {getPriorityIcon(record.priority).label}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-xs text-gray-600">
-                          {formatDate(record.date)}
-                        </td>
-                        <td
-                          className="px-6 py-4 text-xs text-gray-600 max-w-[140px] truncate"
-                          title={record.customer || "ไม่ระบุ"}
-                        >
-                          {record.customer || "ไม่ระบุ"}
-                        </td>
-                        <td className="px-6 py-4 text-xs text-gray-600">
-                          {record.reporter || "ไม่ระบุ"}
-                        </td>
-                        <td className="px-6 py-4 text-xs text-gray-600">
-                          {record.site || "ไม่ระบุ"}
-                        </td>
-                        <td className="px-6 py-4 text-xs text-gray-600">
-                          {record.department || "ไม่ระบุ"}
-                        </td>
-                        <td className="px-6 py-4 text-xs text-gray-600  max-w-[140px] truncate">
-                          {record.driver || "ไม่ระบุ"}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`flex justify-center px-3 py-1 rounded-full text-xs font-medium text-center shadow-sm border ${getStatusColor(
-                              record.status
-                            )}`}
                           >
-                            {record.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 bg-gray-50 w-32">
-                          <div className="flex flex-col items-center justify-center space-x-2">
-                            <button
-                              onClick={() => handleRouter(record.id)}
-                              className="p-2 text-blue-600  hover:scale-110 rounded-lg"
-                              title="ดูรายละเอียด"
-                            >
-                              <LordIcon
-                                src="https://cdn.lordicon.com/hmpomorl.json"
-                                trigger="hover"
-                                colors="primary:#151a17,secondary:#4fd19b"
-                                style={{ width: "28px", height: "28px" }}
-                              />
-                            </button>
-                            <span className="text-xs text-gray-600">เปิด</span>
+                            <span className="text-sm">
+                              {getPriorityIcon(record.priority).icon}
+                            </span>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
+                          <div className="flex flex-col">
+                            <span className="font-medium">{record.id}</span>
+                            <span
+                              className={`text-xs ${getPriorityIcon(record.priority).color
+                                } font-medium`}
+                            >
+                              {getPriorityIcon(record.priority).label}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-xs text-gray-600">
+                        {formatDate(record.date)}
+                      </td>
+                      <td
+                        className="px-6 py-4 text-xs text-gray-600 max-w-[140px] truncate"
+                        title={record.client_name || "ไม่ระบุ"}
+                      >
+                        {record.client_name || "ไม่ระบุ"}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-gray-600">
+                        {record.reporter_name || "ไม่ระบุ"}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-gray-600">
+                        {record.site_name || "ไม่ระบุ"}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-gray-600">
+                        {record.department_name || "ไม่ระบุ"}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-gray-600  max-w-[140px] truncate">
+                        {record.driver_name || "ไม่ระบุ"}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`flex justify-center px-3 py-1 rounded-full text-xs font-medium text-center shadow-sm border ${getStatusColor(
+                            record.status
+                          )}`}
+                        >
+                          {
+                            record.status === "Completed Investigate"
+                              ? "Completed" : record.status
+                          }
+
+                        </span>
+                      </td>
+                      <td className="flex flex-row px-6 py-4 bg-gray-50 w-32">
+                        <div className="flex flex-col items-center justify-center space-x-2">
+                          <button
+                            onClick={() => handleRouter(record.id)}
+                            className="p-2 text-blue-600  hover:scale-110 rounded-lg cursor-pointer" 
+                            title="ดูรายละเอียด"
+                          >
+                            <LordIcon
+                              src="https://cdn.lordicon.com/hmpomorl.json"
+                              trigger="hover"
+                              colors="primary:#151a17,secondary:#4fd19b"
+                              style={{ width: "28px", height: "28px" }}
+                            />
+                          </button>
+                          <span className="text-xs text-gray-600">เปิด</span>
+                        </div>
+                        <div className="flex flex-col items-center justify-center space-x-2">
+                          <button
+                            onClick={() => handleVoided(record.id)}
+                            className="p-2 text-blue-600  hover:scale-110 rounded-lg cursor-pointer"
+                            title="ลบรายการนี้"
+                          >
+                            <LordIcon
+                              src="https://cdn.lordicon.com/jzinekkv.json"
+                              trigger="hover"
+                              colors="primary:#242424,secondary:#c71f16"
+                              style={{ width: "28px", height: "28px" }}
+                            />
+                          </button>
+                          <span className="text-xs text-gray-600">ลบ</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>

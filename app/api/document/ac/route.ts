@@ -51,10 +51,9 @@ export async function PUT(request: Request) {
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    
-    const queryString = searchParams.toString();
-
-    const apiUrl = `${process.env.ac_url}${queryString ? `?${queryString}` : ''}`;
+    const docid = searchParams.get('case_id');
+    // const apiUrl = `${process.env.ac_url}${queryString ? `?${queryString}` : ''}`;
+    const apiUrl = `${process.env.ac_url}/${docid}`;
 
     const res = await fetch(apiUrl, {
       method: 'GET',

@@ -22,6 +22,8 @@ import { useRouter } from "next/navigation";
 import { SearchableSelect } from "./ui/searchable-select";
 import { Calendar as CalendarComponent } from "./ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import Swal from "sweetalert2";
+import * as XLSX from 'xlsx';
 
 interface ACRecord {
   id: string;
@@ -102,34 +104,26 @@ export const ACRecordsComponent = () => {
           responses.map((res) => res.json())
         );
 
+        const sortedSites = sitesData.sort((a: any, b: any) => {
+          const nameA = (a.site_name_th || a.site_name || "").toLowerCase();
+          const nameB = (b.site_name_th || b.site_name || "").toLowerCase();
+          return nameA.localeCompare(nameB, 'th');
+        });
+
+        const sortedDrivers = driversData.sort((a: any, b: any) => {
+          const nameA = `${a.first_name || ""} ${a.last_name || ""}`.trim().toLowerCase();
+          const nameB = `${b.first_name || ""} ${b.last_name || ""}`.trim().toLowerCase();
+          return nameA.localeCompare(nameB, 'th');
+        });
+
         setDropdownData({
-          sites: sitesData,
-          drivers: driversData,
+          sites: sortedSites,
+          drivers: sortedDrivers,
           documentNumbers: [],
         });
 
-        fetchDocumentNumbers();
       } catch (error) {
         console.error("Error fetching AC dropdown data:", error);
-      }
-    };
-
-    const fetchDocumentNumbers = async () => {
-      try {
-        const response = await fetch("/api/document/ac");
-        if (response.ok) {
-          const data = await response.json();
-          const docNumbers = data
-            .map((record: any) => record.document_no_ac || record.id)
-            .filter((doc: string) => doc);
-
-          setDropdownData((prev) => ({
-            ...prev,
-            documentNumbers: [...new Set(docNumbers)] as string[], // Remove duplicates
-          }));
-        }
-      } catch (error) {
-        console.error("Error fetching AC document numbers:", error);
       }
     };
 
@@ -230,7 +224,12 @@ export const ACRecordsComponent = () => {
         }
       });
 
-      const response = await fetch(`/api/document/ac?${params.toString()}`);
+      const response = await fetch(`/api/record/ac?${params.toString()}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
       if (response.ok) {
         const data = await response.json();
@@ -264,7 +263,7 @@ export const ACRecordsComponent = () => {
   const clearFilters = () => {
     setFilterCriteria({});
     setDateRangePreset("7days");
-    handleDatePresetChange("7days"); 
+    handleDatePresetChange("7days");
   };
 
   // Sort function
@@ -351,7 +350,7 @@ export const ACRecordsComponent = () => {
           );
           return site && record.site === (site.site_name_th || site.site_name);
         });
-
+        
     const matchesDriver =
       !filterCriteria.driver_id ||
       filterCriteria.driver_id
@@ -364,7 +363,7 @@ export const ACRecordsComponent = () => {
           return (
             driver &&
             record.driver ===
-              `${driver.first_name || ""} ${driver.last_name || ""}`.trim()
+            `${driver.first_name || ""} ${driver.last_name || ""}`.trim()
           );
         });
 
@@ -398,7 +397,7 @@ export const ACRecordsComponent = () => {
   const endIndex = startIndex + recordsPerPage;
   const currentRecords = filteredRecords.slice(startIndex, endIndex);
 
-const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case "Voided":
         return "bg-red-100 text-red-800 border-red-200";
@@ -433,14 +432,7 @@ const getStatusColor = (status: string) => {
           borderColor: "border-yellow-200",
           label: "Minor",
         };
-      case "significant":
-        return {
-          icon: "🟣",
-          color: "text-purple-600",
-          bgColor: "bg-purple-50",
-          borderColor: "border-purple-200",
-          label: "Significant",
-        };
+
       case "major":
         return {
           icon: "🟠",
@@ -472,6 +464,100 @@ const getStatusColor = (status: string) => {
 
     window.open(`/ac-form?doc=${id}`, "_blank");
   };
+
+  const handleVoided = (id: string) => {
+
+    Swal.fire({
+      title: "คุณแน่ใจที่จเลบ หรือไม่",
+      text: "รายการที่คุณจะลบ คือ " + id,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "ใช่",
+      cancelButtonText: "ไม่"
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        const res = await fetch("/api/document/ac", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ 'document_no': id, 'casestatus': 'Voided' }),
+        });
+        if (res.ok) {
+          Swal.fire({
+            title: "สำเร็จ!",
+            text: "คุณลบรายการนี้สำเร็จแล้ว",
+            icon: "success"
+          });
+        } else {
+          Swal.fire({
+            title: "ไม่สำเร็จ!",
+            text: "โปรดลองใหม่อีกครั้ง",
+            icon: "error"
+          });
+        }
+      }
+    });
+
+  }
+
+  const exportToExcel = () => {
+    if (filteredRecords.length === 0) {
+      Swal.fire({
+        title: "ไม่มีข้อมูล",
+        text: "ไม่มีข้อมูลให้ Export",
+        icon: "warning"
+      });
+      return;
+    }
+
+    // เตรียมข้อมูลสำหรับ Excel
+    const excelData = filteredRecords.map(record => ({
+      'เลขที่เอกสาร': record.id,
+      'วันที่': record.date ? formatDate(record.date) : 'ไม่ระบุ',
+      'ลูกค้า': record.customer || 'ไม่ระบุ',
+      'ผู้รายงาน': record.reporter || 'ไม่ระบุ',
+      'สำนักงาน/ศูนย์': record.site || 'ไม่ระบุ',
+      'แผนก': record.department || 'ไม่ระบุ',
+      'ทะเบียนรถ': record.plateNumber || 'ไม่ระบุ',
+      'พนักงานขับรถ': record.driver || 'ไม่ระบุ',
+      'ระดับความรุนแรง': record.priority || 'ไม่ระบุ',
+      'สถานะ': record.status,
+      'รายละเอียด': record.description || 'ไม่ระบุ',
+      'สถานที่เกิดเหตุ': record.location || 'ไม่ระบุ'
+    }));
+
+    // สร้าง workbook และ worksheet
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'AC Records');
+
+    // ตั้งชื่อไฟล์: AC_วันที่_เวลา
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('th-TH', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).replace(/\//g, '-');
+    const timeStr = now.toLocaleTimeString('th-TH', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    }).replace(/:/g, '-');
+    const fileName = `AC_${dateStr}_${timeStr}.xlsx`;
+
+    // Download file
+    XLSX.writeFile(wb, fileName);
+
+    Swal.fire({
+      title: "สำเร็จ!",
+      text: `Export ข้อมูล ${filteredRecords.length} รายการเรียบร้อย`,
+      icon: "success",
+      timer: 2000
+    });
+  }
 
   return (
     <div className="min-h-screen bg-[#d1ffe1] p-6">
@@ -513,11 +599,10 @@ const getStatusColor = (status: string) => {
                   <button
                     key={preset.key}
                     onClick={() => handleDatePresetChange(preset.key)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                      dateRangePreset === preset.key
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${dateRangePreset === preset.key
                         ? "border-1 border-emerald-500 bg-green-100 shadow-md"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-105 border border-gray-300"
-                    }`}
+                      }`}
                   >
                     {preset.label}
                   </button>
@@ -631,34 +716,16 @@ const getStatusColor = (status: string) => {
                 <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
                   เลขที่เอกสาร
                 </label>
-                <SearchableSelect
-                  options={dropdownData.documentNumbers.map((doc) => ({
-                    value: doc,
-                    label: doc,
-                  }))}
+                <input
+                  className="flex items-center justify-between w-full text-sm p-2 border  rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black bg-white cursor-pointer "
+                  type="text"
                   value={filterCriteria.document_no || ""}
-                  onChange={(value) =>
+                  onChange={(e) =>
                     setFilterCriteria((prev) => ({
                       ...prev,
-                      document_no: value.toString(),
+                      document_no: e.target.value,
                     }))
                   }
-                  onAddFilter={(value) => {
-                    const currentValue = filterCriteria.document_no || "";
-                    const currentItems = currentValue
-                      .split(",")
-                      .map((item) => item.trim())
-                      .filter(Boolean);
-                    const newValue = value.toString();
-
-                    if (!currentItems.includes(newValue)) {
-                      const updatedItems = [...currentItems, newValue];
-                      setFilterCriteria((prev) => ({
-                        ...prev,
-                        document_no: updatedItems.join(", "),
-                      }));
-                    }
-                  }}
                   placeholder="ค้นหาเลขที่เอกสาร..."
                 />
               </div>
@@ -666,7 +733,7 @@ const getStatusColor = (status: string) => {
               {/* Site Selection */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                  ศูนย์ปฏิบัติการ (Site)
+                  สำนักงาน/ศูนย์ปฏิบัติการ (Site)
                 </label>
                 <SearchableSelect
                   options={
@@ -683,23 +750,23 @@ const getStatusColor = (status: string) => {
                       site_id: value.toString(),
                     }))
                   }
-                  onAddFilter={(value) => {
-                    const currentValue = filterCriteria.site_id || "";
-                    const currentItems = currentValue
-                      .split(",")
-                      .map((item) => item.trim())
-                      .filter(Boolean);
-                    const newValue = value.toString();
+                  // onAddFilter={(value) => {
+                  //   const currentValue = filterCriteria.site_id || "";
+                  //   const currentItems = currentValue
+                  //     .split(",")
+                  //     .map((item) => item.trim())
+                  //     .filter(Boolean);
+                  //   const newValue = value.toString();
 
-                    if (!currentItems.includes(newValue)) {
-                      const updatedItems = [...currentItems, newValue];
-                      setFilterCriteria((prev) => ({
-                        ...prev,
-                        site_id: updatedItems.join(", "),
-                      }));
-                    }
-                  }}
-                  placeholder="เลือกศูนย์ปฏิบัติการ"
+                  //   if (!currentItems.includes(newValue)) {
+                  //     const updatedItems = [...currentItems, newValue];
+                  //     setFilterCriteria((prev) => ({
+                  //       ...prev,
+                  //       site_id: updatedItems.join(", "),
+                  //     }));
+                  //   }
+                  // }}
+                  placeholder="เลือกสำนักงาน/ศูนย์ปฏิบัติการ"
                 />
               </div>
 
@@ -713,9 +780,8 @@ const getStatusColor = (status: string) => {
                     dropdownData.drivers?.map((driver: any) => ({
                       value: driver.driver_id?.toString() || "",
                       label:
-                        `${driver.first_name || ""} ${
-                          driver.last_name || ""
-                        }`.trim() || "ไม่ระบุชื่อ",
+                        `${driver.first_name || ""} ${driver.last_name || ""
+                          }`.trim() || "ไม่ระบุชื่อ",
                     })) || []
                   }
                   value={filterCriteria.driver_id || ""}
@@ -725,22 +791,22 @@ const getStatusColor = (status: string) => {
                       driver_id: value.toString(),
                     }))
                   }
-                  onAddFilter={(value) => {
-                    const currentValue = filterCriteria.driver_id || "";
-                    const currentItems = currentValue
-                      .split(",")
-                      .map((item) => item.trim())
-                      .filter(Boolean);
-                    const newValue = value.toString();
+                  // onAddFilter={(value) => {
+                  //   const currentValue = filterCriteria.driver_id || "";
+                  //   const currentItems = currentValue
+                  //     .split(",")
+                  //     .map((item) => item.trim())
+                  //     .filter(Boolean);
+                  //   const newValue = value.toString();
 
-                    if (!currentItems.includes(newValue)) {
-                      const updatedItems = [...currentItems, newValue];
-                      setFilterCriteria((prev) => ({
-                        ...prev,
-                        driver_id: updatedItems.join(", "),
-                      }));
-                    }
-                  }}
+                  //   if (!currentItems.includes(newValue)) {
+                  //     const updatedItems = [...currentItems, newValue];
+                  //     setFilterCriteria((prev) => ({
+                  //       ...prev,
+                  //       driver_id: updatedItems.join(", "),
+                  //     }));
+                  //   }
+                  // }}
                   placeholder="เลือกพนักงานขับรถ"
                 />
               </div>
@@ -766,22 +832,22 @@ const getStatusColor = (status: string) => {
                       casestatus: value.toString(),
                     }))
                   }
-                  onAddFilter={(value) => {
-                    const currentValue = filterCriteria.casestatus || "";
-                    const currentItems = currentValue
-                      .split(",")
-                      .map((item) => item.trim())
-                      .filter(Boolean);
-                    const newValue = value.toString();
+                  // onAddFilter={(value) => {
+                  //   const currentValue = filterCriteria.casestatus || "";
+                  //   const currentItems = currentValue
+                  //     .split(",")
+                  //     .map((item) => item.trim())
+                  //     .filter(Boolean);
+                  //   const newValue = value.toString();
 
-                    if (!currentItems.includes(newValue)) {
-                      const updatedItems = [...currentItems, newValue];
-                      setFilterCriteria((prev) => ({
-                        ...prev,
-                        casestatus: updatedItems.join(", "),
-                      }));
-                    }
-                  }}
+                  //   if (!currentItems.includes(newValue)) {
+                  //     const updatedItems = [...currentItems, newValue];
+                  //     setFilterCriteria((prev) => ({
+                  //       ...prev,
+                  //       casestatus: updatedItems.join(", "),
+                  //     }));
+                  //   }
+                  // }}
                   placeholder="เลือกสถานะ"
                 />
               </div>
@@ -794,7 +860,6 @@ const getStatusColor = (status: string) => {
                 <SearchableSelect
                   options={[
                     { value: "Minor", label: "🟡 Minor" },
-                    { value: "Significant", label: "🟣 Significant" },
                     { value: "Major", label: "🟠 Major" },
                     { value: "Crisis", label: "🔴 Crisis" },
                   ]}
@@ -805,22 +870,22 @@ const getStatusColor = (status: string) => {
                       priority: value.toString(),
                     }))
                   }
-                  onAddFilter={(value) => {
-                    const currentValue = filterCriteria.priority || "";
-                    const currentItems = currentValue
-                      .split(",")
-                      .map((item) => item.trim())
-                      .filter(Boolean);
-                    const newValue = value.toString();
+                  // onAddFilter={(value) => {
+                  //   const currentValue = filterCriteria.priority || "";
+                  //   const currentItems = currentValue
+                  //     .split(",")
+                  //     .map((item) => item.trim())
+                  //     .filter(Boolean);
+                  //   const newValue = value.toString();
 
-                    if (!currentItems.includes(newValue)) {
-                      const updatedItems = [...currentItems, newValue];
-                      setFilterCriteria((prev) => ({
-                        ...prev,
-                        priority: updatedItems.join(", "),
-                      }));
-                    }
-                  }}
+                  //   if (!currentItems.includes(newValue)) {
+                  //     const updatedItems = [...currentItems, newValue];
+                  //     setFilterCriteria((prev) => ({
+                  //       ...prev,
+                  //       priority: updatedItems.join(", "),
+                  //     }));
+                  //   }
+                  // }}
                   placeholder="เลือกระดับความรุนแรง"
                 />
               </div>
@@ -828,9 +893,8 @@ const getStatusColor = (status: string) => {
           </div>
 
           <div
-            className={`flex flex-col sm:flex-row gap-3 mt-6 ${
-              showFilters ? "block" : "hidden md:flex"
-            }`}
+            className={`flex flex-col sm:flex-row gap-3 mt-6 ${showFilters ? "block" : "hidden md:flex"
+              }`}
           >
             <button
               onClick={handleSearch}
@@ -883,22 +947,25 @@ const getStatusColor = (status: string) => {
                   key !== "end_date" &&
                   filterCriteria[key as keyof FilterCriteria]
               ).length > 0 && (
-                <p className="text-xs text-gray-200">
-                  มีการใช้ตัวกรองเพิ่มเติม:{" "}
-                  {
-                    Object.keys(filterCriteria).filter(
-                      (key) =>
-                        key !== "start_date" &&
-                        key !== "end_date" &&
-                        filterCriteria[key as keyof FilterCriteria]
-                    ).length
-                  }{" "}
-                  รายการ
-                </p>
-              )}
+                  <p className="text-xs text-gray-200">
+                    มีการใช้ตัวกรองเพิ่มเติม:{" "}
+                    {
+                      Object.keys(filterCriteria).filter(
+                        (key) =>
+                          key !== "start_date" &&
+                          key !== "end_date" &&
+                          filterCriteria[key as keyof FilterCriteria]
+                      ).length
+                    }{" "}
+                    รายการ
+                  </p>
+                )}
             </div>
             <div className="absolute top-4 right-4 flex flex-col sm:flex-row gap-2">
-              <button className="bg-emerald-600 border border-white hover:bg-emerald-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 shadow-lg hover:shadow-xl">
+              <button 
+                onClick={exportToExcel}
+                className="bg-emerald-600 border border-white hover:bg-emerald-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
                 <FileSpreadsheet size={20} />
                 <span className="hidden sm:inline">Excel</span>
               </button>
@@ -969,7 +1036,7 @@ const getStatusColor = (status: string) => {
                     onClick={() => handleSort("site")}
                   >
                     <div className="flex items-center gap-2">
-                      <span>ศูนย์ปฏิบัติการ</span>
+                      <span>สำนักงาน/ศูนย์ปฏิบัติการ</span>
                       {getSortIcon("site")}
                     </div>
                   </th>
@@ -1002,7 +1069,7 @@ const getStatusColor = (status: string) => {
                     </div>
                   </th>
                   <th className="px-4 py-4 text-center text-sm font-medium text-gray-600">
-                    <span>ดูรายละเอียด</span>
+                    <span>จัดการ</span>
                   </th>
                 </tr>
               </thead>
@@ -1010,115 +1077,127 @@ const getStatusColor = (status: string) => {
               <tbody className="divide-y divide-white">
                 {loading
                   ? Array.from({ length: 5 }).map((_, index) => (
-                      <tr key={`loading-${index}`} className="animate-pulse">
-                        <td className="px-6 py-4">
-                          <div className="h-4 bg-gray-200 rounded w-32"></div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="h-4 bg-gray-200 rounded w-24"></div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="h-4 bg-gray-200 rounded w-28"></div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="h-4 bg-gray-200 rounded w-28"></div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="h-4 bg-gray-200 rounded w-28"></div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="h-4 bg-gray-200 rounded w-28"></div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="h-4 bg-gray-200 rounded w-36"></div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="h-6 bg-gray-200 rounded-full w-20"></div>
-                        </td>
-                        <td className="px-6 py-4 bg-gray-50">
-                          <div className="flex justify-center gap-2">
-                            <div className="h-8 w-8 bg-gray-200 rounded-lg"></div>
-                            <div className="h-8 w-8 bg-gray-200 rounded-lg"></div>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                    <tr key={`loading-${index}`} className="animate-pulse">
+                      <td className="px-6 py-4">
+                        <div className="h-4 bg-gray-200 rounded w-32"></div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 bg-gray-200 rounded w-24"></div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 bg-gray-200 rounded w-28"></div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 bg-gray-200 rounded w-28"></div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 bg-gray-200 rounded w-28"></div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 bg-gray-200 rounded w-28"></div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 bg-gray-200 rounded w-36"></div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-6 bg-gray-200 rounded-full w-20"></div>
+                      </td>
+                      <td className="px-6 py-4 bg-gray-50">
+                        <div className="flex justify-center gap-2">
+                          <div className="h-8 w-8 bg-gray-200 rounded-lg"></div>
+                          <div className="h-8 w-8 bg-gray-200 rounded-lg"></div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                   : currentRecords.map((record) => (
-                      <tr className="hover:bg-gray-100 transition-colors">
-                        <td className="px-6 py-4 text-xs font-medium text-gray-800">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={`flex items-center justify-center w-6 h-6 rounded-full ${
-                                getPriorityIcon(record.priority).bgColor
-                              } ${
-                                getPriorityIcon(record.priority).borderColor
+                    <tr className="hover:bg-gray-100 transition-colors">
+                      <td className="px-6 py-4 text-xs font-medium text-gray-800">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={`flex items-center justify-center w-6 h-6 rounded-full ${getPriorityIcon(record.priority).bgColor
+                              } ${getPriorityIcon(record.priority).borderColor
                               } border`}
-                            >
-                              <span className="text-sm">
-                                {getPriorityIcon(record.priority).icon}
-                              </span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="font-medium">{record.id}</span>
-                              <span
-                                className={`text-xs ${
-                                  getPriorityIcon(record.priority).color
-                                } font-medium`}
-                              >
-                                {getPriorityIcon(record.priority).label}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-xs text-gray-600">
-                          {record.date ? formatDate(record.date) : "ไม่ระบุ"}
-                        </td>
-                        <td
-                          className="px-6 py-4 text-xs text-gray-600 max-w-[140px] truncate"
-                          title={record.customer || "ไม่ระบุ"}
-                        >
-                          {record.customer || "ไม่ระบุ"}
-                        </td>
-                        <td className="px-6 py-4 text-xs text-gray-600">
-                          {record.reporter || "ไม่ระบุ"}
-                        </td>
-                        <td className="px-6 py-4 text-xs text-gray-600">
-                          {record.site || "ไม่ระบุ"}
-                        </td>
-                        <td className="px-6 py-4 text-xs text-gray-600">
-                          {record.department || "ไม่ระบุ"}
-                        </td>
-                        <td className="px-6 py-4 text-xs text-gray-600 max-w-[140px] truncate">
-                          {record.driver || "ไม่ระบุ"}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`flex justify-center px-3 py-1 rounded-full text-xs font-medium text-center shadow-sm border ${getStatusColor(
-                              record.status
-                            )}`}
                           >
-                            {record.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 bg-gray-50 w-32">
-                          <div className="flex flex-col items-center justify-center space-x-2">
-                            <button
-                              onClick={() => handleRouter(record.id)}
-                              className="p-2 text-blue-600  hover:scale-110 rounded-lg"
-                              title="ดูรายละเอียด"
-                            >
-                              <LordIcon
-                                src="https://cdn.lordicon.com/hmpomorl.json"
-                                trigger="hover"
-                                colors="primary:#151a17,secondary:#4fd19b"
-                                style={{ width: "28px", height: "28px" }}
-                              />
-                            </button>
-                            <span className="text-xs text-gray-600">เปิด</span>
+                            <span className="text-sm">
+                              {getPriorityIcon(record.priority).icon}
+                            </span>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
+                          <div className="flex flex-col">
+                            <span className="font-medium">{record.id}</span>
+                            <span
+                              className={`text-xs ${getPriorityIcon(record.priority).color
+                                } font-medium`}
+                            >
+                              {getPriorityIcon(record.priority).label}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-xs text-gray-600">
+                        {record.date ? formatDate(record.date) : "ไม่ระบุ"}
+                      </td>
+                      <td
+                        className="px-6 py-4 text-xs text-gray-600 max-w-[140px] truncate"
+                        title={record.customer || "ไม่ระบุ"}
+                      >
+                        {record.customer || "ไม่ระบุ"}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-gray-600">
+                        {record.reporter || "ไม่ระบุ"}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-gray-600">
+                        {record.site || "ไม่ระบุ"}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-gray-600">
+                        {record.department || "ไม่ระบุ"}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-gray-600 max-w-[140px] truncate">
+                        {record.driver || "ไม่ระบุ"}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`flex justify-center px-3 py-1 rounded-full text-xs font-medium text-center shadow-sm border ${getStatusColor(
+                            record.status
+                          )}`}
+                        >
+                          {record.status}
+                        </span>
+                      </td>
+                      <td className="flex flex-row px-6 py-4 bg-gray-50 w-32">
+                        <div className="flex flex-col items-center justify-center space-x-2">
+                          <button
+                            onClick={() => handleRouter(record.id)}
+                            className="p-2 text-blue-600  hover:scale-110 rounded-lg cursor-pointer"
+                            title="ดูรายละเอียด"
+                          >
+                            <LordIcon
+                              src="https://cdn.lordicon.com/hmpomorl.json"
+                              trigger="hover"
+                              colors="primary:#151a17,secondary:#4fd19b"
+                              style={{ width: "28px", height: "28px" }}
+                            />
+                          </button>
+                          <span className="text-xs text-gray-600">เปิด</span>
+                        </div>
+                        <div className="flex flex-col items-center justify-center space-x-2">
+                          <button
+                            onClick={() => handleVoided(record.id)}
+                            className="p-2 text-blue-600  hover:scale-110 rounded-lg cursor-pointer"
+                            title="ลบรายการนี้"
+                          >
+                            <LordIcon
+                              src="https://cdn.lordicon.com/jzinekkv.json"
+                              trigger="hover"
+                              colors="primary:#242424,secondary:#c71f16"
+                              style={{ width: "28px", height: "28px" }}
+                            />
+                          </button>
+                          <span className="text-xs text-gray-600">ลบ</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>

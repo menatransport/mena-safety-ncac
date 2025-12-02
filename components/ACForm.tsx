@@ -153,18 +153,19 @@ export const ACFormComponent = () => {
             },
           }
         );
-
+        
         const data = await res.json();
+        console.log("Fetched AC record data:", data);
         if (res.ok) {
-          if (data[0].reporter_name == name) {
+          if (data.reporter_name == name) {
             setIsViewMode(false);
           } else {
             setIsViewMode(true);
           }
 
-          setFormData(data[0]);
-          await mapTextDataToIds(data[0]);
-
+          setFormData(data);
+          await mapTextDataToIds(data);
+          
           // โหลดไฟล์แนบ
           await loadExistingAttachments(docId);
         } else {
@@ -482,6 +483,12 @@ export const ACFormComponent = () => {
     }
   };
 
+  function toThaiISO(date: Date) {
+  const timezoneOffset = 7 * 60 * 60 * 1000; // +7 ชั่วโมง
+  const utcDate = new Date(date.getTime() - timezoneOffset);
+  return utcDate.toISOString();
+}
+
   // ========== Province/District Handling Functions ==========
   const handleProvinceChange = (provinceId: number) => {
     setFormData((prev) => ({
@@ -608,7 +615,6 @@ export const ACFormComponent = () => {
     } else if (type === "number") {
       processedValue = value === "" ? 0 : Number(value);
     }
-
     setFormData({
       ...formData,
       [name]: processedValue,
@@ -741,7 +747,7 @@ export const ACFormComponent = () => {
     e.preventDefault();
 
     const validation = validateRequiredFields();
-
+    console.log('validation : ',validation)
     if (validation.missingFields.length > 0) {
       const missingFieldsList = validation.missingFields.join("\n• ");
       Swal.fire({
@@ -764,12 +770,12 @@ export const ACFormComponent = () => {
 
       const submitData = {
         ...formData,
-        record_datetime: formatLocalDateTime(new Date()),
+        record_datetime: toThaiISO(new Date()),
         reporter_id: userinfo.id,
         docs: [docValue as any]
       };
 
-      // console.log("AC Form data to submit:", submitData);
+      console.log("AC Form data to submit:", submitData);
 
       const res = await fetch("/api/document/ac", {
         method: "POST",
@@ -832,9 +838,22 @@ export const ACFormComponent = () => {
     }
 
     delete formData.priority;
+    delete formData.reporter_name;
     delete formData.record_datetime;
+    delete formData.site_name;
+    delete formData.driver_name;
+    delete formData.client_name; 
+    delete formData.department_name;
+    delete formData.driver_role_name;
+    delete formData.origin_name;
+    delete formData.vehicle_head_plate;
+    delete formData.vehicle_tail_plate;
+    delete formData.province_name;
+    delete formData.district_name;
+    delete formData.sub_district_name;
 
     const data = { ...formData, docs: [docValue as any] };
+    console.log("AC Form data to update:", data);
     const res = await fetch("/api/document/ac", {
       method: "PUT",
       headers: {
@@ -1034,15 +1053,13 @@ export const ACFormComponent = () => {
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
                         วันที่และเวลา แจ้งเหตุ:
                       </label>
-                      <input
-                        type="text"
-                        name="record_datetime"
-                        disabled={isViewMode}
-                        value={formatLocalDateTime(
-                          new Date(formData.record_datetime || "")
-                        )}
-                        readOnly
-                        className="w-full text-sm p-2 bg-gray-100 border border-gray-300 rounded focus:outline-none text-black cursor-not-allowed disabled:text-blue-600 disabled:font-bold"
+                      <DateTimePicker24h 
+                        value={
+                          formData?.record_datetime
+                            ? new Date(formData.record_datetime)
+                            : undefined
+                        }
+                        disabled={true}
                       />
                     </div>
 
@@ -1431,7 +1448,7 @@ export const ACFormComponent = () => {
                               type="radio"
                               name="alcohol_test_radio"
                               disabled={isViewMode}
-                              checked={formData.alcohol_test === "no"}
+                              checked={formData.alcohol_test === "no" ||formData?.alcohol_test_result === -1}
                               onChange={() =>
                                 handleRadioChange("alcohol_test", "no")
                               }
@@ -1453,11 +1470,16 @@ export const ACFormComponent = () => {
                             <span className="text-red-500">*</span>
                           </label>
                           <input
-                            type="number"
-                            step="0.01"
+                            type="text"
+                            inputMode="decimal"
                             name="alcohol_test_result"
-                            value={formData?.alcohol_test_result || 0}
-                            onChange={handleInputChange}
+                            value={formData?.alcohol_test_result || ""}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                                handleInputChange(e);
+                              }
+                            }}
                             disabled={isViewMode}
                             className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
                               isViewMode
@@ -1706,11 +1728,15 @@ export const ACFormComponent = () => {
                           ประเมินค่าเสียหายสินค้า (บาท):
                         </label>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="decimal"
                           name="estimated_goods_damage_value"
-                          min="0"
-                          step="0.01"
-                          onChange={handleInputChange}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                              handleInputChange(e);
+                            }
+                          }}
                           disabled={isViewMode}
                           value={formData?.estimated_goods_damage_value || ""}
                           className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${
@@ -1726,11 +1752,15 @@ export const ACFormComponent = () => {
                           ประเมินค่าเสียหายรถ (บาท):
                         </label>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="decimal"
                           name="estimated_vehicle_damage_value"
-                          min="0"
-                          step="0.01"
-                          onChange={handleInputChange}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                              handleInputChange(e);
+                            }
+                          }}
                           disabled={isViewMode}
                           value={formData?.estimated_vehicle_damage_value || ""}
                           className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${
@@ -1746,11 +1776,15 @@ export const ACFormComponent = () => {
                           ค่าเสียหายสินค้าจริง (บาท):
                         </label>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="decimal"
                           name="actual_goods_damage_value"
-                          min="0"
-                          step="0.01"
-                          onChange={handleInputChange}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                              handleInputChange(e);
+                            }
+                          }}
                           disabled={isViewMode}
                           value={formData?.actual_goods_damage_value || ""}
                           className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${
@@ -1766,11 +1800,15 @@ export const ACFormComponent = () => {
                           ค่าเสียหายรถจริง (บาท):
                         </label>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="decimal"
                           name="actual_vehicle_damage_value"
-                          min="0"
-                          step="0.01"
-                          onChange={handleInputChange}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                              handleInputChange(e);
+                            }
+                          }}
                           disabled={isViewMode}
                           value={formData?.actual_vehicle_damage_value || ""}
                           className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${
@@ -1799,11 +1837,16 @@ export const ACFormComponent = () => {
                         บุคคลได้รับบาดเจ็บไม่ส่งโรงพยาบาล:
                       </label>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         name="injured_not_hospitalized"
-                        value={formData?.injured_not_hospitalized || "0"}
-                        min="0"
-                        onChange={handleInputChange}
+                        value={formData?.injured_not_hospitalized || ""}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '' || /^\d+$/.test(value)) {
+                            handleInputChange(e);
+                          }
+                        }}
                         disabled={isViewMode}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
                           isViewMode
@@ -1818,11 +1861,16 @@ export const ACFormComponent = () => {
                         บุคคลได้รับบาดเจ็บส่งโรงพยาบาล:
                       </label>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         name="injured_hospitalized"
-                        value={formData?.injured_hospitalized || "0"}
-                        min="0"
-                        onChange={handleInputChange}
+                        value={formData?.injured_hospitalized || ""}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '' || /^\d+$/.test(value)) {
+                            handleInputChange(e);
+                          }
+                        }}
                         disabled={isViewMode}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
                           isViewMode
@@ -1837,11 +1885,16 @@ export const ACFormComponent = () => {
                         บุคคลเสียชีวิต:
                       </label>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         name="fatalities"
-                        value={formData?.fatalities || "0"}
-                        min="0"
-                        onChange={handleInputChange}
+                        value={formData?.fatalities || ""}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '' || /^\d+$/.test(value)) {
+                            handleInputChange(e);
+                          }
+                        }}
                         disabled={isViewMode}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
                           isViewMode
@@ -2029,16 +2082,15 @@ export const ACFormComponent = () => {
 
                 <div className="border-t border-gray-400 md:col-span-3"></div>
                 {/*แนบเอกสาร */}
-                <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 mb-3 text-sm">
+                <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 mb-3 text-sm md:col-span-3">
                   <h3>แนบเอกสาร</h3>
                   <p className="font-semibold text-xs text-gray-600">
                     Document Attachments
                   </p>
                 </div>
-                <div className="p-6">
+                <div className="p-6 md:col-span-3">
                       <FileUpload
                         onFilesChange={handleFilesFromUpload}
-                        disabled={isViewMode}
                         existingFiles={attachedFiles}
                         onChangedocs={(docs) => setDocValue(docs as any)}
                         docs={formData.docs?.[0]}
@@ -2056,8 +2108,7 @@ export const ACFormComponent = () => {
                       คัดลอกข้อมูล
                     </button>
                   )}
-                  {formData?.casestatus !== "" &&
-                    userinfo.name == formData?.reporter_name && (
+                  {formData?.casestatus !== "" && formData?.casestatus !== "Voided" && (
                       <button
                         type="button"
                         onClick={handleUpdate}

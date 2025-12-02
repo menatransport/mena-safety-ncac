@@ -51,10 +51,9 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     
-    const queryString = searchParams.toString();
+    const docid = searchParams.get('document_no');
 
-    // เรียก API พร้อม query parameters
-    const apiUrl = `${process.env.nc_url}${queryString ? `?${queryString}` : ''}`;
+    const apiUrl = `${process.env.nc_url}/${docid}`;
 
     const res = await fetch(apiUrl, {
       method: 'GET',
@@ -68,7 +67,6 @@ export async function GET(request: Request) {
     }
 
     const data = await res.json();
-    // console.log('API response data:', data);
 
     if (Array.isArray(data) && data.length > 0 && searchParams.get('document_no')) {
       return NextResponse.json(data[0]);

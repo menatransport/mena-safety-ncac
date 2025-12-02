@@ -41,19 +41,7 @@ export const NCFormComponent = () => {
     getData,
   } = useDropdownStore();
 
-  const [formData, setFormData] = useState<Partial<caseReport_NC>>({
-    casestatus: "",
-    record_date: new Date().toISOString(),
-    products: [{ product_id: 1, product_name: "", amount: 0, unit: "" }] as [
-      {
-        product_id: number;
-        product_name: string;
-        amount: number;
-        unit: string;
-        casestatus: string;
-      }
-    ],
-  });
+
 
   const [formInvestigate, setFormInvestigate] = useState<
     Partial<investigate_NC>
@@ -67,6 +55,20 @@ export const NCFormComponent = () => {
   const [thisform, setThisform] = useState<string>("initial"); // initial or investigate
   const [isAnimating, setIsAnimating] = useState(false);
   const [docValue, setDocValue] = useState<any[]>([]);
+  const [formData, setFormData] = useState<Partial<caseReport_NC>>({
+    reporter_name: userinfo?.name || "",
+    casestatus: "",
+    record_date: new Date().toISOString(),
+    products: [{ product_id: 1, product_name: "", amount: 0, unit: "" }] as [
+      {
+        product_id: number;
+        product_name: string;
+        amount: number;
+        unit: string;
+        casestatus: string;
+      }
+    ],
+  });
   const [corrective_actions, setCorrectiveActions] = useState<
     [
       {
@@ -169,7 +171,7 @@ export const NCFormComponent = () => {
         const data = await res.json();
         console.log("Fetched record data:", data);
         if (res.ok) {
-          if (data.reporter == name) {
+          if (data.reporter_name == name) {
             setIsViewMode(false);
           } else {
             setIsViewMode(true);
@@ -244,23 +246,23 @@ export const NCFormComponent = () => {
     const mappedData: any = {};
     const store = getData();
     console.log("store : ", store);
-    if (data.site && store.sites) {
+    if (data.site_name && store.sites) {
       const site = store.sites.find(
-        (val: any) => val.site_name_th === data.site
+        (val: any) => val.site_name_th === data.site_name
       );
       if (site) mappedData.site_id = site.site_id;
     }
 
-    if (data.department && store.departments) {
+    if (data.department_name && store.departments) {
       const department = store.departments.find(
-        (val: any) => val.department_name_th === data.department
+        (val: any) => val.department_name_th === data.department_name
       );
       if (department) mappedData.department_id = department.department_id;
     }
 
-    if (data.client && store.clients) {
+    if (data.client_name && store.clients) {
       const client = store.clients.find(
-        (val: any) => val.client_name === data.client
+        (val: any) => val.client_name === data.client_name
       );
       if (client) mappedData.client_id = client.client_id;
     }
@@ -271,10 +273,10 @@ export const NCFormComponent = () => {
       if (location) mappedData.origin_id = location.location_id;
     }
 
-    if (data.vehicle_head && store.vehicles) {
+    if (data.vehicle_head_plate && store.vehicles) {
       const vehicle = store.vehicles.find(
         (val: any) =>
-          val.vehicle_number_plate === data.vehicle_head &&
+          val.vehicle_number_plate === data.vehicle_head_plate &&
           val.plate_type === "head"
       );
       if (vehicle) {
@@ -283,26 +285,26 @@ export const NCFormComponent = () => {
       }
     }
 
-    if (data.vehicle_tail && store.vehicles) {
+    if (data.vehicle_tail_plate && store.vehicles) {
       const vehicle = store.vehicles.find(
         (val: any) =>
-          val.vehicle_number_plate === data.vehicle_tail &&
+          val.vehicle_number_plate === data.vehicle_tail_plate &&
           val.plate_type === "tail"
       );
       if (vehicle) mappedData.vehicle_id_tail = vehicle.vehicle_id;
     }
 
-    if (data.driver_role && store.driver_roles) {
+    if (data.driver_role_name && store.driver_roles) {
       const role = store.driver_roles.find(
-        (val: any) => val.role_name === data.driver_role
+        (val: any) => val.role_name === data.driver_role_name
       );
       if (role) mappedData.driver_role_id = role.driver_role_id;
     }
 
-    if (data.driver && store.masterdrivers) {
+    if (data.driver_name && store.masterdrivers) {
       const driver = store.masterdrivers.find((val: any) => {
         const fullName = val.first_name + " " + val.last_name;
-        return fullName === data.driver;
+        return fullName === data.driver_name;
       });
       if (driver) mappedData.driver_id = driver.driver_id;
     }
@@ -313,7 +315,7 @@ export const NCFormComponent = () => {
       );
       if (cause) mappedData.incident_cause_id = cause.cause_id;
     }
-
+    console.log('mappdata : ',mappedData)
     setFormData((prev) => ({ ...prev, ...mappedData }));
   };
 
@@ -436,7 +438,6 @@ export const NCFormComponent = () => {
     const rootCauseTextarea = document.querySelector(
       'textarea[name="root_cause_analysis"]'
     ) as HTMLTextAreaElement;
-    console.log("rootCauseTextarea :", rootCauseTextarea);
     if (rootCauseTextarea) {
       rootCauseTextarea.style.height = "auto";
       rootCauseTextarea.style.height = `${Math.max(
@@ -448,15 +449,14 @@ export const NCFormComponent = () => {
     const correctiveTextareas = document.querySelectorAll(
       "textarea[data-action-id]"
     ) as NodeListOf<HTMLTextAreaElement>;
-    console.log("correctiveTextareas :", correctiveTextareas);
     correctiveTextareas.forEach((textarea) => {
       if (textarea) {
-      textarea.style.height = "auto";
-      textarea.style.height = `${Math.max(
-        100,
-        textarea.scrollHeight
-      )}px`;
-    }
+        textarea.style.height = "auto";
+        textarea.style.height = `${Math.max(
+          100,
+          textarea.scrollHeight
+        )}px`;
+      }
     });
   }, [formInvestigate.root_cause_analysis, corrective_actions]);
 
@@ -714,12 +714,18 @@ export const NCFormComponent = () => {
     }
   };
 
+  function toThaiISO(date: Date) {
+    const timezoneOffset = 7 * 60 * 60 * 1000; // +7 ชั่วโมง
+    const utcDate = new Date(date.getTime() - timezoneOffset);
+    return utcDate.toISOString();
+  }
+
+
   const handleCorrectiveActionChange = (
     id: number,
     field: string,
     value: string
   ) => {
-    console.log("[field,value]", [field, value]);
     if (!corrective_actions) return;
     setCorrectiveActions(
       corrective_actions.map((action) =>
@@ -762,11 +768,6 @@ export const NCFormComponent = () => {
         field: "vehicle_id_head",
         label: "ทะเบียนรถหัว",
         elementName: "vehicle_id_head",
-      },
-      {
-        field: "vehicle_id_tail",
-        label: "ทะเบียนรถหาง",
-        elementName: "vehicle_id_tail",
       },
       {
         field: "driver_role_id",
@@ -818,15 +819,15 @@ export const NCFormComponent = () => {
         alert("ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่");
         return;
       }
-
+      console.log("new Date : ", new Date().toLocaleDateString());
       const submitData = {
         ...formData,
-        record_date: formatLocalDateTime(new Date()),
+        record_date: toThaiISO(new Date()),
         reporter_id: userinfo.id,
         docs: [docValue as any]
       };
 
-      // console.log("NC Form data to submit:", submitData);
+      console.log("NC Form data to submit:", submitData);
 
       const res = await fetch("/api/document/nc", {
         method: "POST",
@@ -840,7 +841,7 @@ export const NCFormComponent = () => {
       // console.log("API Response:", responseData);
 
       if (res.ok) {
-        // console.log("Success response data:", responseData);
+        console.log("Success response data:", responseData);
         Swal.fire({
           icon: "success",
           title: "บันทึกข้อมูลเรียบร้อย",
@@ -848,13 +849,13 @@ export const NCFormComponent = () => {
           confirmButtonText: "ตกลง",
           allowOutsideClick: false,
         });
+
         setFormData((prev) => ({
           ...prev,
-          reporter_name: responseData.reporter_name,
-          document_no_ac: responseData.document_no_ac,
+          document_no: responseData.document_no,
           casestatus: responseData.casestatus,
         }));
-
+        console.log('Form Data after submit:', formData);
         if (responseData.document_no && Object.keys(attachedFiles).length > 0) {
           await attatchments_post(responseData.document_no);
         }
@@ -866,8 +867,7 @@ export const NCFormComponent = () => {
     } catch (error) {
       console.error("Error submitting NC Form:", error);
       alert(
-        `เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${
-          error instanceof Error ? error.message : "Unknown error"
+        `เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${error instanceof Error ? error.message : "Unknown error"
         }`
       );
     }
@@ -886,7 +886,19 @@ export const NCFormComponent = () => {
     }
 
     delete formData.priority;
+    delete formData.reporter_name;
     delete formData.record_date;
+    delete formData.site_name;
+    delete formData.driver_name;
+    delete formData.client_name; 
+    delete formData.department_name;
+    delete formData.driver_role_name;
+    delete formData.origin_name;
+    delete formData.vehicle_head_plate;
+    delete formData.vehicle_tail_plate;
+
+
+
 
     const data = { ...formData, docs: [docValue as any] };
     console.log("Data to be updated:", data);
@@ -924,13 +936,11 @@ export const NCFormComponent = () => {
   const handleUpdateInvestigate = async () => {
     if (!formData.document_no)
       return alert("ไม่พบเลขที่เอกสารนี้ โปรดลองใหม่อีกครั้ง");
-    console.log("status: ", formData.casestatus);
-    console.log("NC Investigate Update <><><><> :", formInvestigate);
     const data = {
       ...formInvestigate,
       corrective_actions: corrective_actions,
     };
-
+    console.log("Data to be updated (Investigate):", data);
     const res = await fetch("/api/investigate/nc", {
       method: "POST",
       headers: {
@@ -945,6 +955,14 @@ export const NCFormComponent = () => {
       Swal.fire({
         icon: "success",
         title: "บันทึกข้อมูลการสอบสวนเรียบร้อย",
+        draggable: true,
+        confirmButtonText: "ตกลง",
+        allowOutsideClick: false,
+      });
+    } else {
+      Swal.fire({
+        icon: "error",
+        title: "การบันทึกไม่สำเร็จลองใหม่อีกครั้ง",
         draggable: true,
         confirmButtonText: "ตกลง",
         allowOutsideClick: false,
@@ -1046,10 +1064,9 @@ export const NCFormComponent = () => {
                   className={`relative flex items-center justify-center w-20 h-20 text-xl font-bold
                     rounded-full shadow-lg transition-all duration-300 ease-out
                     disabled:cursor-not-allowed overflow-hidden
-                    ${
-                      thisform === "initial"
-                        ? "bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 text-white scale-110 shadow-2xl"
-                        : "bg-white text-gray-600 hover:text-blue-600 hover:scale-105 hover:shadow-xl border-2 border-gray-300 hover:border-blue-400"
+                    ${thisform === "initial"
+                      ? "bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 text-white scale-110 shadow-2xl"
+                      : "bg-white text-gray-600 hover:text-blue-600 hover:scale-105 hover:shadow-xl border-2 border-gray-300 hover:border-blue-400"
                     }`}
                 >
                   <span className="relative z-10">1</span>
@@ -1059,11 +1076,10 @@ export const NCFormComponent = () => {
                 </button>
                 <div className="mt-3 text-center">
                   <span
-                    className={`text-xs font-semibold tracking-wide transition-colors duration-300 ${
-                      thisform === "initial"
-                        ? "text-blue-600"
-                        : "text-gray-600 group-hover:text-blue-500"
-                    }`}
+                    className={`text-xs font-semibold tracking-wide transition-colors duration-300 ${thisform === "initial"
+                      ? "text-blue-600"
+                      : "text-gray-600 group-hover:text-blue-500"
+                      }`}
                   >
                     Initial Report
                   </span>
@@ -1079,10 +1095,9 @@ export const NCFormComponent = () => {
                   className={`relative flex items-center justify-center w-20 h-20 text-xl font-bold
                     rounded-full shadow-lg transition-all duration-300 ease-out
                     disabled:cursor-not-allowed overflow-hidden
-                    ${
-                      thisform === "investigate"
-                        ? "bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 text-white scale-110 shadow-2xl"
-                        : "bg-white text-gray-600 hover:text-blue-600 hover:scale-105 hover:shadow-xl border-2 border-gray-300 hover:border-blue-400"
+                    ${thisform === "investigate"
+                      ? "bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 text-white scale-110 shadow-2xl"
+                      : "bg-white text-gray-600 hover:text-blue-600 hover:scale-105 hover:shadow-xl border-2 border-gray-300 hover:border-blue-400"
                     }`}
                 >
                   <span className="relative z-10">2</span>
@@ -1092,11 +1107,10 @@ export const NCFormComponent = () => {
                 </button>
                 <div className="mt-3 text-center">
                   <span
-                    className={`text-xs font-semibold tracking-wide transition-colors duration-300 ${
-                      thisform === "investigate"
-                        ? "text-blue-600"
-                        : "text-gray-600 group-hover:text-blue-500"
-                    }`}
+                    className={`text-xs font-semibold tracking-wide transition-colors duration-300 ${thisform === "investigate"
+                      ? "text-blue-600"
+                      : "text-gray-600 group-hover:text-blue-500"
+                      }`}
                   >
                     Investigation
                   </span>
@@ -1123,11 +1137,10 @@ export const NCFormComponent = () => {
                 {/* Initial Report Section */}
                 {thisform === "initial" && (
                   <div
-                    className={`rounded-lg bg-white transition-all duration-300 ${
-                      isAnimating
-                        ? "opacity-0 translate-y-10"
-                        : "opacity-100 translate-y-0"
-                    }`}
+                    className={`rounded-lg bg-white transition-all duration-300 ${isAnimating
+                      ? "opacity-0 translate-y-10"
+                      : "opacity-100 translate-y-0"
+                      }`}
                   >
                     <div className="mb-3 border-b border-gray-400 pb-4">
                       <label className="flex text-sm p-1 font-bold text-gray-800">
@@ -1209,41 +1222,39 @@ export const NCFormComponent = () => {
                           <label className="block text-gray-700 font-medium mb-1 text-sm">
                             วันที่และเวลา แจ้งเหตุ:
                           </label>
-                          <input
-                            type="text"
-                            name="record_date"
-                            disabled={isViewMode}
-                            value={formatLocalDateTime(
-                              new Date(formData.record_date || "")
-                            )}
-                            readOnly
-                            className="w-full text-sm p-2 bg-gray-100 border border-gray-300 rounded focus:outline-none text-black cursor-not-allowed disabled:text-blue-600 disabled:font-bold"
+                          <DateTimePicker24h
+                            value={
+                              formData?.record_date
+                                ? new Date(formData.record_date)
+                                : undefined
+                            }
+                            disabled={true}
                           />
                         </div>
 
-                         <div>
-                        <label className="block text-gray-700 font-medium mb-1 text-sm">
-                          วันที่และเวลา เกิดเหตุ:{" "}
-                          <span className="text-red-500">*</span>
-                        </label>
-                        <DateTimePicker24h
-                          value={
-                            formData?.incident_date
-                              ? new Date(formData.incident_date)
-                              : undefined
-                          }
-                          onChange={(value) =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              incident_date: value ? value.toISOString() : "",
-                            }))
-                          }
-                          disabled={isViewMode}
-                        />
-                      </div>
                         <div>
                           <label className="block text-gray-700 font-medium mb-1 text-sm">
-                            สาเหตุ NC: <span className="text-red-500">*</span>
+                            วันที่และเวลา เกิดเหตุ:{" "}
+                            <span className="text-red-500">*</span>
+                          </label>
+                          <DateTimePicker24h
+                            value={
+                              formData?.incident_date
+                                ? new Date(formData.incident_date)
+                                : undefined
+                            }
+                            onChange={(value) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                incident_date: value ? value.toISOString() : "",
+                              }))
+                            }
+                            disabled={isViewMode}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-gray-700 font-medium mb-1 text-sm">
+                            สาเหตุการเกิดเหตุ: <span className="text-red-500">*</span>
                           </label>
                           <SearchableSelect
                             options={(mastercauses || []).map((cause: any) => ({
@@ -1276,11 +1287,10 @@ export const NCFormComponent = () => {
                             rows={3}
                             maxLength={1000}
                             disabled={isViewMode}
-                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                              isViewMode
-                                ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                : ""
-                            }`}
+                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                              : ""
+                              }`}
                           />
                         </div>
                       </div>
@@ -1354,11 +1364,10 @@ export const NCFormComponent = () => {
                             value={formData?.destination}
                             onChange={handleInputChange}
                             disabled={isViewMode}
-                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                              isViewMode
-                                ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                : ""
-                            }`}
+                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                              : ""
+                              }`}
                           />
                         </div>
 
@@ -1373,11 +1382,10 @@ export const NCFormComponent = () => {
                             value={formData?.case_location}
                             onChange={handleInputChange}
                             disabled={isViewMode}
-                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                              isViewMode
-                                ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                : ""
-                            }`}
+                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                              : ""
+                              }`}
                           />
                         </div>
                       </div>
@@ -1450,7 +1458,6 @@ export const NCFormComponent = () => {
                         <div>
                           <label className="block text-gray-700 font-medium mb-1 text-sm">
                             ทะเบียนรถหาง:{" "}
-                            <span className="text-red-500">*</span>
                           </label>
                           <SearchableSelect
                             options={(vehicles || [])
@@ -1491,7 +1498,7 @@ export const NCFormComponent = () => {
                                 driver_role_id: Number(value),
                               }))
                             }
-                            // onAdd={() => handleAddItem("driver_role")}
+                            // onAdd={() => handleAddItem("driver_role_name")}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -1517,8 +1524,8 @@ export const NCFormComponent = () => {
                                 driver_id: String(value),
                               }))
                             }
-                            // onAdd={() => handleAddItem("masterdriver")}
-                            showAddRemove={true}
+                            onAdd={() => handleAddItem("masterdriver")}
+                            showAddRemove={false}
                             className="w-full"
                             disabled={isViewMode}
                           />
@@ -1582,30 +1589,32 @@ export const NCFormComponent = () => {
                                           e.target.value
                                         )
                                       }
-                                      className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                                        isViewMode
-                                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                          : ""
-                                      }`}
+                                      className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                                        ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                        : ""
+                                        }`}
                                       disabled={isViewMode}
                                     />
                                   </td>
                                   <td className="border border-gray-300 px-3 py-2 text-black">
                                     <input
-                                      type="number"
-                                      value={item.amount}
-                                      onChange={(e) =>
-                                        handleProductItemChange(
-                                          item.product_id,
-                                          "amount",
-                                          e.target.value
-                                        )
-                                      }
-                                      className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                                        isViewMode
-                                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                          : ""
-                                      }`}
+                                      type="text"
+                                      inputMode="numeric"
+                                      value={item.amount || ""}
+                                      onChange={(e) => {
+                                        const value = e.target.value;
+                                        if (value === '' || /^\d+$/.test(value)) {
+                                          handleProductItemChange(
+                                            item.product_id,
+                                            "amount",
+                                            value
+                                          );
+                                        }
+                                      }}
+                                      className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                                        ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                        : ""
+                                        }`}
                                       disabled={isViewMode}
                                     />
                                   </td>
@@ -1620,11 +1629,10 @@ export const NCFormComponent = () => {
                                         )
                                       }
                                       disabled={isViewMode}
-                                      className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                                        isViewMode
-                                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                          : ""
-                                      }`}
+                                      className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                                        ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                        : ""
+                                        }`}
                                     >
                                       <option value=""></option>
                                       <option value="คิว">คิว</option>
@@ -1644,16 +1652,21 @@ export const NCFormComponent = () => {
                                 มูลค่าความเสียหายประมาณการ:
                               </label>
                               <input
-                                type="number"
+                                type="text"
+                                inputMode="numeric"
                                 name="estimated_cost"
-                                value={formData?.estimated_cost || 0}
-                                onChange={handleInputChange}
+                                value={formData?.estimated_cost || ""}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  if (value === '' || /^\d+$/.test(value)) {
+                                    handleInputChange(e);
+                                  }
+                                }}
                                 disabled={isViewMode}
-                                className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                                  isViewMode
-                                    ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                    : ""
-                                }`}
+                                className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                                  ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                  : ""
+                                  }`}
                               />
                             </div>
 
@@ -1662,16 +1675,21 @@ export const NCFormComponent = () => {
                                 มูลค่าความเสียหายจริง:
                               </label>
                               <input
-                                type="number"
+                                type="text"
+                                inputMode="numeric"
                                 name="actual_price"
-                                value={formData?.actual_price || 0}
-                                onChange={handleInputChange}
+                                value={formData?.actual_price || ""}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  if (value === '' || /^\d+$/.test(value)) {
+                                    handleInputChange(e);
+                                  }
+                                }}
                                 disabled={isViewMode}
-                                className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                                  isViewMode
-                                    ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                    : ""
-                                }`}
+                                className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                                  ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                  : ""
+                                  }`}
                               />
                             </div>
                           </div>
@@ -1679,35 +1697,38 @@ export const NCFormComponent = () => {
                       </div>
                     </div>
 
+
+                  </div>
+                )}
+
+                {thisform === "initial" && (
+                  <>
                     <div className="border-t border-gray-400 md:col-span-3"></div>
-                    {/*แนบเอกสาร */}
-                    <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 text-sm mb-3">
+                    <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 mb-3 text-sm md:col-span-3">
                       <h3>แนบเอกสาร</h3>
                       <p className="font-semibold text-xs text-gray-600">
                         Document Attachments
                       </p>
                     </div>
-                    <div className="p-6">
+                    <div className="p-6 md:col-span-3">
                       <FileUpload
                         onFilesChange={handleFilesFromUpload}
-                        disabled={isViewMode}
                         existingFiles={attachedFiles}
                         onChangedocs={(docs) => setDocValue(docs as any)}
                         docs={formData.docs?.[0]}
                         case="nc"
                       />
                     </div>
-                  </div>
+                  </>
                 )}
 
                 {/* Investigate Section */}
                 {thisform === "investigate" && formData?.casestatus !== "" && (
                   <div
-                    className={`rounded-lg bg-white mt-6 transition-all duration-300 ${
-                      isAnimating
-                        ? "opacity-0 translate-y-10"
-                        : "opacity-100 translate-y-0"
-                    }`}
+                    className={`rounded-lg bg-white mt-6 transition-all duration-300 ${isAnimating
+                      ? "opacity-0 translate-y-10"
+                      : "opacity-100 translate-y-0"
+                      }`}
                   >
                     <div className="mb-3 border-b border-gray-400 pb-4">
                       <label className="flex text-sm p-1 font-bold text-gray-800">
@@ -1749,11 +1770,10 @@ export const NCFormComponent = () => {
                             maxLength={2000}
                             disabled={isViewMode}
                             style={{ minHeight: "100px" }}
-                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black resize-none overflow-hidden ${
-                              isViewMode
-                                ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                : ""
-                            }`}
+                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black resize-none overflow-hidden ${isViewMode
+                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                              : ""
+                              }`}
                           />
                         </div>
                       </div>
@@ -1825,12 +1845,11 @@ export const NCFormComponent = () => {
                                         e.target.scrollHeight
                                       )}px`;
                                     }}
-                                      
-                                    className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black resize-none overflow-hidden ${
-                                      isViewMode
-                                        ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                        : ""
-                                    }`}
+
+                                    className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black resize-none overflow-hidden ${isViewMode
+                                      ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                      : ""
+                                      }`}
                                     disabled={isViewMode}
                                   />
                                 </td>
@@ -1845,11 +1864,10 @@ export const NCFormComponent = () => {
                                         e.target.value
                                       )
                                     }
-                                    className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                                      isViewMode
-                                        ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                        : ""
-                                    }`}
+                                    className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                                      ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                      : ""
+                                      }`}
                                     disabled={isViewMode}
                                   />
                                 </td>
@@ -1906,9 +1924,8 @@ export const NCFormComponent = () => {
                       </div>
                       <div className={`flex flex-col text-right`}>
                         <label
-                          className={`text-sm text-gray-800 ${
-                            formData?.actual_price == 0 ? "" : "hidden"
-                          } `}
+                          className={`text-sm text-gray-800 ${formData?.actual_price == 0 ? "" : "hidden"
+                            } `}
                         >
                           มูลค่าความเสียหายประมาณการ: {""}
                           <span className="font-bold text-blue-600">
@@ -1916,9 +1933,8 @@ export const NCFormComponent = () => {
                           </span>
                         </label>
                         <label
-                          className={`text-sm text-gray-800 ${
-                            formData?.actual_price == 0 ? "hidden" : ""
-                          } `}
+                          className={`text-sm text-gray-800 ${formData?.actual_price == 0 ? "hidden" : ""
+                            } `}
                         >
                           มูลค่าความเสียหายจริง: {""}
                           <span className="font-bold text-blue-600">
@@ -1938,18 +1954,18 @@ export const NCFormComponent = () => {
                             value={formInvestigate.claim_type || ""}
                             onChange={handleInvestigateInputChange}
                             disabled={isViewMode}
-                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                              isViewMode
-                                ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                : ""
-                            }`}
+                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                              : ""
+                              }`}
                           >
                             <option value=""></option>
-                            <option value="insurance">ประกัน</option>
-                            <option value="customer">ลูกค้า</option>
-                            <option value="driver">คนขับ</option>
-                            <option value="company">บริษัท</option>
-                            <option value="other">อื่นๆ</option>
+                            <option value="เครมประกัน">เครมประกัน</option>
+                            <option value="นำสินค้าไปขาย">นำสินค้าไปขาย</option>
+                            <option value="คู่กรณี">คู่กรณี</option>
+                            <option value="พจส.รับผิดชอบ">พจส.รับผิดชอบ</option>
+                            <option value="บริษัทรับผิดชอบ">บริษัทรับผิดชอบ</option>
+                            <option value="พจส.&บริษัท รับผิดชอบ">พจส.&บริษัท รับผิดชอบ</option>
                           </select>
                         </div>
 
@@ -1958,16 +1974,21 @@ export const NCFormComponent = () => {
                             ประกันรับเคลม (บาท):
                           </label>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
                             name="insurance_claim"
-                            value={formInvestigate.insurance_claim}
-                            onChange={handleInvestigateInputChange}
+                            value={formInvestigate.insurance_claim || ""}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === '' || /^\d+$/.test(value)) {
+                                handleInvestigateInputChange(e);
+                              }
+                            }}
                             disabled={isViewMode}
-                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                              isViewMode
-                                ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                : ""
-                            }`}
+                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                              : ""
+                              }`}
                           />
                         </div>
 
@@ -1976,16 +1997,21 @@ export const NCFormComponent = () => {
                             ขายสินค้าได้ (บาท):
                           </label>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
                             name="product_resellable"
-                            value={formInvestigate.product_resellable}
-                            onChange={handleInvestigateInputChange}
+                            value={formInvestigate.product_resellable || ""}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === '' || /^\d+$/.test(value)) {
+                                handleInvestigateInputChange(e);
+                              }
+                            }}
                             disabled={isViewMode}
-                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                              isViewMode
-                                ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                : ""
-                            }`}
+                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                              : ""
+                              }`}
                           />
                         </div>
 
@@ -1994,16 +2020,21 @@ export const NCFormComponent = () => {
                             ค่าความเสียหายคงเหลือ (บาท):
                           </label>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
                             name="remaining_damage_cost"
-                            value={formInvestigate?.remaining_damage_cost}
-                            onChange={handleInvestigateInputChange}
+                            value={formInvestigate?.remaining_damage_cost || ""}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === '' || /^\d+$/.test(value)) {
+                                handleInvestigateInputChange(e);
+                              }
+                            }}
                             disabled={isViewMode}
-                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                              isViewMode
-                                ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                : ""
-                            }`}
+                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                              : ""
+                              }`}
                           />
                         </div>
 
@@ -2012,16 +2043,21 @@ export const NCFormComponent = () => {
                             คนขับรับผิดชอบค่าใช้จ่าย (บาท):
                           </label>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
                             name="driver_cost"
-                            value={formInvestigate?.driver_cost}
-                            onChange={handleInvestigateInputChange}
+                            value={formInvestigate?.driver_cost || ""}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === '' || /^\d+$/.test(value)) {
+                                handleInvestigateInputChange(e);
+                              }
+                            }}
                             disabled={isViewMode}
-                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                              isViewMode
-                                ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                : ""
-                            }`}
+                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                              : ""
+                              }`}
                           />
                         </div>
 
@@ -2030,16 +2066,21 @@ export const NCFormComponent = () => {
                             บริษัทรับผิดชอบค่าใช้จ่าย (บาท):
                           </label>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
                             name="company_cost"
-                            value={formInvestigate?.company_cost}
-                            onChange={handleInvestigateInputChange}
+                            value={formInvestigate?.company_cost || ""}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === '' || /^\d+$/.test(value)) {
+                                handleInvestigateInputChange(e);
+                              }
+                            }}
                             disabled={isViewMode}
-                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                              isViewMode
-                                ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                : ""
-                            }`}
+                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                              : ""
+                              }`}
                           />
                         </div>
                       </div>
@@ -2058,8 +2099,7 @@ export const NCFormComponent = () => {
                       คัดลอกข้อมูล
                     </button>
                   )}
-                  {formData?.casestatus !== "" &&
-                    userinfo?.name == formData?.reporter &&
+                  {formData?.casestatus !== "" && formData?.casestatus !== "Voided" &&
                     thisform === "initial" && (
                       <button
                         type="button"
