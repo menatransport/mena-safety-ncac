@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mena Safety",
-  description: "Mena Safety - Safety Management System",
+  title: "MENA NCAC",
+  description: "MENA NCAC Management System",
 };
 
 export default function RootLayout({

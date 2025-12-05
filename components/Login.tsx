@@ -109,7 +109,7 @@ export default function Login() {
                 : "translate-y-4 opacity-0"
             }`}
           >
-            Mena Safety System Powered by Operations Support
+            Mena NCAC System Powered by Operations Support
           </p>
         </div>
       {/* Login Card */}
@@ -156,19 +156,14 @@ export default function Login() {
             <div className="space-y-2">
               <label className="text-gray-700 text-sm font-semibold">รหัสผ่าน</label>
               <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="p-2 absolute right-1 top-1/2 transform -translate-y-1/2 transition-colors z-10"
-                  title={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
-                >
-                  <LordIcon 
+                <div className="p-2 absolute right-1 top-1/2 transform -translate-y-1/2 z-10" onClick={() => setShowPassword(!showPassword)} title={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}>
+                <LordIcon 
                     src={"https://cdn.lordicon.com/vfczflna.json" }
                     trigger="hover"
                     colors="primary:#4285f4,secondary:#34a853"
                     style={{ width: '32px', height: '32px' , stroke: 'bold' }}
                   />
-                </button>
+                  </div>
                 <input
                   type={showPassword ? "text" : "password"}
                   value={password}
@@ -269,7 +264,7 @@ export default function Login() {
             {/* Footer */}
             <div className="text-center space-y-2">
               <p className="text-gray-400 text-xs">
-                © 2025 Mena Safety • เวอร์ชัน *****
+                © 2025 MENA NCAC • V.1.0.0
               </p>
               <div className="hidden justify-center space-x-4 text-xs">
                 <a href="#" className="text-gray-500 hover:text-emerald-600 transition-colors">นโยบายความเป็นส่วนตัว</a>

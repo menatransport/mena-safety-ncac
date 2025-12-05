@@ -42,9 +42,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   const [selectedLabel, setSelectedLabel] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Filter options based on search term
   const filteredOptions = options.filter((option) => {
-    // ตรวจสอบว่า option และ option.label มีค่า และไม่เป็น null/undefined
     if (!option || !option.label) return false;
     
     // แปลงเป็น string และทำ toLowerCase อย่างปลอดภัย

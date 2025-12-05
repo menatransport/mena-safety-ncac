@@ -131,7 +131,7 @@ export const NCRecordsComponent = () => {
   }, []);
 
   useEffect(() => {
-    handleDatePresetChange("7days");
+    handleDatePresetChange("month");
   }, []);
 
   useEffect(() => {

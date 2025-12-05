@@ -105,14 +105,20 @@ export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
         let key = api.substring(1);
         let sortedData = data[index];
 
-        // Sort data based on the type
+        // if(key == "sites") {
+        //   // Remove site_id = 1
+        //   sortedData = sortedData.filter((item: any) => item.site_id !== 1);
+        // }
+
         if (Array.isArray(sortedData)) {
           switch (key) {
             case "sites":
               sortedData = sortedData.sort((a, b) => (a.site_name_th || '').localeCompare(b.site_name_th || ''));
+              sortedData = sortedData.filter((item: any) => item.site_id !== 1);
               break;
             case "departments":
-              sortedData = sortedData.sort((a, b) => (a.department_name_th || '').localeCompare(b.department_name_th || ''));
+              sortedData = sortedData.sort((b, a) => (a.department_name_th || '').localeCompare(b.department_name_th || ''));
+              sortedData = sortedData.filter((item: any) => (item.department_id >= 15));
               break;
             case "clients":
               sortedData = sortedData.sort((a, b) => (a.client_name || '').localeCompare(b.client_name || ''));
@@ -146,7 +152,6 @@ export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
               sortedData = sortedData.sort((a, b) => (a.sub_district_name_th || '').localeCompare(b.sub_district_name_th || ''));
               break;
             default:
-              // Keep original data if no specific sorting rule
               break;
           }
         }

@@ -11,6 +11,7 @@ import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import { useClipboard_nc } from "@/lib/clipboard";
 import { LoaderPage } from "./LoaderPage";
+import { set } from "date-fns";
 
 interface FileWithId {
   id: string;
@@ -89,15 +90,17 @@ export const NCFormComponent = () => {
     },
   ]);
 
-  // Filtered Data for Site Dependencies
+
   const [filteredData, setFilteredData] = useState<{
     masterdrivers?: any[];
     locations?: any[];
     vehicles?: any[];
+    mastercauses?: any[];
   }>({
-    masterdrivers: masterdrivers || [],
-    locations: locations || [],
-    vehicles: vehicles || [],
+    masterdrivers: [],
+    locations: [],
+    vehicles: [],
+    mastercauses: [],
   });
 
   useEffect(() => {
@@ -105,7 +108,6 @@ export const NCFormComponent = () => {
       const userData = localStorage.getItem("userData");
       if (!userData) {
         alert("ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่");
-        console.warn("No userData found in localStorage");
         router.push("/login");
 
         return;
@@ -191,7 +193,7 @@ export const NCFormComponent = () => {
         setIsLoadingFormData(false);
       }
     } else {
-      document.title = "Mena Safety - NC Form";
+      document.title = "MENA NCAC - NC Form";
     }
   };
 
@@ -394,22 +396,31 @@ export const NCFormComponent = () => {
   const handleSiteChange = (siteId: number) => {
     setFormData((prev) => ({ ...prev, site_id: siteId }));
     if (siteId) {
+      let num = 0
+      if(siteId === 3 || siteId === 4 || siteId === 7){  // สระบุรี บางประกง ระยอง
+        num = 3
+      } else {
+        num = 2
+      }
       const filteredDrivers =
-        masterdrivers?.filter((driver: any) => driver.site_id === siteId) || [];
+              masterdrivers?.filter((driver: any) => driver.site_id === siteId) || [];
       const filteredLocations =
-        locations?.filter((location: any) => location.site_id === siteId) || [];
-      // const filteredVehicles =
-      //   vehicles?.filter((vehicle: any) => vehicle.site_id === siteId) || [];
+        locations?.filter((location: any) => location.site_id === num) || []; // ตั้งค่าสระบุรี
+      const filtermastercauses =
+        mastercauses?.filter((cause: any) => cause.site_id === num) || []; // ตั้งค่าสระบุรี
 
-      setFilteredData({
+       setFilteredData({
         masterdrivers: filteredDrivers,
         locations: filteredLocations,
+        mastercauses: filtermastercauses,
         // vehicles: filteredVehicles,
       });
+
     } else {
       setFilteredData({
         masterdrivers: masterdrivers || [],
         locations: locations || [],
+        mastercauses: mastercauses || [],
         // vehicles: vehicles || [],
       });
     }
@@ -429,9 +440,10 @@ export const NCFormComponent = () => {
         masterdrivers: masterdrivers || [],
         locations: locations || [],
         vehicles: vehicles || [],
+        mastercauses: mastercauses || [],
       });
     }
-  }, [masterdrivers, locations, vehicles, formData.site_id]);
+  }, [masterdrivers, locations, vehicles, mastercauses, formData.site_id]);
 
   // ========== Auto Resize Textarea ==========
   useEffect(() => {
@@ -610,13 +622,77 @@ export const NCFormComponent = () => {
   };
 
   // ========== Add/Remove Item Functions ==========
-  const handleAddItem = (type: string) => {
+  const handleAddItem = async (type: string) => {
+    if (formData.site_id === undefined || formData.site_id === null) return alert("กรุณาเลือก ศูนย์ปฏิบัติการ ก่อนเพิ่มรายการ");
+    if (type === "masterdrivers" && (formData.driver_role_id === undefined || formData.driver_role_id === null)) return alert("กรุณาเลือก ประเภทคนขับ ก่อนเพิ่มรายการ");
     const itemName = prompt(`เพิ่มรายการใหม่สำหรับ ${type}:`);
     if (itemName && itemName.trim()) {
-      // ฟีเจอร์นี้จะถูกพัฒนาในอนาคต
-      alert(`ฟีเจอร์เพิ่มรายการ "${itemName}" จะพัฒนาในเร็วๆ นี้`);
+      const obj = finditems(type,itemName)
+      console.log("obj : ", obj);
+      const res = await fetch(`/api/list`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-path": `/${type}`
+        },
+        body: JSON.stringify(obj),
+      });
+      if (res.ok) {
+        Swal.fire({
+          icon: "success",
+          title: "เพิ่มรายการ" + itemName + "สำเร็จ",
+          showConfirmButton: true,
+        });
+
+        setItemsFilter(await res.json(),type);
+      
+      } else {
+        alert(`เพิ่มรายการ "${itemName}" ไม่สำเร็จ ลองใหม่อีกครั้ง`);
+      }
     }
   };
+
+  const finditems = (type: string , itemName: string) => {
+    let obj = {};
+    switch (type) {
+      case "mastercauses":
+        obj = { cause_name: itemName, site_id: formData.site_id , departments: null};
+        break;
+      case "locations":
+        obj = { location_name: itemName, site_id: formData.site_id };
+        break;
+      case "masterdrivers":
+       let diffname = itemName.split(" ")
+        obj = { first_name: diffname[0], last_name: diffname[1], site_id: formData.site_id, driver_role_id: formData.driver_role_id };
+        break;
+    }
+    return obj;
+  }
+
+  const setItemsFilter = async (data: any , type: string) => {
+    console.log("Adding new item:", data, "to type:", type);
+    
+    switch (type) {
+      case "mastercauses":
+        setFilteredData((prev) => ({
+          ...prev,
+          mastercauses: [...(prev.mastercauses || []), data],
+        }));  
+        break;
+      case "locations":
+        setFilteredData((prev) => ({
+          ...prev,
+          locations: [...(prev.locations || []), data],
+        }));
+        break;
+      case "masterdrivers":
+        setFilteredData((prev) => ({
+          ...prev,
+          masterdrivers: [...(prev.masterdrivers || []), data],
+        }));
+        break;
+    }
+  }
 
   const handleRemoveItem = (type: string, itemId?: string | number) => {
     // ฟีเจอร์นี้จะถูกพัฒนาในอนาคต
@@ -1229,6 +1305,7 @@ export const NCFormComponent = () => {
                                 : undefined
                             }
                             disabled={true}
+                            usedFor="datetime"
                           />
                         </div>
 
@@ -1250,6 +1327,7 @@ export const NCFormComponent = () => {
                               }))
                             }
                             disabled={isViewMode}
+                            usedFor="datetime"
                           />
                         </div>
                         <div>
@@ -1257,7 +1335,7 @@ export const NCFormComponent = () => {
                             สาเหตุการเกิดเหตุ: <span className="text-red-500">*</span>
                           </label>
                           <SearchableSelect
-                            options={(mastercauses || []).map((cause: any) => ({
+                            options={(filteredData.mastercauses || []).map((cause: any) => ({
                               value: cause.cause_id,
                               label: cause.cause_name,
                             }))}
@@ -1268,7 +1346,7 @@ export const NCFormComponent = () => {
                                 incident_cause_id: Number(value),
                               }))
                             }
-                            // onAdd={() => handleAddItem("mastercause")}
+                            onAdd={() => handleAddItem("mastercauses")}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -1322,7 +1400,7 @@ export const NCFormComponent = () => {
                                 client_id: Number(value),
                               }))
                             }
-                            // onAdd={() => handleAddItem("client")}
+                            onAdd={() => handleAddItem("client")}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -1347,7 +1425,7 @@ export const NCFormComponent = () => {
                                 origin_id: Number(value),
                               }))
                             }
-                            // onAdd={() => handleAddItem("locations")}
+                            onAdd={() => handleAddItem("locations")}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -1524,7 +1602,7 @@ export const NCFormComponent = () => {
                                 driver_id: String(value),
                               }))
                             }
-                            onAdd={() => handleAddItem("masterdriver")}
+                            onAdd={() => handleAddItem("masterdrivers")}
                             showAddRemove={false}
                             className="w-full"
                             disabled={isViewMode}
@@ -1886,6 +1964,7 @@ export const NCFormComponent = () => {
                                       )
                                     }
                                     disabled={isViewMode}
+                                    usedFor="date"
                                   />
                                 </td>
                                 <td className="border border-gray-300 px-3 py-2 text-black">
@@ -1903,6 +1982,7 @@ export const NCFormComponent = () => {
                                       )
                                     }
                                     disabled={isViewMode}
+                                    usedFor="date"
                                   />
                                 </td>
                               </tr>

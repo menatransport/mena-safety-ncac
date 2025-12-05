@@ -95,6 +95,7 @@ export interface caseReport_AC {
     reporter_name: string,
     record_datetime: string,
     incident_datetime: string,
+    incident_date: string,  // เพิ่ม field นี้สำหรับใช้กับกราฟ (alias ของ incident_datetime)
     province_name: string,
     province_name_th: string,
     province_name_en: string,
@@ -137,14 +138,17 @@ export interface caseReport_AC {
     estimated_vehicle_damage_value: number,
     actual_goods_damage_value: number,
     actual_vehicle_damage_value: number,
+    estimated_cost: number,  // รวมค่าเสียหายประเมิน
+    actual_price: number,  // รวมค่าเสียหายจริง
     attachments: string,
     casestatus: string,
     priority: string,
     destination: string,
-    alcohol_test_result: number | null,
+    alcohol_test_result: number,
     drug_test_result: string | null,
     accident_case_id: number,
     document_no_ac: string,
+    incident_cause: string,  // เพิ่ม field สาเหตุ
     docs: [
     {
       warning_doc: string,

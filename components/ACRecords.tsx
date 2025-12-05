@@ -131,7 +131,7 @@ export const ACRecordsComponent = () => {
   }, []);
 
   useEffect(() => {
-    handleDatePresetChange("7days");
+    handleDatePresetChange("month");
   }, []);
 
   useEffect(() => {
@@ -233,6 +233,7 @@ export const ACRecordsComponent = () => {
 
       if (response.ok) {
         const data = await response.json();
+        console.log("AC Search data:", data);
         const transformedRecords = data.map((record: any) => ({
           id: record.document_no_ac,
           date: record.record_datetime,
@@ -468,7 +469,7 @@ export const ACRecordsComponent = () => {
   const handleVoided = (id: string) => {
 
     Swal.fire({
-      title: "คุณแน่ใจที่จเลบ หรือไม่",
+      title: "คุณแน่ใจที่จะลบ หรือไม่",
       text: "รายการที่คุณจะลบ คือ " + id,
       icon: "warning",
       showCancelButton: true,
@@ -821,7 +822,7 @@ export const ACRecordsComponent = () => {
                     { value: "Pending", label: "Pending" },
                     {
                       value: "Completed Investigate",
-                      label: "Completed Investigate",
+                      label: "Completed",
                     },
                     { value: "Voided", label: "Voided" },
                   ]}
@@ -1155,13 +1156,17 @@ export const ACRecordsComponent = () => {
                       <td className="px-6 py-4 text-xs text-gray-600 max-w-[140px] truncate">
                         {record.driver || "ไม่ระบุ"}
                       </td>
-                      <td className="px-6 py-4">
+                       <td className="px-6 py-4">
                         <span
                           className={`flex justify-center px-3 py-1 rounded-full text-xs font-medium text-center shadow-sm border ${getStatusColor(
                             record.status
                           )}`}
                         >
-                          {record.status}
+                          {
+                            record.status === "Completed Investigate"
+                              ? "Completed" : record.status
+                          }
+
                         </span>
                       </td>
                       <td className="flex flex-row px-6 py-4 bg-gray-50 w-32">

@@ -162,7 +162,7 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                  <img src="/mena.png" alt="Logo" className="w-16 h-8 text-white" />
                 </div>
                 <div>
-                  <h2 className="font-bold text-gray-800 text-md">Mena Safety</h2>
+                  <h2 className="font-bold text-gray-800 text-md">MENA NCAC</h2>
                   <p className="text-gray-600 text-xs">ระบบจัดการเอกสาร NC/AC</p>
                 </div>
               </div>

@@ -16,19 +16,23 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
 export function DateTimePicker24h (values: {
   value?: Date, 
+  usedFor?: "date" | "datetime",
   onChange?: (date: Date | undefined) => void,
   disabled?: boolean
 }) {
   const [date, setDate] = React.useState<Date>();
   const [isOpen, setIsOpen] = React.useState(false);
-  const [dateOnly, setDateOnly] = React.useState(false);
+  const [dateOnly, setDateOnly] = React.useState(values.usedFor === "date");
 
-  // Sync internal date with external value
   React.useEffect(() => {
     if (values.value) {
       setDate(values.value);
     }
   }, [values.value]);
+
+  React.useEffect(() => {
+    setDateOnly(values.usedFor === "date");
+  }, [values.usedFor]);
 
   const hours = Array.from({ length: 24 }, (_, i) => i);
   
@@ -36,10 +40,8 @@ export function DateTimePicker24h (values: {
     if (selectedDate && !values.disabled) {
       const newDate = new Date(selectedDate);
       if (dateOnly) {
-        // Set time to 00:00 for date-only mode
         newDate.setHours(0, 0, 0, 0);
       } else if (date) {
-        // Preserve existing time
         newDate.setHours(date.getHours(), date.getMinutes());
       }
       setDate(newDate);
@@ -50,23 +52,20 @@ export function DateTimePicker24h (values: {
   const handleTodayClick = () => {
     if (!values.disabled) {
       const today = new Date();
-      // console.log("Setting date to today:", today);
       if (dateOnly) {
         today.setHours(0, 0, 0, 0);
       }
       setDate(today);
-      // console.log("Setting date to today:", today);
       values.onChange?.(today);
     }
   };
 
   const handleDateOnlyToggle = () => {
-    if (!values.disabled) {
+    if (!values.disabled && !values.usedFor) {
       const newDateOnly = !dateOnly;
       setDateOnly(newDateOnly);
       
       if (date && newDateOnly) {
-        // When switching to date-only, set time to 00:00
         const newDate = new Date(date);
         newDate.setHours(0, 0, 0, 0);
         setDate(newDate);
@@ -119,7 +118,6 @@ export function DateTimePicker24h (values: {
               mode="single"
               selected={date}
               onSelect={handleDateSelect}
-              initialFocus
             />
             <div className="flex gap-2 p-3 border-t">
               <Button
@@ -131,15 +129,17 @@ export function DateTimePicker24h (values: {
               >
                 วันนี้
               </Button>
-              <Button
-                size="sm"
-                variant={dateOnly ? "default" : "default"}
-                className="flex-1"
-                onClick={handleDateOnlyToggle}
-                disabled={values.disabled}
-              >
-                {dateOnly ? "datetime" : "dateonly"}
-              </Button>
+              {!values.usedFor && (
+                <Button
+                  size="sm"
+                  variant={dateOnly ? "default" : "default"}
+                  className="flex-1"
+                  onClick={handleDateOnlyToggle}
+                  disabled={values.disabled}
+                >
+                  {dateOnly ? "datetime" : "dateonly"}
+                </Button>
+              )}
             </div>
           </div>
           {!dateOnly && (

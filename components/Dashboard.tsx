@@ -19,7 +19,7 @@ export const DashboardComponent = () => {
   const [ncData, setNcData] = useState<caseReport_NC[]>([]);
   const [acData, setAcData] = useState<caseReport_AC[]>([]);
   const [loading, setLoading] = useState(false);
-  const [useMockData, setUseMockData] = useState(true); // เปิด MockData
+  const [useMockData, setUseMockData] = useState(false); // เปิด MockData
   const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
   const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
@@ -168,7 +168,7 @@ export const DashboardComponent = () => {
       Swal.fire({
         icon: 'success',
         title: 'ยินดีต้อนรับเข้าสู่ระบบ',
-        text: 'Mena-NCAC',
+        text: '',
         draggable: true
       })
 
@@ -208,10 +208,10 @@ export const DashboardComponent = () => {
         startDate = `${selectedYear}-${String(monthNum).padStart(2, '0')}-01`;
         endDate = new Date(selectedYear, monthNum, 0).toISOString().split('T')[0];
       }
-
+      console.log('Fetching data from', startDate, 'to', endDate);
       const [ncResponse, acResponse] = await Promise.all([
-        fetch(`/api/document/nc?start_date=${startDate}&end_date=${endDate}`),
-        fetch(`/api/document/ac?start_date=${startDate}&end_date=${endDate}`)
+        fetch(`/api/dashboard/nc?start_date=${startDate}&end_date=${endDate}`,{method: 'GET', headers: { 'Content-Type': 'application/json' }}),
+        fetch(`/api/dashboard/ac?start_date=${startDate}&end_date=${endDate}`,{method: 'GET', headers: { 'Content-Type': 'application/json' }})
       ]);
 
       if (ncResponse.ok && acResponse.ok) {
@@ -224,9 +224,18 @@ export const DashboardComponent = () => {
           type: 'NC' as const
         })));
 
-        setAcData((Array.isArray(acResult) ? acResult : []).map(item => ({
+        setAcData((Array.isArray(acResult) ? acResult : []).map((item: any) => ({
           ...item,
-          type: 'AC' as const
+          type: 'AC' as const,
+          // แมป fields ให้ตรงกับ NC สำหรับใช้ในกราฟ
+          incident_date: item.incident_date || item.incident_datetime,
+          actual_price: (item.actual_price !== undefined && item.actual_price !== null) 
+            ? item.actual_price 
+            : (item.actual_goods_damage_value || 0) + (item.actual_vehicle_damage_value || 0),
+          estimated_cost: (item.estimated_cost !== undefined && item.estimated_cost !== null)
+            ? item.estimated_cost
+            : (item.estimated_goods_damage_value || 0) + (item.estimated_vehicle_damage_value || 0),
+          incident_cause: item.incident_cause || 'อุบัติเหตุ'
         })));
       }
     } catch (error) {

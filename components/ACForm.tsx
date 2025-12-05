@@ -10,6 +10,8 @@ import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import { useClipboard_ac } from "@/lib/clipboard";
 import { LoaderPage } from "./LoaderPage";
+import { error } from "console";
+import { set } from "date-fns";
 
 interface FileWithId {
   id: string;
@@ -76,12 +78,12 @@ export const ACFormComponent = () => {
     subdistricts?: any[];
     provinces?: any[];
   }>({
-    masterdrivers: masterdrivers || [],
-    locations: locations || [],
-    vehicles: vehicles || [],
-    districts: districts || [],
-    subdistricts: subdistricts || [],
-    provinces: provinces || [],
+    masterdrivers: [],
+    locations: [],
+    vehicles: [],
+    districts: [],
+    subdistricts: [],
+    provinces: [],
   });
 
   useEffect(() => {
@@ -153,7 +155,7 @@ export const ACFormComponent = () => {
             },
           }
         );
-        
+
         const data = await res.json();
         console.log("Fetched AC record data:", data);
         if (res.ok) {
@@ -164,8 +166,9 @@ export const ACFormComponent = () => {
           }
 
           setFormData(data);
+
           await mapTextDataToIds(data);
-          
+
           // โหลดไฟล์แนบ
           await loadExistingAttachments(docId);
         } else {
@@ -180,7 +183,7 @@ export const ACFormComponent = () => {
       }
     } else {
       // ถ้าไม่มี doc parameter ให้ reset title กลับเป็นปกติ
-      document.title = "Mena Safety - AC Form";
+      document.title = "MENA NCAC - AC Form";
     }
   };
 
@@ -352,31 +355,37 @@ export const ACFormComponent = () => {
     setAttachedFiles(files);
   };
 
+  // ========== Site Handling Functions ==========
   const handleSiteChange = (siteId: number) => {
     setFormData((prev) => ({ ...prev, site_id: siteId }));
-
     if (siteId) {
+      let num = 0
+      if (siteId === 3 || siteId === 4 || siteId === 7) {  // สระบุรี บางประกง ระยอง
+        num = 3
+      } else {
+        num = 2
+      }
+      console.log("num site : ", num);
       const filteredDrivers =
         masterdrivers?.filter((driver: any) => driver.site_id === siteId) || [];
       const filteredLocations =
-        locations?.filter((location: any) => location.site_id === siteId) || [];
-      // const filteredVehicles =
-      //   vehicles?.filter((vehicle: any) => vehicle.site_id === siteId) || [];
+        locations?.filter((location: any) => location.site_id === num) || []; // ตั้งค่าสระบุรี
 
-      setFilteredData((prev) => ({
-        ...prev,
+      setFilteredData({
         masterdrivers: filteredDrivers,
         locations: filteredLocations,
         // vehicles: filteredVehicles,
-      }));
+      });
+
     } else {
-      setFilteredData((prev) => ({
-        ...prev,
+      setFilteredData({
         masterdrivers: masterdrivers || [],
         locations: locations || [],
         // vehicles: vehicles || [],
-      }));
+      });
     }
+
+    // Reset dependent fields
     setFormData((prev) => ({
       ...prev,
       driver_id: "",
@@ -484,10 +493,10 @@ export const ACFormComponent = () => {
   };
 
   function toThaiISO(date: Date) {
-  const timezoneOffset = 7 * 60 * 60 * 1000; // +7 ชั่วโมง
-  const utcDate = new Date(date.getTime() - timezoneOffset);
-  return utcDate.toISOString();
-}
+    const timezoneOffset = 7 * 60 * 60 * 1000; // +7 ชั่วโมง
+    const utcDate = new Date(date.getTime() - timezoneOffset);
+    return utcDate.toISOString();
+  }
 
   // ========== Province/District Handling Functions ==========
   const handleProvinceChange = (provinceId: number) => {
@@ -600,6 +609,69 @@ export const ACFormComponent = () => {
       });
     }
   };
+
+  // ========== Add/Remove Item Functions ==========
+  const handleAddItem = async (type: string) => {
+    if (formData.site_id === undefined || formData.site_id === null) return alert("กรุณาเลือก ศูนย์ปฏิบัติการ ก่อนเพิ่มรายการ");
+    if (type === "masterdrivers" && (formData.driver_role_id === undefined || formData.driver_role_id === null)) return alert("กรุณาเลือก ประเภทคนขับ ก่อนเพิ่มรายการ");
+    const itemName = prompt(`เพิ่มรายการใหม่สำหรับ ${type}:`);
+    if (itemName && itemName.trim()) {
+      const obj = finditems(type, itemName)
+      console.log("obj : ", obj);
+      const res = await fetch(`/api/list`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-path": `/${type}`
+        },
+        body: JSON.stringify(obj),
+      });
+      if (res.ok) {
+        Swal.fire({
+          icon: "success",
+          title: "เพิ่มรายการ" + itemName + "สำเร็จ",
+          showConfirmButton: true,
+        });
+
+        setItemsFilter(await res.json(), type);
+
+      } else {
+        alert(`เพิ่มรายการ "${itemName}" ไม่สำเร็จ ลองใหม่อีกครั้ง`);
+      }
+    }
+  };
+
+  const finditems = (type: string, itemName: string) => {
+    let obj = {};
+    switch (type) {
+      case "locations":
+        obj = { location_name: itemName, site_id: formData.site_id };
+        break;
+      case "masterdrivers":
+        let diffname = itemName.split(" ")
+        obj = { first_name: diffname[0], last_name: diffname[1], site_id: formData.site_id, driver_role_id: formData.driver_role_id };
+        break;
+    }
+    return obj;
+  }
+
+  const setItemsFilter = async (data: any, type: string) => {
+
+    switch (type) {
+      case "locations":
+        setFilteredData((prev) => ({
+          ...prev,
+          locations: [...(prev.locations || []), data],
+        }));
+        break;
+      case "masterdrivers":
+        setFilteredData((prev) => ({
+          ...prev,
+          masterdrivers: [...(prev.masterdrivers || []), data],
+        }));
+        break;
+    }
+  }
 
   const handleInputChange = (
     e: React.ChangeEvent<
@@ -747,7 +819,7 @@ export const ACFormComponent = () => {
     e.preventDefault();
 
     const validation = validateRequiredFields();
-    console.log('validation : ',validation)
+    console.log('validation : ', validation)
     if (validation.missingFields.length > 0) {
       const missingFieldsList = validation.missingFields.join("\n• ");
       Swal.fire({
@@ -816,8 +888,7 @@ export const ACFormComponent = () => {
     } catch (error) {
       console.error("Error submitting AC form:", error);
       alert(
-        `เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${
-          error instanceof Error ? error.message : "Unknown error"
+        `เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${error instanceof Error ? error.message : "Unknown error"
         }`
       );
     }
@@ -842,7 +913,7 @@ export const ACFormComponent = () => {
     delete formData.record_datetime;
     delete formData.site_name;
     delete formData.driver_name;
-    delete formData.client_name; 
+    delete formData.client_name;
     delete formData.department_name;
     delete formData.driver_role_name;
     delete formData.origin_name;
@@ -870,6 +941,11 @@ export const ACFormComponent = () => {
         draggable: true,
         confirmButtonText: "ตกลง",
         allowOutsideClick: false,
+      });
+    } else {
+      Swal.fire({
+        icon: "error",
+        title: "เกิดข้อผิดพลาดในการอัปเดตข้อมูล",
       });
     }
     setFormData((prev) => ({
@@ -927,8 +1003,31 @@ export const ACFormComponent = () => {
 
       if (res.ok) {
         const result = await res.json();
+        console.log('เช็คไฟล์เพื่ออัปเดตสถานะเป็น Completed เมื่อมีการอัปโหลดเอกสาร Investigation แล้ว : ', result);
+        // อัปเดตสถานะเป็น 'Completed' หากมีการอัปโหลดไฟล์ในหมวด 'investigation'
+        if (attachedFiles['investigate_report'] && attachedFiles['investigate_report'].length > 0) {
+          const statusRes = await fetch("/api/document/ac", {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              document_no_ac: document_no_ac,
+              casestatus: 'Completed Investigate',
+            }),
+          });
+          if (statusRes.ok) {
+            setFormData((prev) => ({
+              ...prev,
+              casestatus: 'Completed Investigate',
+            }));
+          }
+        } 
       } else {
-        throw new Error(`Failed to upload attachments: ${res.statusText}`);
+        Swal.fire({
+          icon: "error",
+          title: "เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ",
+        });
       }
     } catch (error) {
       console.error("Error uploading attachments:", error);
@@ -1053,13 +1152,14 @@ export const ACFormComponent = () => {
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
                         วันที่และเวลา แจ้งเหตุ:
                       </label>
-                      <DateTimePicker24h 
+                      <DateTimePicker24h
                         value={
                           formData?.record_datetime
                             ? new Date(formData.record_datetime)
                             : undefined
                         }
                         disabled={true}
+                        usedFor="datetime"
                       />
                     </div>
 
@@ -1081,6 +1181,7 @@ export const ACFormComponent = () => {
                           }))
                         }
                         disabled={isViewMode}
+                        usedFor="datetime"
                       />
                     </div>
                   </div>
@@ -1097,11 +1198,10 @@ export const ACFormComponent = () => {
                         rows={4}
                         maxLength={1000}
                         disabled={isViewMode}
-                        className={`w-full text-sm p-3 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                          isViewMode
+                        className={`w-full text-sm p-3 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                             ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                             : ""
-                        }`}
+                          }`}
                       />
                     </div>
                   </div>
@@ -1156,6 +1256,7 @@ export const ACFormComponent = () => {
                             origin_id: Number(value),
                           }))
                         }
+                        onAdd={() => handleAddItem("locations")}
                         disabled={isViewMode}
                         className="w-full"
                       />
@@ -1171,11 +1272,10 @@ export const ACFormComponent = () => {
                         value={formData?.destination || ""}
                         onChange={handleInputChange}
                         disabled={isViewMode}
-                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                          isViewMode
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                             ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                             : ""
-                        }`}
+                          }`}
                       />
                     </div>
 
@@ -1189,11 +1289,10 @@ export const ACFormComponent = () => {
                         value={formData?.case_location || ""}
                         onChange={handleInputChange}
                         disabled={isViewMode}
-                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                          isViewMode
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                             ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                             : ""
-                        }`}
+                          }`}
                       />
                     </div>
 
@@ -1268,11 +1367,10 @@ export const ACFormComponent = () => {
                         value={formData?.police_station_area || ""}
                         onChange={handleInputChange}
                         disabled={isViewMode}
-                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                          isViewMode
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                             ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                             : ""
-                        }`}
+                          }`}
                       />
                     </div>
                   </div>
@@ -1403,6 +1501,7 @@ export const ACFormComponent = () => {
                             driver_id: String(value),
                           }))
                         }
+                        onAdd={() => handleAddItem("masterdrivers")}
                         disabled={isViewMode}
                         className="w-full"
                       />
@@ -1435,11 +1534,10 @@ export const ACFormComponent = () => {
                               onChange={() =>
                                 handleRadioChange("alcohol_test", "yes")
                               }
-                              className={`mr-2 h-4 w-4 text-blue-600 ${
-                                isViewMode
+                              className={`mr-2 h-4 w-4 text-blue-600 ${isViewMode
                                   ? "cursor-not-allowed bg-blue-400 text-blue-600 font-bold"
                                   : ""
-                              }`}
+                                }`}
                             />
                             <span className="text-sm">ตรวจ</span>
                           </label>
@@ -1448,15 +1546,14 @@ export const ACFormComponent = () => {
                               type="radio"
                               name="alcohol_test_radio"
                               disabled={isViewMode}
-                              checked={formData.alcohol_test === "no" ||formData?.alcohol_test_result === -1}
+                              checked={formData.alcohol_test === "no" || formData?.alcohol_test_result === -1}
                               onChange={() =>
                                 handleRadioChange("alcohol_test", "no")
                               }
-                              className={`mr-2 h-4 w-4 text-blue-600 ${
-                                isViewMode
+                              className={`mr-2 h-4 w-4 text-blue-600 ${isViewMode
                                   ? "cursor-not-allowed bg-blue-400 text-blue-600 font-bold"
                                   : ""
-                              }`}
+                                }`}
                             />
                             <span className="text-sm">ไม่ตรวจ</span>
                           </label>
@@ -1470,10 +1567,10 @@ export const ACFormComponent = () => {
                             <span className="text-red-500">*</span>
                           </label>
                           <input
-                            type="text"
+                            type="number"
                             inputMode="decimal"
                             name="alcohol_test_result"
-                            value={formData?.alcohol_test_result || ""}
+                            value={formData?.alcohol_test_result ?? 0}
                             onChange={(e) => {
                               const value = e.target.value;
                               if (value === '' || /^\d*\.?\d*$/.test(value)) {
@@ -1481,11 +1578,10 @@ export const ACFormComponent = () => {
                               }
                             }}
                             disabled={isViewMode}
-                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                              isViewMode
+                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                                 ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                                 : ""
-                            }`}
+                              }`}
                           />
                         </div>
                       )}
@@ -1506,11 +1602,10 @@ export const ACFormComponent = () => {
                               onChange={() =>
                                 handleRadioChange("drug_test", "yes")
                               }
-                              className={`mr-2 h-4 w-4 text-blue-600 ${
-                                isViewMode
+                              className={`mr-2 h-4 w-4 text-blue-600 ${isViewMode
                                   ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                                   : ""
-                              }`}
+                                }`}
                             />
                             <span className="text-sm">ตรวจ</span>
                           </label>
@@ -1523,11 +1618,10 @@ export const ACFormComponent = () => {
                               onChange={() =>
                                 handleRadioChange("drug_test", "no")
                               }
-                              className={`mr-2 h-4 w-4 text-blue-600 ${
-                                isViewMode
+                              className={`mr-2 h-4 w-4 text-blue-600 ${isViewMode
                                   ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                                   : ""
-                              }`}
+                                }`}
                             />
                             <span className="text-sm">ไม่ตรวจ</span>
                           </label>
@@ -1545,11 +1639,10 @@ export const ACFormComponent = () => {
                             value={formData?.drug_test_result || ""}
                             onChange={handleInputChange}
                             disabled={isViewMode}
-                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                              isViewMode
+                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                                 ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                                 : ""
-                            }`}
+                              }`}
                           />
                         </div>
                       )}
@@ -1567,147 +1660,140 @@ export const ACFormComponent = () => {
                   </p>
                 </div>
                 <div className="p-6">
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-gray-700 font-medium mb-2 text-sm">
+                          สินค้าเสียหาย:{" "}
+                          <span className="text-red-500">*</span>
+                        </label>
+                        <div className="flex items-center space-x-6">
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name="product_damage_radio"
+                              checked={formData.product_damage === "yes"}
+                              disabled={isViewMode}
+                              onChange={() =>
+                                handleRadioChange("product_damage", "yes")
+                              }
+                              className={`mr-2 h-4 w-4 text-blue-600 ${isViewMode
+                                  ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                  : ""
+                                }`}
+                            />
+                            <span className="text-sm">เสียหาย</span>
+                          </label>
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name="product_damage_radio"
+                              checked={formData.product_damage === "no"}
+                              disabled={isViewMode}
+                              onChange={() =>
+                                handleRadioChange("product_damage", "no")
+                              }
+                              className={`mr-2 h-4 w-4 text-blue-600  ${isViewMode
+                                  ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                  : ""
+                                }`}
+                            />
+                            <span className="text-sm">ไม่เสียหาย</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-gray-700 font-medium mb-2 text-sm">
+                          รถเสียหาย: <span className="text-red-500">*</span>
+                        </label>
+                        <div className="flex items-center space-x-6">
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name="truck_damage_radio"
+                              checked={formData.truck_damage === "yes"}
+                              disabled={isViewMode}
+                              onChange={() =>
+                                handleRadioChange("truck_damage", "yes")
+                              }
+                              className={`mr-2 h-4 w-4 text-blue-600 ${isViewMode
+                                  ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                  : ""
+                                }`}
+                            />
+                            <span className="text-sm">เสียหาย</span>
+                          </label>
+                          <label className="flex items-center">
+                            <input
+                              type="radio"
+                              name="truck_damage_radio"
+                              checked={formData.truck_damage === "no"}
+                              disabled={isViewMode}
+                              onChange={() =>
+                                handleRadioChange("truck_damage", "no")
+                              }
+                              className={`mr-2 h-4 w-4 text-blue-600  ${isViewMode
+                                  ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                  : ""
+                                }`}
+                            />
+                            <span className="text-sm">ไม่เสียหาย</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Detail fields outside of grid to maintain layout */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                    <div>
+                      {formData.product_damage === "yes" && (
                         <div>
-                          <label className="block text-gray-700 font-medium mb-2 text-sm">
-                            สินค้าเสียหาย:{" "}
+                          <label className="block text-gray-700 font-medium mb-1 text-sm">
+                            รายละเอียดความเสียหายของสินค้า:{" "}
                             <span className="text-red-500">*</span>
                           </label>
-                          <div className="flex items-center space-x-6">
-                            <label className="flex items-center">
-                              <input
-                                type="radio"
-                                name="product_damage_radio"
-                                checked={formData.product_damage === "yes"}
-                                disabled={isViewMode}
-                                onChange={() =>
-                                  handleRadioChange("product_damage", "yes")
-                                }
-                                className={`mr-2 h-4 w-4 text-blue-600 ${
-                                  isViewMode
-                                    ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                    : ""
-                                }`}
-                              />
-                              <span className="text-sm">เสียหาย</span>
-                            </label>
-                            <label className="flex items-center">
-                              <input
-                                type="radio"
-                                name="product_damage_radio"
-                                checked={formData.product_damage === "no"}
-                                disabled={isViewMode}
-                                onChange={() =>
-                                  handleRadioChange("product_damage", "no")
-                                }
-                                className={`mr-2 h-4 w-4 text-blue-600  ${
-                                  isViewMode
-                                    ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                    : ""
-                                }`}
-                              />
-                              <span className="text-sm">ไม่เสียหาย</span>
-                            </label>
-                          </div>
+                          <textarea
+                            name="product_damage_details"
+                            onChange={handleInputChange}
+                            value={formData?.product_damage_details || ""}
+                            disabled={isViewMode}
+                            rows={3}
+                            className={`w-full text-sm p-3 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                                ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                : ""
+                              }`}
+                          />
                         </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-gray-700 font-medium mb-2 text-sm">
-                            รถเสียหาย: <span className="text-red-500">*</span>
-                          </label>
-                          <div className="flex items-center space-x-6">
-                            <label className="flex items-center">
-                              <input
-                                type="radio"
-                                name="truck_damage_radio"
-                                checked={formData.truck_damage === "yes"}
-                                disabled={isViewMode}
-                                onChange={() =>
-                                  handleRadioChange("truck_damage", "yes")
-                                }
-                                className={`mr-2 h-4 w-4 text-blue-600 ${
-                                  isViewMode
-                                    ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                    : ""
-                                }`}
-                              />
-                              <span className="text-sm">เสียหาย</span>
-                            </label>
-                            <label className="flex items-center">
-                              <input
-                                type="radio"
-                                name="truck_damage_radio"
-                                checked={formData.truck_damage === "no"}
-                                disabled={isViewMode}
-                                onChange={() =>
-                                  handleRadioChange("truck_damage", "no")
-                                }
-                                className={`mr-2 h-4 w-4 text-blue-600  ${
-                                  isViewMode
-                                    ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                    : ""
-                                }`}
-                              />
-                              <span className="text-sm">ไม่เสียหาย</span>
-                            </label>
-                          </div>
-                        </div>
-                      </div>
+                      )}
                     </div>
 
-                    {/* Detail fields outside of grid to maintain layout */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                      <div>
-                        {formData.product_damage === "yes" && (
-                          <div>
-                            <label className="block text-gray-700 font-medium mb-1 text-sm">
-                              รายละเอียดความเสียหายของสินค้า:{" "}
-                              <span className="text-red-500">*</span>
-                            </label>
-                            <textarea
-                              name="product_damage_details"
-                              onChange={handleInputChange}
-                              value={formData?.product_damage_details || ""}
-                              disabled={isViewMode}
-                              rows={3}
-                              className={`w-full text-sm p-3 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                                isViewMode
-                                  ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                  : ""
-                              }`}
-                            />
-                          </div>
-                        )}
-                      </div>
 
+                    {formData.truck_damage === "yes" && (
                       <div>
-                        {formData.truck_damage === "yes" && (
-                          <div>
-                            <label className="block text-gray-700 font-medium mb-1 text-sm">
-                              รายละเอียดความเสียหายของรถ:{" "}
-                              <span className="text-red-500">*</span>
-                            </label>
-                            <textarea
-                              name="truck_damage_details"
-                              onChange={handleInputChange}
-                              value={formData?.truck_damage_details || ""}
-                              disabled={isViewMode}
-                              rows={3}
-                              className={`w-full text-sm p-3 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                                isViewMode
-                                  ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                  : ""
-                              }`}
-                            />
-                          </div>
-                        )}
+                        <label className="block text-gray-700 font-medium mb-1 text-sm">
+                          รายละเอียดความเสียหายของรถ:{" "}
+                          <span className="text-red-500">*</span>
+                        </label>
+                        <textarea
+                          name="truck_damage_details"
+                          onChange={handleInputChange}
+                          value={formData?.truck_damage_details || ""}
+                          disabled={isViewMode}
+                          rows={3}
+                          className={`w-full text-sm p-3 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                              : ""
+                            }`}
+                        />
                       </div>
-                    </div>
-                    {/* {formData.product_damage === true && (
+                    )}
+
+                  </div>
+                  {/* {formData.product_damage === true && (
                       <div>
                           <label className="block text-gray-700 font-medium mb-1 text-sm">
                             ความเสียหายรถ:
@@ -1722,7 +1808,8 @@ export const ACFormComponent = () => {
                       </div>
                        )} */}
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {formData.product_damage === "yes" && (
                       <div>
                         <label className="block text-gray-700 font-medium mb-1 text-sm">
                           ประเมินค่าเสียหายสินค้า (บาท):
@@ -1739,87 +1826,87 @@ export const ACFormComponent = () => {
                           }}
                           disabled={isViewMode}
                           value={formData?.estimated_goods_damage_value || ""}
-                          className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${
-                            isViewMode
+                          className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${isViewMode
                               ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                               : ""
-                          }`}
+                            }`}
                         />
                       </div>
+                    )}
 
-                      <div>
-                        <label className="block text-gray-700 font-medium mb-1 text-sm">
-                          ประเมินค่าเสียหายรถ (บาท):
-                        </label>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          name="estimated_vehicle_damage_value"
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                              handleInputChange(e);
-                            }
-                          }}
-                          disabled={isViewMode}
-                          value={formData?.estimated_vehicle_damage_value || ""}
-                          className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${
-                            isViewMode
-                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                              : ""
+                    {formData.truck_damage === "yes" && (<div>
+                      <label className="block text-gray-700 font-medium mb-1 text-sm">
+                        ประเมินค่าเสียหายรถ (บาท):
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        name="estimated_vehicle_damage_value"
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                            handleInputChange(e);
+                          }
+                        }}
+                        disabled={isViewMode}
+                        value={formData?.estimated_vehicle_damage_value || ""}
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${isViewMode
+                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                            : ""
                           }`}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-gray-700 font-medium mb-1 text-sm">
-                          ค่าเสียหายสินค้าจริง (บาท):
-                        </label>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          name="actual_goods_damage_value"
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                              handleInputChange(e);
-                            }
-                          }}
-                          disabled={isViewMode}
-                          value={formData?.actual_goods_damage_value || ""}
-                          className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${
-                            isViewMode
-                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                              : ""
-                          }`}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-gray-700 font-medium mb-1 text-sm">
-                          ค่าเสียหายรถจริง (บาท):
-                        </label>
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          name="actual_vehicle_damage_value"
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                              handleInputChange(e);
-                            }
-                          }}
-                          disabled={isViewMode}
-                          value={formData?.actual_vehicle_damage_value || ""}
-                          className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${
-                            isViewMode
-                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                              : ""
-                          }`}
-                        />
-                      </div>
+                      />
                     </div>
+                    )}
+
+                    {formData.product_damage === "yes" && (<div>
+                      <label className="block text-gray-700 font-medium mb-1 text-sm">
+                        ค่าเสียหายสินค้าจริง (บาท):
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        name="actual_goods_damage_value"
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                            handleInputChange(e);
+                          }
+                        }}
+                        disabled={isViewMode}
+                        value={formData?.actual_goods_damage_value || ""}
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${isViewMode
+                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                            : ""
+                          }`}
+                      />
+                    </div>
+                    )}
+
+                    {formData.truck_damage === "yes" && (<div>
+                      <label className="block text-gray-700 font-medium mb-1 text-sm">
+                        ค่าเสียหายรถจริง (บาท):
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        name="actual_vehicle_damage_value"
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                            handleInputChange(e);
+                          }
+                        }}
+                        disabled={isViewMode}
+                        value={formData?.actual_vehicle_damage_value || ""}
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${isViewMode
+                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                            : ""
+                          }`}
+                      />
+                    </div>
+                    )}
                   </div>
+
                 </div>
 
                 <div className="border-t border-gray-400 md:col-span-3"></div>
@@ -1848,11 +1935,10 @@ export const ACFormComponent = () => {
                           }
                         }}
                         disabled={isViewMode}
-                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                          isViewMode
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                             ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                             : ""
-                        }`}
+                          }`}
                       />
                     </div>
 
@@ -1872,11 +1958,10 @@ export const ACFormComponent = () => {
                           }
                         }}
                         disabled={isViewMode}
-                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                          isViewMode
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                             ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                             : ""
-                        }`}
+                          }`}
                       />
                     </div>
 
@@ -1896,11 +1981,10 @@ export const ACFormComponent = () => {
                           }
                         }}
                         disabled={isViewMode}
-                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                          isViewMode
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                             ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                             : ""
-                        }`}
+                          }`}
                       />
                     </div>
                   </div>
@@ -1915,11 +1999,10 @@ export const ACFormComponent = () => {
                       disabled={isViewMode}
                       value={formData?.injury_description || ""}
                       rows={4}
-                      className={`w-full text-sm p-3 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                        isViewMode
+                      className={`w-full text-sm p-3 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                           ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                           : ""
-                      }`}
+                        }`}
                     />
                   </div>
                 </div>
@@ -1944,11 +2027,10 @@ export const ACFormComponent = () => {
                         onChange={handleInputChange}
                         disabled={isViewMode}
                         value={formData?.other_party_full_name || ""}
-                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                          isViewMode
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                             ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                             : ""
-                        }`}
+                          }`}
                       />
                     </div>
 
@@ -1962,11 +2044,10 @@ export const ACFormComponent = () => {
                         onChange={handleInputChange}
                         disabled={isViewMode}
                         value={formData?.other_party_vehicle_plate || ""}
-                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                          isViewMode
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                             ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                             : ""
-                        }`}
+                          }`}
                       />
                     </div>
 
@@ -1980,11 +2061,10 @@ export const ACFormComponent = () => {
                         onChange={handleInputChange}
                         disabled={isViewMode}
                         value={formData?.other_party_company_name || ""}
-                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                          isViewMode
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                             ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                             : ""
-                        }`}
+                          }`}
                       />
                     </div>
 
@@ -1998,11 +2078,10 @@ export const ACFormComponent = () => {
                         onChange={handleInputChange}
                         disabled={isViewMode}
                         value={formData?.other_party_phone || ""}
-                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                          isViewMode
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                             ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                             : ""
-                        }`}
+                          }`}
                       />
                     </div>
 
@@ -2016,11 +2095,10 @@ export const ACFormComponent = () => {
                         onChange={handleInputChange}
                         disabled={isViewMode}
                         value={formData?.other_party_insurance_name || ""}
-                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                          isViewMode
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                             ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                             : ""
-                        }`}
+                          }`}
                       />
                     </div>
 
@@ -2034,11 +2112,10 @@ export const ACFormComponent = () => {
                         onChange={handleInputChange}
                         disabled={isViewMode}
                         value={formData?.other_party_claim_no || ""}
-                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                          isViewMode
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                             ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                             : ""
-                        }`}
+                          }`}
                       />
                     </div>
 
@@ -2052,11 +2129,10 @@ export const ACFormComponent = () => {
                         onChange={handleInputChange}
                         disabled={isViewMode}
                         value={formData?.claim_officer_full_name || ""}
-                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${
-                          isViewMode
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                             ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                             : ""
-                        }`}
+                          }`}
                       />
                     </div>
 
@@ -2070,11 +2146,10 @@ export const ACFormComponent = () => {
                         onChange={handleInputChange}
                         disabled={isViewMode}
                         value={formData?.claim_officer_phone || ""}
-                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${
-                          isViewMode
+                        className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${isViewMode
                             ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                             : ""
-                        }`}
+                          }`}
                       />
                     </div>
                   </div>
@@ -2089,14 +2164,14 @@ export const ACFormComponent = () => {
                   </p>
                 </div>
                 <div className="p-6 md:col-span-3">
-                      <FileUpload
-                        onFilesChange={handleFilesFromUpload}
-                        existingFiles={attachedFiles}
-                        onChangedocs={(docs) => setDocValue(docs as any)}
-                        docs={formData.docs?.[0]}
-                        case="ac"
-                      />
-                    </div>
+                  <FileUpload
+                    onFilesChange={handleFilesFromUpload}
+                    existingFiles={attachedFiles}
+                    onChangedocs={(docs) => setDocValue(docs as any)}
+                    docs={formData.docs?.[0]}
+                    case="ac"
+                  />
+                </div>
                 {/* Button Submit */}
                 <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
                   {formData?.casestatus !== "" && (
@@ -2109,14 +2184,14 @@ export const ACFormComponent = () => {
                     </button>
                   )}
                   {formData?.casestatus !== "" && formData?.casestatus !== "Voided" && (
-                      <button
-                        type="button"
-                        onClick={handleUpdate}
-                        className="py-2 px-4 cursor-pointer rounded-lg text-sm inline-block bg-gray-600 hover:bg-gray-700 focus:text-gray-600 focus:bg-gray-200 text-white font-semibold leading-loose transition duration-200"
-                      >
-                        อัปเดตข้อมูล
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={handleUpdate}
+                      className="py-2 px-4 cursor-pointer rounded-lg text-sm inline-block bg-gray-600 hover:bg-gray-700 focus:text-gray-600 focus:bg-gray-200 text-white font-semibold leading-loose transition duration-200"
+                    >
+                      อัปเดตข้อมูล
+                    </button>
+                  )}
                   {formData?.casestatus == "" && (
                     <button
                       type="submit"
