@@ -12,6 +12,7 @@ interface DropdownlistData {
   provinces?: any[];
   districts?: any[];
   subdistricts?: any[];
+  positions?: any[];
 }
 
 interface DropdownlistStore extends DropdownlistData {
@@ -37,6 +38,7 @@ export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
   provinces: [],
   districts: [],
   subdistricts: [],
+  positions: [],
   isLoading: false,
   lastUpdated: undefined,
   error: undefined,
@@ -62,6 +64,7 @@ export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
       "/driver_roles",
       "/masterdrivers",
       "/mastercauses",
+      "/positions",
       "/provinces",
       "/districts",
       "/sub-districts"
@@ -69,12 +72,7 @@ export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
     try {
       const authToken = localStorage.getItem('authToken');
 
-      if (!authToken) {
-        alert('ไม่พบการยืนยันตัวตน กรุณาเข้าสู่ระบบใหม่');
-        window.location.href = '/login';
-        throw new Error('ไม่พบ Token การยืนยันตัวตน');
-      }
-      async function parallelBatches(list: string[], batchSize: number, token: string) {
+      async function parallelBatches(list: string[], batchSize: number) {
         const result = [];
 
         for (let i = 0; i < list.length; i += batchSize) {
@@ -86,7 +84,6 @@ export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
                 method: "GET",
                 headers: {
                   "Content-Type": "application/json",
-                  "Authorization": `Bearer ${token}`,
                   "X-Api-Path": api,
                 },
               }).then((r) => r.json())
@@ -99,7 +96,7 @@ export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
         return result;
       }
 
-      const data = await parallelBatches(list_api, 3, authToken);
+      const data = await parallelBatches(list_api, 3);
       const dropdownObj: DropdownlistData = {};
       list_api.forEach((api, index) => {
         let key = api.substring(1);
@@ -114,14 +111,15 @@ export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
           switch (key) {
             case "sites":
               sortedData = sortedData.sort((a, b) => (a.site_name_th || '').localeCompare(b.site_name_th || ''));
-              sortedData = sortedData.filter((item: any) => item.site_id !== 1);
+              // sortedData = sortedData.filter((item: any) => item.site_id !== 1);
               break;
             case "departments":
               sortedData = sortedData.sort((b, a) => (a.department_name_th || '').localeCompare(b.department_name_th || ''));
-              sortedData = sortedData.filter((item: any) => (item.department_id >= 15));
+              // sortedData = sortedData.filter((item: any) => (item.department_id >= 15));
               break;
             case "clients":
               sortedData = sortedData.sort((a, b) => (a.client_name || '').localeCompare(b.client_name || ''));
+              sortedData = sortedData.filter((item: any) => (item.client_id !== 0));
               break;
             case "vehicles":
               sortedData = sortedData.sort((a, b) => (a.vehicle_number_plate || '').localeCompare(b.vehicle_number_plate || ''));
@@ -141,6 +139,9 @@ export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
               break;
             case "mastercauses":
               sortedData = sortedData.sort((a, b) => (a.cause_name || '').localeCompare(b.cause_name || ''));
+              break;
+            case "positions":
+              sortedData = sortedData.sort((a, b) => (a.position_name || '').localeCompare(b.position_name || ''));
               break;
             case "provinces":
               sortedData = sortedData.sort((a, b) => (a.province_name_th || '').localeCompare(b.province_name_th || ''));
@@ -201,6 +202,7 @@ export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
       provinces: [],
       districts: [],
       subdistricts: [],
+      positions: [],
       isLoading: false,
       lastUpdated: undefined,
       error: undefined
@@ -209,3 +211,16 @@ export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
 }))
 
 
+export const handleFetchData = async (name: string) => {
+  console.log('Fetching data for:', name);  
+  const res = await fetch(`/api/list`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Api-Path': `/${name}`
+    }
+  });
+  const data = await res.json();
+  console.log('data from handleFetchData:', data);
+  return data;
+}

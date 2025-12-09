@@ -48,7 +48,6 @@ export const NCFormComponent = () => {
     Partial<investigate_NC>
   >({});
 
-  const [displayPIC, setDisplayPIC] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
   const [isLoadingFormData, setIsLoadingFormData] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<CategoryFiles>({});
@@ -94,11 +93,13 @@ export const NCFormComponent = () => {
   const [filteredData, setFilteredData] = useState<{
     masterdrivers?: any[];
     locations?: any[];
+    clients?: any[];
     vehicles?: any[];
     mastercauses?: any[];
   }>({
     masterdrivers: [],
     locations: [],
+    clients: [],
     vehicles: [],
     mastercauses: [],
   });
@@ -178,7 +179,12 @@ export const NCFormComponent = () => {
           } else {
             setIsViewMode(true);
           }
-          setFormData(data);
+
+          setFormData({...data, products: data.products.map((item: any, index: number) => ({
+            ...item,
+            product_id: index + 1,
+          }))});
+
           await mapTextDataToIds(data);
 
           await loadExistingAttachments(docId);
@@ -203,7 +209,6 @@ export const NCFormComponent = () => {
       setTimeout(async () => {
         if (type === "investigate") {
           setThisform("investigate");
-          console.log("status: ", formData.casestatus);
           if (formData.casestatus !== "Pending") {
             try {
               const res = await fetch(
@@ -218,7 +223,7 @@ export const NCFormComponent = () => {
 
               if (res.ok) {
                 const data = await res.json();
-                console.log("Investigate data:", data);
+                // console.log("Investigate data:", data);
                 setFormInvestigate(data);
                 setCorrectiveActions(
                   data.corrective_actions.map((action: any, index: number) => ({
@@ -403,15 +408,18 @@ export const NCFormComponent = () => {
         num = 2
       }
       const filteredDrivers =
-              masterdrivers?.filter((driver: any) => driver.site_id === siteId) || [];
+              masterdrivers?.filter((driver: any) => driver.site_id === num) || [];
       const filteredLocations =
-        locations?.filter((location: any) => location.site_id === num) || []; // ตั้งค่าสระบุรี
+        locations?.filter((location: any) => location.site_id === num) || []; 
       const filtermastercauses =
-        mastercauses?.filter((cause: any) => cause.site_id === num) || []; // ตั้งค่าสระบุรี
-
+        mastercauses?.filter((cause: any) => cause.site_id === num) || []; 
+      const filteredClients =
+        clients?.filter((client: any) => client.site_id === num) || [];
+      console.log("filteredClients : ",filteredClients, num);
        setFilteredData({
         masterdrivers: filteredDrivers,
         locations: filteredLocations,
+        clients: filteredClients,
         mastercauses: filtermastercauses,
         // vehicles: filteredVehicles,
       });
@@ -420,6 +428,7 @@ export const NCFormComponent = () => {
       setFilteredData({
         masterdrivers: masterdrivers || [],
         locations: locations || [],
+        clients: clients || [],
         mastercauses: mastercauses || [],
         // vehicles: vehicles || [],
       });
@@ -439,11 +448,12 @@ export const NCFormComponent = () => {
       setFilteredData({
         masterdrivers: masterdrivers || [],
         locations: locations || [],
+        clients: clients || [],
         vehicles: vehicles || [],
         mastercauses: mastercauses || [],
       });
     }
-  }, [masterdrivers, locations, vehicles, mastercauses, formData.site_id]);
+  }, [masterdrivers, locations,clients, vehicles, mastercauses, formData.site_id]);
 
   // ========== Auto Resize Textarea ==========
   useEffect(() => {
@@ -474,7 +484,7 @@ export const NCFormComponent = () => {
 
   // ========== View Mode Data Filtering ==========
   useEffect(() => {
-    if (isViewMode && formData.site_id && masterdrivers && locations) {
+    if (isViewMode && formData.site_id && masterdrivers && locations && clients) {
       let filteredDrivers = masterdrivers.filter(
         (driver: any) => driver.site_id === formData.site_id
       );
@@ -482,6 +492,10 @@ export const NCFormComponent = () => {
         (location: any) =>
           location.location_id === formData.origin_id ||
           location.site_id === formData.site_id
+      );
+
+      const filteredClients = clients.filter(
+        (client: any) => client.client_id === formData.client_id || client.site_id === formData.site_id
       );
 
       // Add selected driver if not in filtered list
@@ -502,6 +516,7 @@ export const NCFormComponent = () => {
       setFilteredData({
         masterdrivers: filteredDrivers,
         locations: filteredLocations,
+        clients: filteredClients,
         vehicles: vehicles || [],
       });
     }
@@ -512,6 +527,7 @@ export const NCFormComponent = () => {
     formData.origin_id,
     masterdrivers,
     locations,
+    clients,
     vehicles,
   ]);
 
@@ -628,7 +644,6 @@ export const NCFormComponent = () => {
     const itemName = prompt(`เพิ่มรายการใหม่สำหรับ ${type}:`);
     if (itemName && itemName.trim()) {
       const obj = finditems(type,itemName)
-      console.log("obj : ", obj);
       const res = await fetch(`/api/list`, {
         method: "POST",
         headers: {
@@ -665,12 +680,14 @@ export const NCFormComponent = () => {
        let diffname = itemName.split(" ")
         obj = { first_name: diffname[0], last_name: diffname[1], site_id: formData.site_id, driver_role_id: formData.driver_role_id };
         break;
+      case "clients":
+        obj = { client_name: itemName, site_id: formData.site_id };
+        break;
     }
     return obj;
   }
 
   const setItemsFilter = async (data: any , type: string) => {
-    console.log("Adding new item:", data, "to type:", type);
     
     switch (type) {
       case "mastercauses":
@@ -689,6 +706,12 @@ export const NCFormComponent = () => {
         setFilteredData((prev) => ({
           ...prev,
           masterdrivers: [...(prev.masterdrivers || []), data],
+        }));
+        break;
+      case "clients":
+        setFilteredData((prev) => ({
+          ...prev,
+          clients: [...(prev.clients || []), data],
         }));
         break;
     }
@@ -791,9 +814,9 @@ export const NCFormComponent = () => {
   };
 
   function toThaiISO(date: Date) {
-    const timezoneOffset = 7 * 60 * 60 * 1000; // +7 ชั่วโมง
+    const timezoneOffset = -7 * 60 * 60 * 1000; // -7 ชั่วโมง
     const utcDate = new Date(date.getTime() - timezoneOffset);
-    return utcDate.toISOString();
+    return utcDate
   }
 
 
@@ -895,9 +918,9 @@ export const NCFormComponent = () => {
         alert("ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่");
         return;
       }
-      console.log("new Date : ", new Date().toLocaleDateString());
       const submitData = {
         ...formData,
+        incident_date: toThaiISO(new Date(formData.incident_date || "")),
         record_date: toThaiISO(new Date()),
         reporter_id: userinfo.id,
         docs: [docValue as any]
@@ -914,13 +937,13 @@ export const NCFormComponent = () => {
       });
 
       const responseData = await res.json();
-      // console.log("API Response:", responseData);
+      console.log("API Response:", responseData);
 
       if (res.ok) {
         console.log("Success response data:", responseData);
         Swal.fire({
           icon: "success",
-          title: "บันทึกข้อมูลเรียบร้อย",
+          title: "บันทึกข้อมูลสำเร็จ",
           draggable: true,
           confirmButtonText: "ตกลง",
           allowOutsideClick: false,
@@ -929,6 +952,8 @@ export const NCFormComponent = () => {
         setFormData((prev) => ({
           ...prev,
           document_no: responseData.document_no,
+          reporter_name: userinfo.name,
+          priority: responseData.priority,
           casestatus: responseData.casestatus,
         }));
         console.log('Form Data after submit:', formData);
@@ -961,22 +986,26 @@ export const NCFormComponent = () => {
       return;
     }
 
-    delete formData.priority;
-    delete formData.reporter_name;
-    delete formData.record_date;
-    delete formData.site_name;
-    delete formData.driver_name;
-    delete formData.client_name; 
-    delete formData.department_name;
-    delete formData.driver_role_name;
-    delete formData.origin_name;
-    delete formData.vehicle_head_plate;
-    delete formData.vehicle_tail_plate;
+    const {
+      priority,
+      reporter_name,
+      record_date,
+      site_name,
+      driver_name,
+      client_name,
+      department_name,
+      driver_role_name,
+      origin_name,
+      vehicle_head_plate,
+      vehicle_tail_plate,
+      ...filteredFormData
+    } = formData;
 
-
-
-
-    const data = { ...formData, docs: [docValue as any] };
+    const data = { 
+      ...filteredFormData,
+      incident_date: toThaiISO(new Date(filteredFormData.incident_date || "")),
+      docs: [docValue as any] 
+    };
     console.log("Data to be updated:", data);
     //  console.log("NC Form Update <><><><> :", formData);
 
@@ -1016,7 +1045,7 @@ export const NCFormComponent = () => {
       ...formInvestigate,
       corrective_actions: corrective_actions,
     };
-    console.log("Data to be updated (Investigate):", data);
+    // console.log("Data to be updated (Investigate):", data);
     const res = await fetch("/api/investigate/nc", {
       method: "POST",
       headers: {
@@ -1026,11 +1055,11 @@ export const NCFormComponent = () => {
       body: JSON.stringify(data),
     });
     const responseData = await res.json();
-    console.log("API Response on Investigate Update:", responseData);
+      // console.log("API Response on Investigate Update:", responseData);
     if (res.ok) {
       Swal.fire({
         icon: "success",
-        title: "บันทึกข้อมูลการสอบสวนเรียบร้อย",
+        title: "บันทึกข้อมูลการสอบสวนสำเร็จ",
         draggable: true,
         confirmButtonText: "ตกลง",
         allowOutsideClick: false,
@@ -1126,73 +1155,141 @@ export const NCFormComponent = () => {
     return <LoaderPage />;
   }
 
+  const filteredForm = (title: string, data: any[] | undefined): any[] => {
+  switch (title) {
+    case "site":
+      return data?.filter((site: any) => site.site_id == 2 || site.site_id == 3) || []
+    case "department":
+      return data?.filter((dept: any) => dept.department_id > 11) || []
+    default:
+      return data || []
+  }
+};
+
   return (
     <>
       <div className="min-h-screen bg-[#d1ffe1]">
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 pb-24 lg:pb-6">
           {formData?.casestatus !== "" && (
-            <div className="fixed right-6 bottom-6 flex flex-col items-center space-y-4 z-50">
-              <div className="flex flex-col items-center group relative">
-                <button
-                  type="button"
-                  onClick={() => thisformtype("initial")}
-                  disabled={thisform === "initial"}
-                  className={`relative flex items-center justify-center w-20 h-20 text-xl font-bold
-                    rounded-full shadow-lg transition-all duration-300 ease-out
-                    disabled:cursor-not-allowed overflow-hidden
-                    ${thisform === "initial"
-                      ? "bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 text-white scale-110 shadow-2xl"
-                      : "bg-white text-gray-600 hover:text-blue-600 hover:scale-105 hover:shadow-xl border-2 border-gray-300 hover:border-blue-400"
-                    }`}
-                >
-                  <span className="relative z-10">1</span>
-                  {thisform === "initial" && (
-                    <div className="absolute inset-0 bg-white opacity-20" />
-                  )}
-                </button>
-                <div className="mt-3 text-center">
-                  <span
-                    className={`text-xs font-semibold tracking-wide transition-colors duration-300 ${thisform === "initial"
-                      ? "text-blue-600"
-                      : "text-gray-600 group-hover:text-blue-500"
+            <>
+              {/* Desktop Navigation - Floating Buttons */}
+              <div className="hidden lg:flex fixed right-6 bottom-6 flex-col items-center space-y-4 z-50">
+                <div className="flex flex-col items-center group relative">
+                  <button
+                    type="button"
+                    onClick={() => thisformtype("initial")}
+                    disabled={thisform === "initial"}
+                    className={`relative flex items-center justify-center w-20 h-20 text-xl font-bold
+                      rounded-full shadow-lg transition-all duration-300 ease-out
+                      disabled:cursor-not-allowed overflow-hidden
+                      ${thisform === "initial"
+                        ? "bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 text-white scale-110 shadow-2xl"
+                        : "bg-white text-gray-600 hover:text-blue-600 hover:scale-105 hover:shadow-xl border-2 border-gray-300 hover:border-blue-400"
                       }`}
                   >
-                    Initial Report
-                  </span>
+                    <span className="relative z-10">1</span>
+                    {thisform === "initial" && (
+                      <div className="absolute inset-0 bg-white opacity-20" />
+                    )}
+                  </button>
+                  <div className="mt-2 text-center">
+                    <span
+                      className={`text-xs font-semibold tracking-wide transition-colors duration-300 ${thisform === "initial"
+                        ? "text-blue-600"
+                        : "text-gray-600 group-hover:text-blue-500"
+                        }`}
+                    >
+                      Initial Report
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center group relative">
+                  <button
+                    type="button"
+                    onClick={() => thisformtype("investigate")}
+                    disabled={thisform === "investigate"}
+                    className={`relative flex items-center justify-center w-20 h-20 text-xl font-bold
+                      rounded-full shadow-lg transition-all duration-300 ease-out
+                      disabled:cursor-not-allowed overflow-hidden
+                      ${thisform === "investigate"
+                        ? "bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 text-white scale-110 shadow-2xl"
+                        : "bg-white text-gray-600 hover:text-blue-600 hover:scale-105 hover:shadow-xl border-2 border-gray-300 hover:border-blue-400"
+                      }`}
+                  >
+                    <span className="relative z-10">2</span>
+                    {thisform === "investigate" && (
+                      <div className="absolute inset-0 bg-white opacity-20" />
+                    )}
+                  </button>
+                  <div className="mt-2 text-center">
+                    <span
+                      className={`text-xs font-semibold tracking-wide transition-colors duration-300 ${thisform === "investigate"
+                        ? "text-blue-600"
+                        : "text-gray-600 group-hover:text-blue-500"
+                        }`}
+                    >
+                      Investigation
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Button 2: Investigation */}
-              <div className="flex flex-col items-center group relative">
-                <button
-                  type="button"
-                  onClick={() => thisformtype("investigate")}
-                  disabled={thisform === "investigate"}
-                  className={`relative flex items-center justify-center w-20 h-20 text-xl font-bold
-                    rounded-full shadow-lg transition-all duration-300 ease-out
-                    disabled:cursor-not-allowed overflow-hidden
-                    ${thisform === "investigate"
-                      ? "bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 text-white scale-110 shadow-2xl"
-                      : "bg-white text-gray-600 hover:text-blue-600 hover:scale-105 hover:shadow-xl border-2 border-gray-300 hover:border-blue-400"
-                    }`}
-                >
-                  <span className="relative z-10">2</span>
-                  {thisform === "investigate" && (
-                    <div className="absolute inset-0 bg-white opacity-20 " />
-                  )}
-                </button>
-                <div className="mt-3 text-center">
-                  <span
-                    className={`text-xs font-semibold tracking-wide transition-colors duration-300 ${thisform === "investigate"
-                      ? "text-blue-600"
-                      : "text-gray-600 group-hover:text-blue-500"
-                      }`}
-                  >
-                    Investigation
-                  </span>
+              {/* Mobile Navigation - Fixed Bottom Bar */}
+              <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t-2 border-gray-300 shadow-lg z-50">
+                <div className="w-full h-16">
+                  <div className="flex justify-center items-stretch">
+                    {/* Initial Report Button */}
+                    <button
+                      type="button"
+                      onClick={() => thisformtype("initial")}
+                      disabled={thisform === "initial"}
+                      className={`flex-1 flex flex-col items-center justify-center py-4 px-3 transition-all duration-300 ease-out
+                        disabled:cursor-not-allowed min-h-[70px] border-r border-gray-100
+                        ${thisform === "initial"
+                          ? "bg-blue-500 text-white"
+                          : "bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600 active:bg-blue-100"
+                        }`}
+                    >
+                      <div className={`flex items-center justify-center w-8 h-8 rounded-full mb-1 font-bold text-sm transition-colors duration-300
+                        ${thisform === "initial" 
+                          ? "text-white"
+                          : "bg-blue-100 text-blue-600"
+                        }`}>
+                        1
+                      </div>
+                      <span className="text-xs font-semibold text-center leading-tight">
+                        Initial<br />Report
+                      </span>
+                    </button>
+
+                    {/* Investigation Button */}
+                    <button
+                      type="button"
+                      onClick={() => thisformtype("investigate")}
+                      disabled={thisform === "investigate"}
+                      className={`flex-1 flex flex-col items-center justify-center py-4 px-3 transition-all duration-300 ease-out
+                        disabled:cursor-not-allowed min-h-[70px]
+                        ${thisform === "investigate"
+                          ? "bg-blue-500 text-white"
+                          : "bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600 active:bg-blue-100"
+                        }`}
+                    >
+                      <div className={`flex items-center justify-center w-8 h-8 rounded-full mb-1 font-bold text-sm transition-colors duration-300
+                        ${thisform === "investigate" 
+                          ? "text-white" 
+                          : "bg-blue-100 text-blue-600"
+                        }`}>
+                        2
+                      </div>
+                      <span className="text-xs font-semibold text-center leading-tight">
+                        Investigation
+                      </span>
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            </>
           )}
 
           <div className="flex items-center justify-center">
@@ -1252,11 +1349,11 @@ export const NCFormComponent = () => {
 
                         <div>
                           <label className="block text-gray-700 font-medium mb-1 text-sm">
-                            ศูนย์ปฏิบัติการ:{" "}
+                            สำนักงาน/ศูนย์ปฏิบัติการ:{" "}
                             <span className="text-red-500">*</span>
                           </label>
                           <SearchableSelect
-                            options={(sites || []).map((site: any) => ({
+                            options={(filteredForm("site", sites) || []).map((site: any) => ({
                               value: site.site_id,
                               label: site.site_name_th,
                             }))}
@@ -1266,7 +1363,7 @@ export const NCFormComponent = () => {
                             }
                             // onAdd={() => handleAddItem("site")}
                             showAddRemove={!isViewMode}
-                            disabled={isViewMode}
+                            disabled={formData.document_no ? true : isViewMode}
                             className="w-full"
                           />
                         </div>
@@ -1276,7 +1373,7 @@ export const NCFormComponent = () => {
                             ฝ่าย: <span className="text-red-500">*</span>
                           </label>
                           <SearchableSelect
-                            options={(departments || []).map((dept: any) => ({
+                            options={(filteredForm("department", departments) || []).map((dept: any) => ({
                               value: dept.department_id,
                               label: dept.department_name_th,
                             }))}
@@ -1323,7 +1420,7 @@ export const NCFormComponent = () => {
                             onChange={(value) =>
                               setFormData((prev) => ({
                                 ...prev,
-                                incident_date: value ? value.toISOString() : "",
+                                incident_date: value as any,
                               }))
                             }
                             disabled={isViewMode}
@@ -1332,7 +1429,7 @@ export const NCFormComponent = () => {
                         </div>
                         <div>
                           <label className="block text-gray-700 font-medium mb-1 text-sm">
-                            สาเหตุการเกิดเหตุ: <span className="text-red-500">*</span>
+                            สาเหตุการเกิด: <span className="text-red-500">*</span>
                           </label>
                           <SearchableSelect
                             options={(filteredData.mastercauses || []).map((cause: any) => ({
@@ -1355,7 +1452,7 @@ export const NCFormComponent = () => {
 
                         <div className="md:col-span-3">
                           <label className="block text-gray-700 font-medium mb-1 text-sm">
-                            รายละเอียด NC:{" "}
+                           รายละเอียดเหตุการณ์:{" "}
                             <span className="text-red-500">*</span>
                           </label>
                           <textarea
@@ -1389,7 +1486,7 @@ export const NCFormComponent = () => {
                             ลูกค้า: <span className="text-red-500">*</span>
                           </label>
                           <SearchableSelect
-                            options={(clients || []).map((client: any) => ({
+                            options={(filteredData.clients || []).map((client: any) => ({
                               value: client.client_id,
                               label: client.client_name,
                             }))}
@@ -1400,7 +1497,7 @@ export const NCFormComponent = () => {
                                 client_id: Number(value),
                               }))
                             }
-                            onAdd={() => handleAddItem("client")}
+                            onAdd={() => handleAddItem("clients")}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -2169,6 +2266,9 @@ export const NCFormComponent = () => {
                 )}
 
                 {/* Button Submit */}
+                <div className="flex justify-start">
+                  <p className="text-sm text-gray-600">Form created by: {formData?.reporter_name || "N/A"}</p>
+                </div>
                 <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
                   {formData?.casestatus !== "" && thisform === "initial" && (
                     <button

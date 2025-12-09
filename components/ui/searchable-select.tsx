@@ -12,6 +12,7 @@ interface SearchableSelectProps {
   options: Option[];
   value?: string | number;
   onChange: (value: string | number) => void;
+  onClick?: (value: string | number) => void;
   onAdd?: () => void;
   onRemove?: (itemValue: string | number) => void;
   onAddFilter?: (itemValue: string | number) => void;
@@ -27,6 +28,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   options = [],
   value,
   onChange,
+  onClick,
   onAdd,
   onRemove,
   onAddFilter,

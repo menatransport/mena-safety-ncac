@@ -178,7 +178,6 @@ export const DashboardComponent = () => {
 
   useEffect(() => {
     fetchData();
-    console.log('Fetching data for:', selectedMonth, selectedYear);
   }, [selectedMonth, selectedYear]);
 
   useEffect(() => {
@@ -199,16 +198,16 @@ export const DashboardComponent = () => {
       let endDate: string;
 
       if (selectedMonth === 'all') {
-        // ดึงข้อมูลทั้งปี
+
         startDate = `${selectedYear}-01-01`;
         endDate = `${selectedYear}-12-31`;
       } else {
-        // ดึงข้อมูลตามเดือนที่เลือก
+
         const monthNum = parseInt(selectedMonth);
         startDate = `${selectedYear}-${String(monthNum).padStart(2, '0')}-01`;
         endDate = new Date(selectedYear, monthNum, 0).toISOString().split('T')[0];
       }
-      console.log('Fetching data from', startDate, 'to', endDate);
+
       const [ncResponse, acResponse] = await Promise.all([
         fetch(`/api/dashboard/nc?start_date=${startDate}&end_date=${endDate}`,{method: 'GET', headers: { 'Content-Type': 'application/json' }}),
         fetch(`/api/dashboard/ac?start_date=${startDate}&end_date=${endDate}`,{method: 'GET', headers: { 'Content-Type': 'application/json' }})
@@ -217,8 +216,6 @@ export const DashboardComponent = () => {
       if (ncResponse.ok && acResponse.ok) {
         const ncResult = await ncResponse.json();
         const acResult = await acResponse.json();
-        console.log('NC Data:', ncResult);
-        console.log('AC Data:', acResult);
         setNcData((Array.isArray(ncResult) ? ncResult : []).map(item => ({
           ...item,
           type: 'NC' as const
@@ -227,7 +224,6 @@ export const DashboardComponent = () => {
         setAcData((Array.isArray(acResult) ? acResult : []).map((item: any) => ({
           ...item,
           type: 'AC' as const,
-          // แมป fields ให้ตรงกับ NC สำหรับใช้ในกราฟ
           incident_date: item.incident_date || item.incident_datetime,
           actual_price: (item.actual_price !== undefined && item.actual_price !== null) 
             ? item.actual_price 
@@ -695,7 +691,7 @@ export const DashboardComponent = () => {
     <div className="min-h-screen p-10 bg-gradient-to-br from-[#d1ffe1] to-indigo-100">
       <div className="space-y-6">
         {/* Header - Mock Data Toggle */}
-        <div className="flex items-center justify-between">
+        <div className="hidden items-center justify-between">
           <div className="flex items-center gap-3 bg-white rounded-xl shadow-md px-4 py-2 border border-gray-200">
             <span className="text-sm font-medium text-gray-700">Mock Data</span>
             <button

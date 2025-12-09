@@ -73,6 +73,7 @@ export const ACFormComponent = () => {
   const [filteredData, setFilteredData] = useState<{
     masterdrivers?: any[];
     locations?: any[];
+    clients?: any[];
     vehicles?: any[];
     districts?: any[];
     subdistricts?: any[];
@@ -80,6 +81,7 @@ export const ACFormComponent = () => {
   }>({
     masterdrivers: [],
     locations: [],
+    clients: [],
     vehicles: [],
     districts: [],
     subdistricts: [],
@@ -365,15 +367,17 @@ export const ACFormComponent = () => {
       } else {
         num = 2
       }
-      console.log("num site : ", num);
       const filteredDrivers =
-        masterdrivers?.filter((driver: any) => driver.site_id === siteId) || [];
+        masterdrivers?.filter((driver: any) => driver.site_id === num) || [];
       const filteredLocations =
         locations?.filter((location: any) => location.site_id === num) || []; // ตั้งค่าสระบุรี
+      const filteredClients =
+        clients?.filter((client: any) => client.site_id === num) || [];
 
       setFilteredData({
         masterdrivers: filteredDrivers,
         locations: filteredLocations,
+        clients: filteredClients,
         // vehicles: filteredVehicles,
       });
 
@@ -381,6 +385,7 @@ export const ACFormComponent = () => {
       setFilteredData({
         masterdrivers: masterdrivers || [],
         locations: locations || [],
+        clients: clients || [],
         // vehicles: vehicles || [],
       });
     }
@@ -399,14 +404,14 @@ export const ACFormComponent = () => {
         ...prev,
         masterdrivers: masterdrivers || [],
         locations: locations || [],
+        clients: clients || [],
         vehicles: vehicles || [],
       }));
     }
-  }, [masterdrivers, locations, vehicles, formData.site_id]);
-
+  }, [masterdrivers, locations, vehicles, clients, formData.site_id]);
   // ========== View Mode Data Filtering ==========
   useEffect(() => {
-    if (isViewMode && formData.site_id && masterdrivers && locations) {
+    if (isViewMode && formData.site_id && masterdrivers && locations && clients) {
       let filteredDrivers = masterdrivers.filter(
         (driver: any) => driver.site_id === formData.site_id
       );
@@ -414,6 +419,11 @@ export const ACFormComponent = () => {
         (location: any) =>
           location.location_id === formData.origin_id ||
           location.site_id === formData.site_id
+      );
+      const filteredClients = clients.filter(
+        (client: any) =>
+          client.client_id === formData.client_id ||
+          client.site_id === formData.site_id
       );
 
       // Add selected driver if not in filtered list
@@ -435,6 +445,7 @@ export const ACFormComponent = () => {
         ...prev,
         masterdrivers: filteredDrivers,
         locations: filteredLocations,
+        clients: filteredClients,
         vehicles: vehicles || [],
       }));
     }
@@ -445,6 +456,7 @@ export const ACFormComponent = () => {
     formData.origin_id,
     masterdrivers,
     locations,
+    clients,
     vehicles,
   ]);
 
@@ -493,9 +505,9 @@ export const ACFormComponent = () => {
   };
 
   function toThaiISO(date: Date) {
-    const timezoneOffset = 7 * 60 * 60 * 1000; // +7 ชั่วโมง
+    const timezoneOffset = -7 * 60 * 60 * 1000; // -7 ชั่วโมง
     const utcDate = new Date(date.getTime() - timezoneOffset);
-    return utcDate.toISOString();
+    return utcDate
   }
 
   // ========== Province/District Handling Functions ==========
@@ -651,6 +663,9 @@ export const ACFormComponent = () => {
         let diffname = itemName.split(" ")
         obj = { first_name: diffname[0], last_name: diffname[1], site_id: formData.site_id, driver_role_id: formData.driver_role_id };
         break;
+      case "clients":
+        obj = { client_name: itemName, site_id: formData.site_id };
+        break;
     }
     return obj;
   }
@@ -670,6 +685,11 @@ export const ACFormComponent = () => {
           masterdrivers: [...(prev.masterdrivers || []), data],
         }));
         break;
+      case "clients":
+        setFilteredData((prev) => ({
+          ...prev,
+          clients: [...(prev.clients || []), data],
+        }));
     }
   }
 
@@ -842,6 +862,14 @@ export const ACFormComponent = () => {
 
       const submitData = {
         ...formData,
+        incident_datetime: toThaiISO(new Date(formData.incident_datetime || "")),
+        fatalities: Number(formData.fatalities) || 0,
+        injured_hospitalized: Number(formData.injured_hospitalized) || 0,
+        injured_not_hospitalized: Number(formData.injured_not_hospitalized) || 0,
+        estimated_goods_damage_value: Number(formData.estimated_goods_damage_value) || 0,
+        estimated_vehicle_damage_value: Number(formData.estimated_vehicle_damage_value) || 0,
+        actual_goods_damage_value: Number(formData.actual_goods_damage_value) || 0,
+        actual_vehicle_damage_value: Number(formData.actual_vehicle_damage_value) || 0,
         record_datetime: toThaiISO(new Date()),
         reporter_id: userinfo.id,
         docs: [docValue as any]
@@ -858,7 +886,7 @@ export const ACFormComponent = () => {
       });
 
       const responseData = await res.json();
-      // console.log("API Response:", responseData);
+      console.log("API Response:", responseData);
 
       if (res.ok) {
         Swal.fire({
@@ -871,6 +899,7 @@ export const ACFormComponent = () => {
         setFormData((prev) => ({
           ...prev,
           reporter_name: responseData.reporter_name,
+          priority: responseData.priority,
           document_no_ac: responseData.document_no_ac,
           casestatus: responseData.casestatus,
         }));
@@ -908,22 +937,35 @@ export const ACFormComponent = () => {
       return;
     }
 
-    delete formData.priority;
-    delete formData.reporter_name;
-    delete formData.record_datetime;
-    delete formData.site_name;
-    delete formData.driver_name;
-    delete formData.client_name;
-    delete formData.department_name;
-    delete formData.driver_role_name;
-    delete formData.origin_name;
-    delete formData.vehicle_head_plate;
-    delete formData.vehicle_tail_plate;
-    delete formData.province_name;
-    delete formData.district_name;
-    delete formData.sub_district_name;
+     const {
+      priority,
+      reporter_name,
+      record_datetime,
+      site_name,
+      driver_name,
+      client_name,
+      department_name,
+      driver_role_name,
+      origin_name,
+      vehicle_head_plate,
+      vehicle_tail_plate,
+      province_name,
+      district_name,
+      sub_district_name,
+      ...filteredFormData
+    } = formData;
 
-    const data = { ...formData, docs: [docValue as any] };
+    const data = { ...filteredFormData,
+      incident_datetime: toThaiISO(new Date(filteredFormData.incident_datetime || "")),
+      fatalities: Number(filteredFormData.fatalities) || 0,
+      injured_hospitalized: Number(filteredFormData.injured_hospitalized) || 0,
+      injured_not_hospitalized: Number(filteredFormData.injured_not_hospitalized) || 0,
+      estimated_goods_damage_value: Number(filteredFormData.estimated_goods_damage_value) || 0,
+      estimated_vehicle_damage_value: Number(filteredFormData.estimated_vehicle_damage_value) || 0,
+      actual_goods_damage_value: Number(filteredFormData.actual_goods_damage_value) || 0,
+      actual_vehicle_damage_value: Number(filteredFormData.actual_vehicle_damage_value) || 0,
+      docs: [docValue as any] 
+    };
     console.log("AC Form data to update:", data);
     const res = await fetch("/api/document/ac", {
       method: "PUT",
@@ -1003,8 +1045,6 @@ export const ACFormComponent = () => {
 
       if (res.ok) {
         const result = await res.json();
-        console.log('เช็คไฟล์เพื่ออัปเดตสถานะเป็น Completed เมื่อมีการอัปโหลดเอกสาร Investigation แล้ว : ', result);
-        // อัปเดตสถานะเป็น 'Completed' หากมีการอัปโหลดไฟล์ในหมวด 'investigation'
         if (attachedFiles['investigate_report'] && attachedFiles['investigate_report'].length > 0) {
           const statusRes = await fetch("/api/document/ac", {
             method: "PUT",
@@ -1060,6 +1100,17 @@ export const ACFormComponent = () => {
     return <LoaderPage />;
   }
 
+const filteredForm = (title: string, data: any[] | undefined): any[] => {
+  switch (title) {
+    case "site":
+      return data?.filter((site: any) => site.site_id == 2 || site.site_id == 3) || []
+    case "department":
+      return data?.filter((dept: any) => dept.department_name_en === "Compliance") || []
+    default:
+      return data || []
+  }
+};
+
   return (
     <>
       <div className="min-h-screen bg-[#d1ffe1]">
@@ -1113,16 +1164,16 @@ export const ACFormComponent = () => {
 
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
-                        ศูนย์ปฏิบัติการ: <span className="text-red-500">*</span>
+                        สำนักงาน/ศูนย์ปฏิบัติการ: <span className="text-red-500">*</span>
                       </label>
                       <SearchableSelect
-                        options={(sites || []).map((site: any) => ({
+                        options={(filteredForm("site", sites) || []).map((site: any) => ({
                           value: site.site_id,
                           label: site.site_name_th,
                         }))}
                         value={formData?.site_id || ""}
                         onChange={(value) => handleSiteChange(Number(value))}
-                        disabled={formData?.casestatus !== ""}
+                        disabled={formData.document_no_ac ? true : isViewMode}
                         className="w-full"
                       />
                     </div>
@@ -1132,7 +1183,7 @@ export const ACFormComponent = () => {
                         ฝ่าย: <span className="text-red-500">*</span>
                       </label>
                       <SearchableSelect
-                        options={(departments || []).map((dept: any) => ({
+                        options={filteredForm("department",departments).map((dept: any) => ({
                           value: dept.department_id,
                           label: dept.department_name_th,
                         }))}
@@ -1222,7 +1273,7 @@ export const ACFormComponent = () => {
                         ลูกค้า: <span className="text-red-500">*</span>
                       </label>
                       <SearchableSelect
-                        options={(clients || []).map((client: any) => ({
+                        options={(filteredData.clients || []).map((client: any) => ({
                           value: client.client_id,
                           label: client.client_name,
                         }))}
@@ -2172,7 +2223,12 @@ export const ACFormComponent = () => {
                     case="ac"
                   />
                 </div>
+
+
                 {/* Button Submit */}
+                <div className="flex justify-start p-2">
+                  <p className="text-sm text-gray-600">Form created by: {formData?.reporter_name || "N/A"}</p>
+                </div>
                 <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
                   {formData?.casestatus !== "" && (
                     <button

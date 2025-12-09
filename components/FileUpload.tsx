@@ -39,7 +39,7 @@ const DOCUMENT_CATEGORIES = [
   {
     value: "event_img",
     label: "รูปเหตุการณ์",
-    department: "🚚จัดส่ง",
+    department: "📄ตามฝ่ายผู้บันทึกเคส",
     case: "all",
     no: false,
     icon: ImageIcon,
@@ -47,7 +47,7 @@ const DOCUMENT_CATEGORIES = [
   {
     value: "warning_doc",
     label: "ใบเตือน",
-    department: "🚚จัดส่ง",
+    department: "🚨Safety",
     case: "all",
     no: true,
     icon: FileText,
@@ -55,7 +55,7 @@ const DOCUMENT_CATEGORIES = [
   {
     value: "record_doc",
     label: "บันทึกประจำวัน",
-    department: "🚚จัดส่ง",
+    department: "📄ตามฝ่ายผู้บันทึกเคส",
     case: "ac",
     no: false,
     icon: FileText,
@@ -65,7 +65,7 @@ const DOCUMENT_CATEGORIES = [
   {
     value: "medical_doc",
     label: "ใบรับรองแพทย์",
-    department: "🚨ความปลอดภัย",
+    department: "📄ตามฝ่ายผู้บันทึกเคส",
     case: "ac",
     no: true,
     icon: FileText,
@@ -73,34 +73,33 @@ const DOCUMENT_CATEGORIES = [
   {
     value: "Insurance_claim_doc",
     label: "ใบเคลมจากประกัน",
-    department: "🚨ความปลอดภัย",
+    department: "ℹ️Compliance",
     case: "all",
     no: true,
     icon: FileText,
   },
   {
     value: "legal_doc",
-    label: "ใบคดีความ",
-    department: "🚨ความปลอดภัย",
+    label: "เอกสารคดีความ",
+    department: "ℹ️Compliance",
     case: "ac",
     no: false,
     icon: FileText,
   },
 
-  // ฝ่ายยานยนต์ (Vehicle Department)
   {
     value: "writeoff_doc",
     label: "ใบตัดจำหน่าย",
-    department: "🔧ยานยนต์",
+    department: "📄ตามฝ่ายผู้บันทึกเคส",
     case: "all",
     no: false,
     icon: FileText,
   },
-  // ฝ่ายบัญชี (Accounting Department)
+
   {
     value: "debt_doc",
     label: "ใบรับสภาพหนี้",
-    department: "💼บัญชี",
+    department: "📄ตามฝ่ายผู้บันทึกเคส",
     case: "all",
     no: true,
     icon: FileText,
@@ -108,7 +107,7 @@ const DOCUMENT_CATEGORIES = [
   {
     value: "quotation_doc",
     label: "ใบเสนอราคา",
-    department: "💼บัญชี",
+    department: "📄ตามฝ่ายผู้บันทึกเคส",
     case: "ac",
     no: true,
     icon: FileText,
@@ -116,7 +115,7 @@ const DOCUMENT_CATEGORIES = [
   {
     value: "customer_invoice",
     label: "ใบแจ้งหนี้ลูกค้า",
-    department: "💼บัญชี",
+    department: "📄ตามฝ่ายผู้บันทึกเคส",
     case: "all",
     no: true,
     icon: FileText,
@@ -164,7 +163,7 @@ const DOCUMENT_CATEGORIES = [
   {
     value: "investigate_report",
     label: "รายงานการสอบสวน",
-    department: "🚨ความปลอดภัย",
+    department: "🚨Safety",
     case: "ac",
     no: false,
     icon: FileText,
@@ -172,13 +171,13 @@ const DOCUMENT_CATEGORIES = [
 ];
 
 const DEPARTMENTS = [
-  { value: "🚚จัดส่ง", label: "🚚ฝ่ายจัดส่ง", color: " text-green-800" },
+  { value: "📄ตามฝ่ายผู้บันทึกเคส", label: "📄ตามฝ่ายผู้บันทึกเคส", color: " text-gray-800" },
   {
-    value: "🚨ความปลอดภัย",
-    label: "🚨ฝ่ายความปลอดภัย",
+    value: "🚨Safety",
+    label: "🚨Safety",
     color: " text-red-800",
   },
-  { value: "🔧ยานยนต์", label: "🔧ฝ่ายยานยนต์", color: " text-blue-800" },
+  { value: "ℹ️Compliance", label: "ℹ️Compliance", color: " text-blue-800" },
   { value: "💼บัญชี", label: "💼ฝ่ายบัญชี", color: " text-yellow-800" },
 ];
 
@@ -675,7 +674,7 @@ export const FileUpload = ({
                             </span>
                           </td>
 
-                          <td className="px-2 py-3 whitespace-nowrap text-xs text-gray-500">
+                          <td  key={fileItem.id} className="px-2 py-3 whitespace-nowrap text-xs text-gray-500">
                             <input
                               type="text"
                               id={fileItem.category + "_no"}

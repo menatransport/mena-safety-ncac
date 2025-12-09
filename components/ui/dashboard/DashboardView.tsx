@@ -96,7 +96,7 @@ export const DashboardView = ({
           <div className="p-3 bg-white/20 rounded-xl">
             <Flame className="w-6 h-6" />
           </div>
-          <Activity className="w-8 h-8 opacity-50" />
+          <TrendingUp className="w-8 h-8 opacity-50" />
         </div>
         <h3 className="text-sm font-medium opacity-90 mb-1">Minor Cases</h3>
         <p className="text-4xl font-bold">{data.summaryStats.minorCount}</p>
