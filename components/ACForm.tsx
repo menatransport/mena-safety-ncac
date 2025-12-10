@@ -362,7 +362,7 @@ export const ACFormComponent = () => {
     setFormData((prev) => ({ ...prev, site_id: siteId }));
     if (siteId) {
       let num = 0
-      if (siteId === 3 || siteId === 4 || siteId === 7) {  // สระบุรี บางประกง ระยอง
+      if (siteId === 3 || siteId === 4 || siteId === 6) {  // สระบุรี บางประกง ระยอง
         num = 3
       } else {
         num = 2
@@ -506,6 +506,12 @@ export const ACFormComponent = () => {
 
   function toThaiISO(date: Date) {
     const timezoneOffset = -7 * 60 * 60 * 1000; // -7 ชั่วโมง
+    const utcDate = new Date(date.getTime() - timezoneOffset);
+    return utcDate
+  }
+
+  function toThaiISO_Reverse(date: Date) {
+    const timezoneOffset = 7 * 60 * 60 * 1000; // +7 ชั่วโมง
     const utcDate = new Date(date.getTime() - timezoneOffset);
     return utcDate
   }
@@ -1205,10 +1211,10 @@ const filteredForm = (title: string, data: any[] | undefined): any[] => {
                       </label>
                       <DateTimePicker24h
                         value={
-                          formData?.record_datetime
-                            ? new Date(formData.record_datetime)
-                            : undefined
-                        }
+                            formData?.record_datetime
+                              ? toThaiISO_Reverse(new Date(formData.record_datetime))
+                              : undefined
+                          }
                         disabled={true}
                         usedFor="datetime"
                       />
@@ -1220,15 +1226,15 @@ const filteredForm = (title: string, data: any[] | undefined): any[] => {
                         <span className="text-red-500">*</span>
                       </label>
                       <DateTimePicker24h
-                        value={
-                          formData?.incident_datetime
-                            ? new Date(formData.incident_datetime)
-                            : undefined
-                        }
+                          value={
+                            formData?.incident_datetime
+                              ? toThaiISO_Reverse(new Date(formData.incident_datetime))
+                              : undefined
+                          }
                         onChange={(value) =>
                           setFormData((prev) => ({
                             ...prev,
-                            incident_datetime: value ? value.toISOString() : "",
+                            incident_datetime: value as any,
                           }))
                         }
                         disabled={isViewMode}

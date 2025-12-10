@@ -11,7 +11,6 @@ import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import { useClipboard_nc } from "@/lib/clipboard";
 import { LoaderPage } from "./LoaderPage";
-import { set } from "date-fns";
 
 interface FileWithId {
   id: string;
@@ -170,7 +169,6 @@ export const NCFormComponent = () => {
             },
           }
         );
-
         const data = await res.json();
         console.log("Fetched record data:", data);
         if (res.ok) {
@@ -223,7 +221,6 @@ export const NCFormComponent = () => {
 
               if (res.ok) {
                 const data = await res.json();
-                // console.log("Investigate data:", data);
                 setFormInvestigate(data);
                 setCorrectiveActions(
                   data.corrective_actions.map((action: any, index: number) => ({
@@ -322,7 +319,6 @@ export const NCFormComponent = () => {
       );
       if (cause) mappedData.incident_cause_id = cause.cause_id;
     }
-    console.log('mappdata : ',mappedData)
     setFormData((prev) => ({ ...prev, ...mappedData }));
   };
 
@@ -349,15 +345,11 @@ export const NCFormComponent = () => {
             const parts = fileName.split("_");
 
             if (parts.length >= 3) {
-              // ตัด docno และ number + extension ออก เหลือแค่ category
               const category = parts.slice(1, -1).join("_");
-              // console.log('Category:', category);
 
               if (!categorizedFiles[category]) {
                 categorizedFiles[category] = [];
               }
-
-              // สร้าง mock File object สำหรับไฟล์ที่มีอยู่แล้ว
               const mockFile = new File([""], fileName, {
                 type: fileName.toLowerCase().includes(".pdf")
                   ? "application/pdf"
@@ -402,7 +394,7 @@ export const NCFormComponent = () => {
     setFormData((prev) => ({ ...prev, site_id: siteId }));
     if (siteId) {
       let num = 0
-      if(siteId === 3 || siteId === 4 || siteId === 7){  // สระบุรี บางประกง ระยอง
+      if(siteId === 3 || siteId === 4 || siteId === 6){  // สระบุรี บางประกง ระยอง
         num = 3
       } else {
         num = 2
@@ -415,7 +407,6 @@ export const NCFormComponent = () => {
         mastercauses?.filter((cause: any) => cause.site_id === num) || []; 
       const filteredClients =
         clients?.filter((client: any) => client.site_id === num) || [];
-      console.log("filteredClients : ",filteredClients, num);
        setFilteredData({
         masterdrivers: filteredDrivers,
         locations: filteredLocations,
@@ -434,7 +425,6 @@ export const NCFormComponent = () => {
       });
     }
 
-    // Reset dependent fields
     setFormData((prev) => ({
       ...prev,
       driver_id: "",
@@ -442,7 +432,6 @@ export const NCFormComponent = () => {
     }));
   };
 
-  // Update filtered data when store data changes
   useEffect(() => {
     if (!formData.site_id) {
       setFilteredData({
@@ -455,7 +444,7 @@ export const NCFormComponent = () => {
     }
   }, [masterdrivers, locations,clients, vehicles, mastercauses, formData.site_id]);
 
-  // ========== Auto Resize Textarea ==========
+
   useEffect(() => {
     const rootCauseTextarea = document.querySelector(
       'textarea[name="root_cause_analysis"]'
@@ -482,7 +471,6 @@ export const NCFormComponent = () => {
     });
   }, [formInvestigate.root_cause_analysis, corrective_actions]);
 
-  // ========== View Mode Data Filtering ==========
   useEffect(() => {
     if (isViewMode && formData.site_id && masterdrivers && locations && clients) {
       let filteredDrivers = masterdrivers.filter(
@@ -498,7 +486,6 @@ export const NCFormComponent = () => {
         (client: any) => client.client_id === formData.client_id || client.site_id === formData.site_id
       );
 
-      // Add selected driver if not in filtered list
       if (formData.driver_id) {
         const selectedDriver = masterdrivers.find(
           (driver: any) => driver.driver_id == formData.driver_id
@@ -531,7 +518,7 @@ export const NCFormComponent = () => {
     vehicles,
   ]);
 
-  // ========== Vehicle Handling Functions ==========
+
   const handleVehicleCodeChange = (truckNo: string) => {
     const selectedVehicle = vehicles?.find(
       (vehicle: any) =>
@@ -1239,7 +1226,6 @@ export const NCFormComponent = () => {
               <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t-2 border-gray-300 shadow-lg z-50">
                 <div className="w-full h-16">
                   <div className="flex justify-center items-stretch">
-                    {/* Initial Report Button */}
                     <button
                       type="button"
                       onClick={() => thisformtype("initial")}
@@ -1361,7 +1347,6 @@ export const NCFormComponent = () => {
                             onChange={(value) =>
                               handleSiteChange(Number(value))
                             }
-                            // onAdd={() => handleAddItem("site")}
                             showAddRemove={!isViewMode}
                             disabled={formData.document_no ? true : isViewMode}
                             className="w-full"
@@ -1594,7 +1579,6 @@ export const NCFormComponent = () => {
                             onChange={(value) =>
                               handleHeadPlateChange(Number(value))
                             }
-                            // onAdd={() => handleAddItem("vehicle")}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -1623,7 +1607,6 @@ export const NCFormComponent = () => {
                             onChange={(value) =>
                               handleVehicleCodeChange(String(value))
                             }
-                            // onAdd={() => handleAddItem("vehicle")}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -1650,7 +1633,6 @@ export const NCFormComponent = () => {
                                 vehicle_id_tail: Number(value),
                               }))
                             }
-                            // onAdd={() => handleAddItem("vehicle")}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -1673,7 +1655,6 @@ export const NCFormComponent = () => {
                                 driver_role_id: Number(value),
                               }))
                             }
-                            // onAdd={() => handleAddItem("driver_role_name")}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
