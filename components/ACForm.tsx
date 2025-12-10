@@ -1314,7 +1314,7 @@ const filteredForm = (title: string, data: any[] | undefined): any[] => {
                             origin_id: Number(value),
                           }))
                         }
-                          
+                        onAdd={() => handleAddItem("locations")}
                         disabled={isViewMode}
                         className="w-full"
                       />
