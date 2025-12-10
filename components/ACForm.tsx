@@ -1103,7 +1103,7 @@ export const ACFormComponent = () => {
 const filteredForm = (title: string, data: any[] | undefined): any[] => {
   switch (title) {
     case "site":
-      return data?.filter((site: any) => site.site_id == 2 || site.site_id == 3) || []
+      return data?.filter((site: any) => site.site_id !== 1) || []
     case "department":
       return data?.filter((dept: any) => dept.department_name_en === "Compliance") || []
     default:
