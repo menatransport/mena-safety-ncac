@@ -1212,7 +1212,7 @@ const filteredForm = (title: string, data: any[] | undefined): any[] => {
                       <DateTimePicker24h
                         value={
                             formData?.record_datetime
-                              ? toThaiISO_Reverse(new Date(formData.record_datetime))
+                              ? new Date(formData.record_datetime)
                               : undefined
                           }
                         disabled={true}
@@ -1228,7 +1228,7 @@ const filteredForm = (title: string, data: any[] | undefined): any[] => {
                       <DateTimePicker24h
                           value={
                             formData?.incident_datetime
-                              ? toThaiISO_Reverse(new Date(formData.incident_datetime))
+                              ? new Date(formData.incident_datetime)
                               : undefined
                           }
                         onChange={(value) =>
@@ -1292,6 +1292,7 @@ const filteredForm = (title: string, data: any[] | undefined): any[] => {
                         }
                         disabled={isViewMode}
                         className="w-full"
+                        onAdd={() => handleAddItem("clients")}
                       />
                     </div>
 
@@ -1313,7 +1314,7 @@ const filteredForm = (title: string, data: any[] | undefined): any[] => {
                             origin_id: Number(value),
                           }))
                         }
-                        onAdd={() => handleAddItem("locations")}
+                          
                         disabled={isViewMode}
                         className="w-full"
                       />

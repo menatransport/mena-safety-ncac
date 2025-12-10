@@ -71,7 +71,6 @@ export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
     ];
     try {
       const authToken = localStorage.getItem('authToken');
-
       async function parallelBatches(list: string[], batchSize: number) {
         const result = [];
 
