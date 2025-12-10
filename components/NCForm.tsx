@@ -135,7 +135,7 @@ export const NCFormComponent = () => {
           position_level: parsedUserData.position_level || "",
           position_level_id: parsedUserData.position_level_id || "",
         };
-
+        console.log('newUserinfo : ',newUserinfo)
         setUserinfo(newUserinfo);
         if (sites?.length == 0) {
           await fetchDropdownData();
@@ -172,7 +172,7 @@ export const NCFormComponent = () => {
         const data = await res.json();
         console.log("Fetched record data:", data);
         if (res.ok) {
-          if (data.reporter_name == name) {
+          if (data.reporter_name == name ) {
             setIsViewMode(false);
           } else {
             setIsViewMode(true);
@@ -2122,8 +2122,10 @@ export const NCFormComponent = () => {
                             <option value="นำสินค้าไปขาย">นำสินค้าไปขาย</option>
                             <option value="คู่กรณี">คู่กรณี</option>
                             <option value="พจส.รับผิดชอบ">พจส.รับผิดชอบ</option>
+                            <option value="พจร.รับผิดชอบ">พจร.รับผิดชอบ</option>
                             <option value="บริษัทรับผิดชอบ">บริษัทรับผิดชอบ</option>
                             <option value="พจส.&บริษัท รับผิดชอบ">พจส.&บริษัท รับผิดชอบ</option>
+                            <option value="พจร.&บริษัท รับผิดชอบ">พจร.&บริษัท รับผิดชอบ</option>
                           </select>
                         </div>
 
