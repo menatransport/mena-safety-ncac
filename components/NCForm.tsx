@@ -1147,7 +1147,7 @@ export const NCFormComponent = () => {
     case "site":
       return data?.filter((site: any) => site.site_id !== 1) || []
     case "department":
-      return data?.filter((dept: any) => dept.department_id > 11) || []
+      return data?.filter((dept: any) => dept.department_id > 11 || dept.department_id === 3) || []
     default:
       return data || []
   }
