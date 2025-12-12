@@ -10,8 +10,8 @@ import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import { useClipboard_ac } from "@/lib/clipboard";
 import { LoaderPage } from "./LoaderPage";
-import { error } from "console";
-import { set } from "date-fns";
+import { Printer } from "lucide-react";
+import { printDocument_ac } from "@/lib/printDocument";
 
 interface FileWithId {
   id: string;
@@ -510,12 +510,6 @@ export const ACFormComponent = () => {
     return utcDate
   }
 
-  function toThaiISO_Reverse(date: Date) {
-    const timezoneOffset = 7 * 60 * 60 * 1000; // +7 ชั่วโมง
-    const utcDate = new Date(date.getTime() - timezoneOffset);
-    return utcDate
-  }
-
   // ========== Province/District Handling Functions ==========
   const handleProvinceChange = (provinceId: number) => {
     setFormData((prev) => ({
@@ -624,6 +618,90 @@ export const ACFormComponent = () => {
         icon: "error",
         title: "เกิดข้อผิดพลาด",
         text: "ไม่สามารถคัดลอกข้อมูลได้",
+      });
+    }
+  };
+
+ // ========== Print Document Function ==========
+  const handlePrintDocument = () => {
+    if (!formData.document_no_ac) {
+      Swal.fire({
+        icon: "warning",
+        title: "ไม่พบข้อมูลเอกสาร",
+        text: "กรุณาบันทึกข้อมูลก่อนทำการพิมพ์",
+        confirmButtonText: "ตกลง"
+      });
+      return;
+    }
+
+    try {
+      // เตรียมข้อมูลสำหรับการพิมพ์
+      const selectedSite = sites?.find(
+        (site) => site.site_id === formData.site_id
+      );
+      const selectedDepartment = departments?.find(
+        (dept) => dept.department_id === formData.department_id
+      );
+      const selectedClient = clients?.find(
+        (client) => client.client_id === formData.client_id
+      );
+      const selectedOrigin = locations?.find(
+        (loc) => loc.location_id === formData.origin_id
+      );
+      const selectedDriverRole = driver_roles?.find(
+        (role) => role.driver_role_id === formData.driver_role_id
+      );
+      const selectedDriver = masterdrivers?.find(
+        (driver) => driver.driver_id === formData.driver_id
+      );
+      const selectedVehicleHead = vehicles?.find(
+        (vehicle) => vehicle.vehicle_id === formData.vehicle_id_head
+      );
+      const selectedVehicleTail = vehicles?.find(
+        (vehicle) => vehicle.vehicle_id === formData.vehicle_id_tail
+      );
+      const selectedProvince = provinces?.find(
+        (prov) => prov.province_id === formData.province_id
+      );
+      const selectedDistrict = districts?.find(
+        (dist) => dist.district_id === formData.district_id
+      );
+      const selectedSubDistrict = subdistricts?.find(
+        (sub) => sub.sub_district_id === formData.sub_district_id
+      );
+
+      // สร้างข้อมูลที่มีชื่อแทน ID สำหรับการพิมพ์
+      const printFormData = {
+        ...formData,
+        site_name: selectedSite?.site_name_th || formData.site_name,
+        department_name: selectedDepartment?.department_name_th || formData.department_name,
+        client_name: selectedClient?.client_name || formData.client_name,
+        origin_name: selectedOrigin?.location_name || formData.origin_name,
+        driver_role_name: selectedDriverRole?.role_name || formData.driver_role_name,
+        driver_name: selectedDriver 
+          ? `${selectedDriver.first_name} ${selectedDriver.last_name}`
+          : formData.driver_name,
+        vehicle_head_plate: selectedVehicleHead?.vehicle_number_plate || formData.vehicle_head_plate,
+        vehicle_tail_plate: selectedVehicleTail?.vehicle_number_plate || formData.vehicle_tail_plate,
+        province_name: selectedProvince?.province_name_th || formData.province_name,
+        district_name: selectedDistrict?.district_name_th || formData.district_name,
+        sub_district_name: selectedSubDistrict?.sub_district_name_th || formData.sub_district_name,
+      };
+
+      // เรียกใช้ฟังก์ชันพิมพ์
+      printDocument_ac({
+        formData: printFormData as caseReport_AC,
+        userinfo,
+        attachedFiles
+      });
+
+    } catch (error) {
+      console.error("Error printing document:", error);
+      Swal.fire({
+        icon: "error",
+        title: "เกิดข้อผิดพลาด",
+        text: "ไม่สามารถพิมพ์เอกสารได้",
+        confirmButtonText: "ตกลง"
       });
     }
   };
@@ -868,7 +946,8 @@ export const ACFormComponent = () => {
 
       const submitData = {
         ...formData,
-        incident_datetime: toThaiISO(new Date(formData.incident_datetime || "")),
+        incident_datetime: formData.incident_datetime,
+        record_datetime: new Date(),
         fatalities: Number(formData.fatalities) || 0,
         injured_hospitalized: Number(formData.injured_hospitalized) || 0,
         injured_not_hospitalized: Number(formData.injured_not_hospitalized) || 0,
@@ -876,7 +955,6 @@ export const ACFormComponent = () => {
         estimated_vehicle_damage_value: Number(formData.estimated_vehicle_damage_value) || 0,
         actual_goods_damage_value: Number(formData.actual_goods_damage_value) || 0,
         actual_vehicle_damage_value: Number(formData.actual_vehicle_damage_value) || 0,
-        record_datetime: toThaiISO(new Date()),
         reporter_id: userinfo.id,
         docs: [docValue as any]
       };
@@ -962,7 +1040,7 @@ export const ACFormComponent = () => {
     } = formData;
 
     const data = { ...filteredFormData,
-      incident_datetime: toThaiISO(new Date(filteredFormData.incident_datetime || "")),
+      incident_datetime: filteredFormData.incident_datetime,
       fatalities: Number(filteredFormData.fatalities) || 0,
       injured_hospitalized: Number(filteredFormData.injured_hospitalized) || 0,
       injured_not_hospitalized: Number(filteredFormData.injured_not_hospitalized) || 0,
@@ -1117,10 +1195,97 @@ const filteredForm = (title: string, data: any[] | undefined): any[] => {
   }
 };
 
+  // ========= Status Design ==========
+
+const statusDesign = (status: string) => {
+    switch (status) {
+      case "Pending":
+        return "bg-white border-yellow-500 text-yellow-700";
+      case "Completed Investigate":
+        return "bg-white border-green-500 text-green-700";
+      case "Voided":
+        return "bg-white border-red-500 text-red-700";
+      default:
+        return "hidden";
+  }
+}
+
+
+
+
   return (
     <>
       <div className="min-h-screen bg-[#d1ffe1]">
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 pb-24 lg:pb-6">
+          {/* Button Bar */}
+          {formData.casestatus !== "" && <>
+              {/* Mobile: Status + Print ในแถวเดียวกัน */}
+              <div className="flex md:hidden items-start justify-between gap-3 mb-4 mt-2">
+                {/* Mobile Status */}
+                <div className={`
+                  flex-1
+                  ${statusDesign(formData.casestatus || "")} 
+                  border-l-4 p-2 shadow-md rounded-r-md bg-white
+                `} role="alert">
+                  <p className="font-bold text-sm">
+                    สถานะ: {formData.casestatus === "Completed Investigate" ? "Completed" : formData.casestatus}
+                  </p>
+                  <p className="font-bold text-xs opacity-80 mt-1">
+                    ระดับ: {formData.priority}
+                  </p>
+                  <p className="font-bold text-xs opacity-60 mt-1">
+                    ผู้รายงาน: {formData.reporter_name}
+                  </p>
+                </div>
+                {/* Mobile Print Button */}
+                {/* <button
+                  type="button"
+                  onClick={handlePrintDocument}
+                  title="Print Document"
+                  className="bg-gray-500 hover:bg-gray-700 hover:scale-105 cursor-pointer text-white border border-white font-semibold p-3 rounded-lg shadow-md hover:shadow-lg transition duration-300 flex flex-col items-center justify-center"
+                >
+                  <Printer className="w-6 h-6" />
+                </button> */}
+              </div>
+
+              {/* Desktop: Fixed Status (Left) */}
+              <div className={`
+                hidden md:block
+                fixed top-auto left-auto mt-5 z-50
+                min-w-[220px] max-w-[280px]
+                ${statusDesign(formData.casestatus || "")} 
+                border-l-4 p-3 shadow-lg rounded-r-md bg-white
+              `} role="alert">
+                <p className="font-bold text-base">
+                  สถานะ: {formData.casestatus === "Completed Investigate" ? "Completed" : formData.casestatus}
+                </p>
+                <p className="font-bold text-xs opacity-80 mt-1">
+                  ระดับ: {formData.priority}
+                </p>
+                <p className="font-bold text-xs opacity-60 mt-1">
+                  ผู้รายงาน: {formData.reporter_name}
+                </p>
+              </div>
+
+              {/* Desktop: Fixed Print Button (Right) */}
+              <div className="
+                hidden md:flex md:flex-col md:items-center
+                fixed top-auto right-0 m-5 z-50 
+              ">
+                <button
+                  type="button"
+                  onClick={handlePrintDocument}
+                  title="Print Document"
+                  className="bg-gray-500 hover:bg-gray-700 hover:scale-105 cursor-pointer text-white border border-white font-semibold p-3 rounded-lg shadow-lg hover:shadow-xl transition duration-300 flex flex-col items-center justify-center"
+                >
+                  <Printer className="w-8 h-8" />
+                </button>
+                <span className="mt-1 text-sm font-medium text-gray-700">Print</span>
+              </div>
+            </>
+          }
+
+          {/* Form Container */}
           <div className="flex items-center justify-center">
             <div
               id="printable-area"

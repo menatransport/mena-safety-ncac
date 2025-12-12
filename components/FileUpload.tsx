@@ -39,7 +39,7 @@ const DOCUMENT_CATEGORIES = [
   {
     value: "event_img",
     label: "รูปเหตุการณ์",
-    department: "📄ตามฝ่ายผู้บันทึกเคส",
+    department: "📄ตามฝ่ายผู้แจ้ง",
     case: "all",
     no: false,
     icon: ImageIcon,
@@ -55,7 +55,7 @@ const DOCUMENT_CATEGORIES = [
   {
     value: "record_doc",
     label: "บันทึกประจำวัน",
-    department: "📄ตามฝ่ายผู้บันทึกเคส",
+    department: "📄ตามฝ่ายผู้แจ้ง",
     case: "ac",
     no: false,
     icon: FileText,
@@ -65,7 +65,7 @@ const DOCUMENT_CATEGORIES = [
   {
     value: "medical_doc",
     label: "ใบรับรองแพทย์",
-    department: "📄ตามฝ่ายผู้บันทึกเคส",
+    department: "📄ตามฝ่ายผู้แจ้ง",
     case: "ac",
     no: true,
     icon: FileText,
@@ -90,7 +90,7 @@ const DOCUMENT_CATEGORIES = [
   {
     value: "writeoff_doc",
     label: "ใบตัดจำหน่าย",
-    department: "📄ตามฝ่ายผู้บันทึกเคส",
+    department: "📄ตามฝ่ายผู้แจ้ง",
     case: "all",
     no: false,
     icon: FileText,
@@ -99,7 +99,7 @@ const DOCUMENT_CATEGORIES = [
   {
     value: "debt_doc",
     label: "ใบรับสภาพหนี้",
-    department: "📄ตามฝ่ายผู้บันทึกเคส",
+    department: "📄ตามฝ่ายผู้แจ้ง",
     case: "all",
     no: true,
     icon: FileText,
@@ -107,7 +107,7 @@ const DOCUMENT_CATEGORIES = [
   {
     value: "quotation_doc",
     label: "ใบเสนอราคา",
-    department: "📄ตามฝ่ายผู้บันทึกเคส",
+    department: "📄ตามฝ่ายผู้แจ้ง",
     case: "ac",
     no: true,
     icon: FileText,
@@ -115,7 +115,7 @@ const DOCUMENT_CATEGORIES = [
   {
     value: "customer_invoice",
     label: "ใบแจ้งหนี้ลูกค้า",
-    department: "📄ตามฝ่ายผู้บันทึกเคส",
+    department: "📄ตามฝ่ายผู้แจ้ง",
     case: "all",
     no: true,
     icon: FileText,
@@ -171,7 +171,7 @@ const DOCUMENT_CATEGORIES = [
 ];
 
 const DEPARTMENTS = [
-  { value: "📄ตามฝ่ายผู้บันทึกเคส", label: "📄ตามฝ่ายผู้บันทึกเคส", color: " text-gray-800" },
+  { value: "📄ตามฝ่ายผู้แจ้ง", label: "📄ตามฝ่ายผู้แจ้ง", color: " text-gray-800" },
   {
     value: "🚨Safety",
     label: "🚨Safety",

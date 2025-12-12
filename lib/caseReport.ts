@@ -40,41 +40,9 @@ export interface caseReport_NC {
       unit: string
     }
   ],
- docs: [
-    {
-      warning_doc: string,
-      warning_doc_no: string,
-      warning_doc_remark: string,
-      debt_doc: string,
-      debt_doc_no: string,
-      debt_doc_remark: string,
-      customer_invoice: string,
-      customer_invoice_no: string,
-      customer_invoice_remark: string,
-      Insurance_claim_doc: string,
-      Insurance_claim_doc_no: string,
-      Insurance_claim_doc_remark: string,
-      writeoff_doc: string,
-      writeoff_doc_remark: string,
-      damage_payment: string,
-      damage_payment_no: string,
-      damage_payment_remark: string,
-      account_attachment_no: string,
-      account_attachment_remark: string,
-      account_attachment_sell: string,
-      account_attachment_sell_no: string,
-      account_attachment_sell_remark: string
-      account_attachment_insurance: string,
-      account_attachment_insurance_no: string,
-      account_attachment_insurance_remark: string,
-      account_attachment_pjs_pay: string,  
-      account_attachment_pjs_pay_no: string,
-      account_attachment_pjs_pay_remark: string,
-      account_attachment_company_pay: string,
-      account_attachment_company_pay_no: string,
-      account_attachment_company_pay_remark: string
-    }
-  ]
+ docs?: Array<{
+    [key: string]: string;
+  }>;
 }
 
 export interface caseReport_AC {
@@ -149,39 +117,9 @@ export interface caseReport_AC {
     accident_case_id: number,
     document_no_ac: string,
     incident_cause: string,  // เพิ่ม field สาเหตุ
-    docs: [
-    {
-      warning_doc: string,
-      warning_doc_no: string,
-      warning_doc_remark: string,
-      debt_doc: string,
-      debt_doc_no: string,
-      debt_doc_remark: string,
-      customer_invoice: string,
-      customer_invoice_no: string,
-      customer_invoice_remark: string,
-      Insurance_claim_doc: string,
-      Insurance_claim_doc_no: string,
-      Insurance_claim_doc_remark: string,
-      writeoff_doc: string,
-      writeoff_doc_remark: string,
-      damage_payment: string,
-      damage_payment_no: string,
-      damage_payment_remark: string,
-      account_attachment_sell: string,
-      account_attachment_sell_no: string,
-      account_attachment_sell_remark: string
-      account_attachment_insurance: string,
-      account_attachment_insurance_no: string,
-      account_attachment_insurance_remark: string,
-      account_attachment_pjs_pay: string,  
-      account_attachment_pjs_pay_no: string,
-      account_attachment_pjs_pay_remark: string,
-      account_attachment_company_pay: string,
-      account_attachment_company_pay_no: string,
-      account_attachment_company_pay_remark: string
-    }
-  ]
+    docs?: Array<{
+    [key: string]: string;
+  }>;
 }
 
 export interface investigate_NC {

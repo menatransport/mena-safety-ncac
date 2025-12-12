@@ -6,11 +6,12 @@ import { SearchableSelect } from "./ui/searchable-select";
 import { FileUpload } from "./FileUpload";
 import { caseReport_NC, investigate_NC } from "@/lib/caseReport";
 import { useDropdownStore } from "@/lib/dropdownlist";
-import { CirclePlus, CircleMinus } from "lucide-react";
+import { CirclePlus, CircleMinus, Printer } from "lucide-react";
 import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import { useClipboard_nc } from "@/lib/clipboard";
 import { LoaderPage } from "./LoaderPage";
+import { printDocument_nc } from "@/lib/printDocument";
 
 interface FileWithId {
   id: string;
@@ -135,7 +136,7 @@ export const NCFormComponent = () => {
           position_level: parsedUserData.position_level || "",
           position_level_id: parsedUserData.position_level_id || "",
         };
-        console.log('newUserinfo : ',newUserinfo)
+        console.log('newUserinfo : ', newUserinfo)
         setUserinfo(newUserinfo);
         if (sites?.length == 0) {
           await fetchDropdownData();
@@ -172,16 +173,18 @@ export const NCFormComponent = () => {
         const data = await res.json();
         console.log("Fetched record data:", data);
         if (res.ok) {
-          if (data.reporter_name == name ) {
+          if (data.reporter_name == name) {
             setIsViewMode(false);
           } else {
             setIsViewMode(true);
           }
 
-          setFormData({...data, products: data.products.map((item: any, index: number) => ({
-            ...item,
-            product_id: index + 1,
-          }))});
+          setFormData({
+            ...data, products: data.products.map((item: any, index: number) => ({
+              ...item,
+              product_id: index + 1,
+            }))
+          });
 
           await mapTextDataToIds(data);
 
@@ -394,20 +397,20 @@ export const NCFormComponent = () => {
     setFormData((prev) => ({ ...prev, site_id: siteId }));
     if (siteId) {
       let num = 0
-      if(siteId === 3 || siteId === 4 || siteId === 6){  // สระบุรี บางประกง ระยอง
+      if (siteId === 3 || siteId === 4 || siteId === 6) {  // สระบุรี บางประกง ระยอง
         num = 3
       } else {
         num = 2
       }
       const filteredDrivers =
-              masterdrivers?.filter((driver: any) => driver.site_id === num) || [];
+        masterdrivers?.filter((driver: any) => driver.site_id === num) || [];
       const filteredLocations =
-        locations?.filter((location: any) => location.site_id === num) || []; 
+        locations?.filter((location: any) => location.site_id === num) || [];
       const filtermastercauses =
-        mastercauses?.filter((cause: any) => cause.site_id === num) || []; 
+        mastercauses?.filter((cause: any) => cause.site_id === num) || [];
       const filteredClients =
         clients?.filter((client: any) => client.site_id === num) || [];
-       setFilteredData({
+      setFilteredData({
         masterdrivers: filteredDrivers,
         locations: filteredLocations,
         clients: filteredClients,
@@ -442,7 +445,7 @@ export const NCFormComponent = () => {
         mastercauses: mastercauses || [],
       });
     }
-  }, [masterdrivers, locations,clients, vehicles, mastercauses, formData.site_id]);
+  }, [masterdrivers, locations, clients, vehicles, mastercauses, formData.site_id]);
 
 
   useEffect(() => {
@@ -624,13 +627,90 @@ export const NCFormComponent = () => {
     }
   };
 
+  // ========== Print Document Function ==========
+  const handlePrintDocument = () => {
+    if (!formData.document_no) {
+      Swal.fire({
+        icon: "warning",
+        title: "ไม่พบข้อมูลเอกสาร",
+        text: "กรุณาบันทึกข้อมูลก่อนทำการพิมพ์",
+        confirmButtonText: "ตกลง"
+      });
+      return;
+    }
+
+    try {
+      // เตรียมข้อมูลสำหรับการพิมพ์
+      const selectedSite = sites?.find(
+        (site) => site.site_id === formData.site_id
+      );
+      const selectedDepartment = departments?.find(
+        (dept) => dept.department_id === formData.department_id
+      );
+      const selectedClient = clients?.find(
+        (client) => client.client_id === formData.client_id
+      );
+      const selectedOrigin = locations?.find(
+        (loc) => loc.location_id === formData.origin_id
+      );
+      const selectedDriverRole = driver_roles?.find(
+        (role) => role.driver_role_id === formData.driver_role_id
+      );
+      const selectedDriver = masterdrivers?.find(
+        (driver) => driver.driver_id === formData.driver_id
+      );
+      const selectedVehicleHead = vehicles?.find(
+        (vehicle) => vehicle.vehicle_id === formData.vehicle_id_head
+      );
+      const selectedVehicleTail = vehicles?.find(
+        (vehicle) => vehicle.vehicle_id === formData.vehicle_id_tail
+      );
+      const selectedIncidentCause = mastercauses?.find(
+        (cause) => cause.cause_id === formData.incident_cause_id
+      );
+
+      // สร้างข้อมูลที่มีชื่อแทน ID สำหรับการพิมพ์
+      const printFormData = {
+        ...formData,
+        site_name: selectedSite?.site_name_th || formData.site_name,
+        department_name: selectedDepartment?.department_name_th || formData.department_name,
+        client_name: selectedClient?.client_name || formData.client_name,
+        origin_name: selectedOrigin?.location_name || formData.origin_name,
+        driver_role_name: selectedDriverRole?.role_name || formData.driver_role_name,
+        driver_name: selectedDriver 
+          ? `${selectedDriver.first_name} ${selectedDriver.last_name}`
+          : formData.driver_name,
+        vehicle_head_plate: selectedVehicleHead?.vehicle_number_plate || formData.vehicle_head_plate,
+        vehicle_tail_plate: selectedVehicleTail?.vehicle_number_plate || formData.vehicle_tail_plate,
+        incident_cause: selectedIncidentCause?.cause_name || formData.incident_cause
+      };
+
+      // เรียกใช้ฟังก์ชันพิมพ์
+      printDocument_nc({
+        formData: printFormData,
+        investigateData: thisform === "investigate" ? formInvestigate : undefined,
+        userinfo,
+        attachedFiles
+      });
+
+    } catch (error) {
+      console.error("Error printing document:", error);
+      Swal.fire({
+        icon: "error",
+        title: "เกิดข้อผิดพลาด",
+        text: "ไม่สามารถพิมพ์เอกสารได้",
+        confirmButtonText: "ตกลง"
+      });
+    }
+  };
+
   // ========== Add/Remove Item Functions ==========
   const handleAddItem = async (type: string) => {
     if (formData.site_id === undefined || formData.site_id === null) return alert("กรุณาเลือก ศูนย์ปฏิบัติการ ก่อนเพิ่มรายการ");
     if (type === "masterdrivers" && (formData.driver_role_id === undefined || formData.driver_role_id === null)) return alert("กรุณาเลือก ประเภทคนขับ ก่อนเพิ่มรายการ");
     const itemName = prompt(`เพิ่มรายการใหม่สำหรับ ${type}:`);
     if (itemName && itemName.trim()) {
-      const obj = finditems(type,itemName)
+      const obj = finditems(type, itemName)
       const res = await fetch(`/api/list`, {
         method: "POST",
         headers: {
@@ -646,25 +726,25 @@ export const NCFormComponent = () => {
           showConfirmButton: true,
         });
 
-        setItemsFilter(await res.json(),type);
-      
+        setItemsFilter(await res.json(), type);
+
       } else {
         alert(`เพิ่มรายการ "${itemName}" ไม่สำเร็จ ลองใหม่อีกครั้ง`);
       }
     }
   };
 
-  const finditems = (type: string , itemName: string) => {
+  const finditems = (type: string, itemName: string) => {
     let obj = {};
     switch (type) {
       case "mastercauses":
-        obj = { cause_name: itemName, site_id: formData.site_id , departments: null};
+        obj = { cause_name: itemName, site_id: formData.site_id, departments: null };
         break;
       case "locations":
         obj = { location_name: itemName, site_id: formData.site_id };
         break;
       case "masterdrivers":
-       let diffname = itemName.split(" ")
+        let diffname = itemName.split(" ")
         obj = { first_name: diffname[0], last_name: diffname[1], site_id: formData.site_id, driver_role_id: formData.driver_role_id };
         break;
       case "clients":
@@ -674,14 +754,14 @@ export const NCFormComponent = () => {
     return obj;
   }
 
-  const setItemsFilter = async (data: any , type: string) => {
-    
+  const setItemsFilter = async (data: any, type: string) => {
+
     switch (type) {
       case "mastercauses":
         setFilteredData((prev) => ({
           ...prev,
           mastercauses: [...(prev.mastercauses || []), data],
-        }));  
+        }));
         break;
       case "locations":
         setFilteredData((prev) => ({
@@ -988,10 +1068,10 @@ export const NCFormComponent = () => {
       ...filteredFormData
     } = formData;
 
-    const data = { 
+    const data = {
       ...filteredFormData,
       incident_date: toThaiISO(new Date(filteredFormData.incident_date || "")),
-      docs: [docValue as any] 
+      docs: [docValue as any]
     };
     console.log("Data to be updated:", data);
     //  console.log("NC Form Update <><><><> :", formData);
@@ -1042,7 +1122,7 @@ export const NCFormComponent = () => {
       body: JSON.stringify(data),
     });
     const responseData = await res.json();
-      // console.log("API Response on Investigate Update:", responseData);
+    // console.log("API Response on Investigate Update:", responseData);
     if (res.ok) {
       Swal.fire({
         icon: "success",
@@ -1142,23 +1222,106 @@ export const NCFormComponent = () => {
     return <LoaderPage />;
   }
 
+  // ========= Filtered Data Functions ==========
+
   const filteredForm = (title: string, data: any[] | undefined): any[] => {
-  switch (title) {
-    case "site":
-      return data?.filter((site: any) => site.site_id !== 1) || []
-    case "department":
-      return data?.filter((dept: any) => dept.department_id > 11 || dept.department_id === 3) || []
-    default:
-      return data || []
+    switch (title) {
+      case "site":
+        return data?.filter((site: any) => site.site_id !== 1) || []
+      case "department":
+        return data?.filter((dept: any) => dept.department_id > 11 || dept.department_id === 3) || []
+      default:
+        return data || []
+    }
+  };
+
+  // ========= Status Design ==========
+
+  const statusDesign = (status: string) => {
+    switch (status) {
+      case "Pending":
+        return "bg-white border-yellow-500 text-yellow-700";
+      case "Completed Investigate":
+        return "bg-white border-green-500 text-green-700";
+      case "Voided":
+        return "bg-white border-red-500 text-red-700";
+      default:
+        return "hidden";
+    }
   }
-};
+
 
   return (
     <>
       <div className="min-h-screen bg-[#d1ffe1]">
         <div className="p-6 space-y-6 pb-24 lg:pb-6">
+          {/* Button Bar */}
           {formData?.casestatus !== "" && (
-            <>
+            <div>
+              {/* Mobile: Status + Print ในแถวเดียวกัน */}
+              <div className="flex md:hidden items-start justify-between gap-3 mb-4 mt-2">
+                {/* Mobile Status */}
+                <div className={`
+                  flex-1
+                  ${statusDesign(formData.casestatus || "")} 
+                  border-l-4 p-2 shadow-md rounded-r-md bg-white
+                `} role="alert">
+                  <p className="font-bold text-sm">
+                    สถานะ: {formData.casestatus === "Completed Investigate" ? "Completed" : formData.casestatus}
+                  </p>
+                  <p className="font-bold text-xs opacity-80 mt-1">
+                    ระดับ: {formData.priority}
+                  </p>
+                  <p className="font-bold text-xs opacity-60 mt-1">
+                    ผู้รายงาน: {formData.reporter_name}
+                  </p>
+                </div>
+                {/* Mobile Print Button */}
+                {/* <button
+                  type="button"
+                  onClick={handlePrintDocument}
+                  title="Print Document"
+                  className="bg-indigo-500 hover:bg-gray-700 h-20 hover:scale-105 cursor-pointer text-white border border-white font-semibold p-3 rounded-lg shadow-md hover:shadow-lg transition duration-300 flex flex-col items-center justify-center"
+                >
+                  <Printer className="w-6 h-6" />
+                </button> */}
+              </div>
+
+              {/* Desktop: Fixed Status (Left) */}
+              <div className={`
+                hidden md:block
+                fixed top-auto left-auto mt-5 z-50
+                min-w-[220px] max-w-[280px]
+                ${statusDesign(formData.casestatus || "")} 
+                border-l-4 p-3 shadow-lg rounded-r-md bg-white
+              `} role="alert">
+                <p className="font-bold text-base">
+                  สถานะ: {formData.casestatus === "Completed Investigate" ? "Completed" : formData.casestatus}
+                </p>
+                <p className="font-bold text-xs opacity-80 mt-1">
+                  ระดับ: {formData.priority}
+                </p>
+                <p className="font-bold text-xs opacity-60 mt-1">
+                  ผู้รายงาน: {formData.reporter_name}
+                </p>
+              </div>
+
+              {/* Desktop: Fixed Print Button (Right) */}
+              <div className="
+                hidden md:flex md:flex-col md:items-center
+                fixed top-auto right-0 m-5 z-50 
+              ">
+                <button
+                  type="button"
+                  onClick={handlePrintDocument}
+                  title="Print Document"
+                  className="bg-gray-500 hover:bg-gray-700 hover:scale-105 cursor-pointer text-white border border-white font-semibold p-3 rounded-lg shadow-lg hover:shadow-xl transition duration-300 flex flex-col items-center justify-center"
+                >
+                  <Printer className="w-8 h-8" />
+                </button>
+                <span className="mt-1 text-sm font-medium text-gray-700">Print</span>
+              </div>
+
               {/* Desktop Navigation - Floating Buttons */}
               <div className="hidden lg:flex fixed right-6 bottom-6 flex-col items-center space-y-4 z-50">
                 <div className="flex flex-col items-center group relative">
@@ -1223,7 +1386,7 @@ export const NCFormComponent = () => {
               </div>
 
               {/* Mobile Navigation - Fixed Bottom Bar */}
-              <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t-2 border-gray-300 shadow-lg z-50">
+              <div className="lg:hidden fixed bottom-5 left-0 right-0 bg-white border-t-2 border-gray-300 shadow-lg z-50">
                 <div className="w-full h-16">
                   <div className="flex justify-center items-stretch">
                     <button
@@ -1238,7 +1401,7 @@ export const NCFormComponent = () => {
                         }`}
                     >
                       <div className={`flex items-center justify-center w-8 h-8 rounded-full mb-1 font-bold text-sm transition-colors duration-300
-                        ${thisform === "initial" 
+                        ${thisform === "initial"
                           ? "text-white"
                           : "bg-blue-100 text-blue-600"
                         }`}>
@@ -1262,8 +1425,8 @@ export const NCFormComponent = () => {
                         }`}
                     >
                       <div className={`flex items-center justify-center w-8 h-8 rounded-full mb-1 font-bold text-sm transition-colors duration-300
-                        ${thisform === "investigate" 
-                          ? "text-white" 
+                        ${thisform === "investigate"
+                          ? "text-white"
                           : "bg-blue-100 text-blue-600"
                         }`}>
                         2
@@ -1275,7 +1438,7 @@ export const NCFormComponent = () => {
                   </div>
                 </div>
               </div>
-            </>
+            </div>
           )}
 
           <div className="flex items-center justify-center">
@@ -1437,7 +1600,7 @@ export const NCFormComponent = () => {
 
                         <div className="md:col-span-3">
                           <label className="block text-gray-700 font-medium mb-1 text-sm">
-                           รายละเอียดเหตุการณ์:{" "}
+                            รายละเอียดเหตุการณ์:{" "}
                             <span className="text-red-500">*</span>
                           </label>
                           <textarea
@@ -1745,9 +1908,9 @@ export const NCFormComponent = () => {
                                           e.target.value
                                         )
                                       }
-                                      className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                                      className={`w-full text-sm p-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                                         ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                        : ""
+                                        : "bg-white"
                                         }`}
                                       disabled={isViewMode}
                                     />
@@ -1767,9 +1930,9 @@ export const NCFormComponent = () => {
                                           );
                                         }
                                       }}
-                                      className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                                      className={`w-full text-sm p-1  border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                                         ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                        : ""
+                                        : "bg-white"
                                         }`}
                                       disabled={isViewMode}
                                     />
@@ -1785,15 +1948,16 @@ export const NCFormComponent = () => {
                                         )
                                       }
                                       disabled={isViewMode}
-                                      className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                                      className={`w-full text-sm p-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                                         ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                        : ""
+                                        : "bg-white"
                                         }`}
                                     >
                                       <option value=""></option>
                                       <option value="คิว">คิว</option>
                                       <option value="กล่อง">กล่อง</option>
                                       <option value="แพ็ค">แพ็ค</option>
+                                      <option value="พาเลท">พาเลท</option>
                                       <option value="ชิ้น">ชิ้น</option>
                                     </select>
                                   </td>
@@ -2002,9 +2166,9 @@ export const NCFormComponent = () => {
                                       )}px`;
                                     }}
 
-                                    className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black resize-none overflow-hidden ${isViewMode
+                                    className={`w-full text-sm p-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black resize-none overflow-hidden ${isViewMode
                                       ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                      : ""
+                                      : "bg-white"
                                       }`}
                                     disabled={isViewMode}
                                   />
@@ -2020,9 +2184,9 @@ export const NCFormComponent = () => {
                                         e.target.value
                                       )
                                     }
-                                    className={`w-full text-sm p-1 bg-white border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                                    className={`w-full text-sm p-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                                       ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                      : ""
+                                      : "bg-white"
                                       }`}
                                     disabled={isViewMode}
                                   />
