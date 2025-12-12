@@ -1327,13 +1327,21 @@ const generateACFormHTML = (formData: caseReport_AC, userinfo?: any, attachedFil
             <tbody>
               ${[
                 { value: 'event_img', label: 'รูปเหตุการณ์', department: 'ตามฝ่ายผู้แจ้ง', no: false },
-                { value: 'claim_doc', label: 'เอกสารเคลม', department: 'Compliance', no: true },
-                { value: 'police_report', label: 'รายงานตำรวจ', department: 'Compliance', no: true },
-                { value: 'insurance_doc', label: 'เอกสารประกัน', department: 'Compliance', no: true },
-                { value: 'vehicle_repair', label: 'ใบซ่อมรถ', department: 'Fleet', no: true },
-                { value: 'medical_doc', label: 'เอกสารทางการแพทย์', department: 'HR/Safety', no: true },
                 { value: 'warning_doc', label: 'ใบเตือน', department: 'Safety', no: true },
+                { value: 'record_doc', label: 'บันทึกประจำวัน', department: 'ตามฝ่ายผู้แจ้ง', no: false },
+                { value: 'medical_doc', label: 'ใบรับรองแพทย์', department: 'ตามฝ่ายผู้แจ้ง', no: true },
+                { value: 'Insurance_claim_doc', label: 'ใบเคลมจากประกัน', department: 'Compliance', no: true },
+                { value: 'legal_doc', label: 'เอกสารคดีความ', department: 'Compliance', no: false },
+                { value: 'writeoff_doc', label: 'ใบตัดจำหน่าย', department: 'ตามฝ่ายผู้แจ้ง', no: false },
+                { value: 'debt_doc', label: 'ใบรับสภาพหนี้', department: 'ตามฝ่ายผู้แจ้ง', no: true },
+                { value: 'quotation_doc', label: 'ใบเสนอราคา', department: 'ตามฝ่ายผู้แจ้ง', no: true },
+                { value: 'customer_invoice', label: 'ใบแจ้งหนี้ลูกค้า', department: 'ตามฝ่ายผู้แจ้ง', no: true },
                 { value: 'damage_payment', label: 'หลักฐานการชำระค่าเสียหาย', department: 'บัญชี', no: true },
+                { value: 'account_attachment_sell', label: 'เอกสารแนบทางบัญชี > ขายสินค้า', department: 'บัญชี', no: false },
+                { value: 'account_attachment_insurance', label: 'เอกสารแนบทางบัญชี > ประกัน', department: 'บัญชี', no: false },
+                { value: 'account_attachment_pjs_pay', label: 'เอกสารแนบทางบัญชี > พจส. จ่าย', department: 'บัญชี', no: false },
+                { value: 'account_attachment_company_pay', label: 'เอกสารแนบทางบัญชี > บริษัทจ่ายลูกค้า', department: 'บัญชี', no: false },
+                { value: 'investigate_report', label: 'รายงานการสอบสวน', department: 'Safety', no: false },
               ].map((doc, index) => {
                 const docInfo = formData.docs?.[0] || {};
                 const hasAttachment = attachedFiles && attachedFiles[doc.value] && attachedFiles[doc.value].length > 0;
