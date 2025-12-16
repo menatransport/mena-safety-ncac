@@ -838,11 +838,11 @@ export const ACFormComponent = () => {
         label: "ทะเบียนรถหัว",
         elementName: "vehicle_id_head",
       },
-      {
-        field: "vehicle_id_tail",
-        label: "ทะเบียนรถหาง",
-        elementName: "vehicle_id_tail",
-      },
+      // {
+      //   field: "vehicle_id_tail",
+      //   label: "ทะเบียนรถหาง",
+      //   elementName: "vehicle_id_tail",
+      // },
       {
         field: "driver_role_id",
         label: "ประเภทคนขับ",
@@ -1661,7 +1661,7 @@ const statusDesign = (status: string) => {
 
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
-                        ทะเบียนรถหาง: <span className="text-red-500">*</span>
+                        ทะเบียนรถหาง: 
                       </label>
                       <SearchableSelect
                         options={(vehicles || [])
