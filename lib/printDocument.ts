@@ -901,10 +901,10 @@ const generateNCFormHTML = (formData: NCFormData, investigateData?: InvestigateD
               <div class="title">ผู้รายงาน</div>
               <div class="signature-line">( ${formData.reporter_name || '................................'} )</div>
             </div>
-            <!-- <div class="signature-box">
+            <div class="signature-box">
               <div class="title">ผู้ตรวจสอบ</div>
               <div class="signature-line">( ................................ )</div>
-            </div> -->
+            </div>
             <div class="signature-box">
               <div class="title">ผู้อนุมัติ</div>
               <div class="signature-line">( ................................ )</div>
@@ -1378,6 +1378,10 @@ const generateACFormHTML = (formData: caseReport_AC, userinfo?: any, attachedFil
             <div class="signature-box">
               <div class="title">ผู้รายงาน</div>
               <div class="signature-line">( ${formData.reporter_name || '................................'} )</div>
+            </div>
+            <div class="signature-box">
+              <div class="title">ผู้ตรวจสอบ</div>
+              <div class="signature-line">( ................................ )</div>
             </div>
             <div class="signature-box">
               <div class="title">ผู้อนุมัติ</div>

@@ -475,7 +475,7 @@ export const NCFormComponent = () => {
   }, [formInvestigate.root_cause_analysis, corrective_actions]);
 
   useEffect(() => {
-    if (isViewMode && formData.site_id && masterdrivers && locations && clients) {
+    if (isViewMode && formData.site_id && masterdrivers && locations && clients && mastercauses) {
       let filteredDrivers = masterdrivers.filter(
         (driver: any) => driver.site_id === formData.site_id
       );
@@ -483,6 +483,9 @@ export const NCFormComponent = () => {
         (location: any) =>
           location.location_id === formData.origin_id ||
           location.site_id === formData.site_id
+      );
+      const filtermastercauses = mastercauses.filter(
+        (cause: any) => cause.site_id === formData.site_id || cause.cause_id === formData.incident_cause_id
       );
 
       const filteredClients = clients.filter(
@@ -504,6 +507,7 @@ export const NCFormComponent = () => {
       }
 
       setFilteredData({
+        mastercauses: filtermastercauses,
         masterdrivers: filteredDrivers,
         locations: filteredLocations,
         clients: filteredClients,
@@ -519,6 +523,7 @@ export const NCFormComponent = () => {
     locations,
     clients,
     vehicles,
+    mastercauses
   ]);
 
 
@@ -920,8 +925,8 @@ export const NCFormComponent = () => {
         elementName: "case_details",
       },
       { field: "client_id", label: "ลูกค้า", elementName: "client_id" },
-      // { field: 'origin_id', label: 'ต้นทาง/แพล้น', elementName: 'origin_id' },
-      // { field: 'destination', label: 'ปลายทาง', elementName: 'destination' },
+      { field: 'origin_id', label: 'ต้นทาง/แพล้น', elementName: 'origin_id' },
+      { field: 'destination', label: 'ปลายทาง', elementName: 'destination' },
       {
         field: "case_location",
         label: "สถานที่เกิดเหตุ",
@@ -1654,7 +1659,7 @@ export const NCFormComponent = () => {
 
                         <div>
                           <label className="block text-gray-700 font-medium mb-1 text-sm">
-                            ต้นทาง/แพล้น:
+                            ต้นทาง/แพล้น:<span className="text-red-500">*</span>
                           </label>
                           <SearchableSelect
                             options={(filteredData.locations || []).map(
@@ -1679,7 +1684,7 @@ export const NCFormComponent = () => {
 
                         <div>
                           <label className="block text-gray-700 font-medium mb-1 text-sm">
-                            ปลายทาง:
+                            ปลายทาง:<span className="text-red-500">*</span>
                           </label>
                           <input
                             type="text"
