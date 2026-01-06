@@ -1379,7 +1379,7 @@ const statusDesign = (status: string) => {
 
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
-                        วันที่และเวลา แจ้งเหตุ:
+                        วันและเวลา บันทึกเหตุ:
                       </label>
                       <DateTimePicker24h
                         value={
@@ -1394,7 +1394,7 @@ const statusDesign = (status: string) => {
 
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
-                        วันที่และเวลา เกิดเหตุ:{" "}
+                        วันและเวลา เกิดเหตุ:{" "}
                         <span className="text-red-500">*</span>
                       </label>
                       <DateTimePicker24h

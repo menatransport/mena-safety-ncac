@@ -39,6 +39,17 @@ interface NCRecord {
   location: string;
   estimated_cost: number;
   actual_price: number;
+  incident_date: string;
+  driver_role_name: string;
+  vehicle_head_plate: string;
+  vehicle_tail_plate: string;
+  incident_cause: string;
+  claim_type: string;
+  company_cost: number;
+  driver_cost: number;
+  insurance_claim: number;
+  product_resellable: number;
+  remaining_damage_cost: number;
 }
 
 interface FilterCriteria {
@@ -240,18 +251,29 @@ export const NCRecordsComponent = () => {
         const transformedRecords = data.map((record: any) => ({
           id: record.document_no,
           date: record.record_date,
+          incident_date: record.incident_date,
           client_name: record.client_name,
           reporter_name: record.reporter_name,
           priority: record.priority,
+          status: record.casestatus,
           site_name: record.site_name,
           department_name: record.department_name,
           plateNumber: record.vehicle_truckno,
           driver_name: record.driver_name,
-          status: record.casestatus,
+          driver_role_name: record.driver_role_name,
+          vehicle_head_plate: record.vehicle_head_plate,
+          vehicle_tail_plate: record.vehicle_tail_plate,
+          incident_cause: record.incident_cause,
           description: record.case_details,
           location: record.case_location,
           actual_price: record.actual_price,
           estimated_cost: record.estimated_cost,
+          claim_type: record.investigation.claim_type,
+          company_cost: record.investigation.company_cost,
+          driver_cost: record.investigation.driver_cost,
+          insurance_claim: record.investigation.insurance_claim,
+          product_resellable: record.investigation.product_resellable,
+          remaining_damage_cost: record.investigation.remaining_damage_cost
         }));
 
         setRecords(transformedRecords);
@@ -525,19 +547,30 @@ export const NCRecordsComponent = () => {
 
     const excelData = filteredRecords.map(record => ({
       'เลขที่เอกสาร': record.id,
-      'วันที่': record.date ? formatDate(record.date) : 'ไม่ระบุ',
-      'ลูกค้า': record.client_name || 'ไม่ระบุ',
-      'ผู้รายงาน': record.reporter_name || 'ไม่ระบุ',
-      'สำนักงาน/ศูนย์': record.site_name || 'ไม่ระบุ',
-      'แผนก': record.department_name || 'ไม่ระบุ',
-      'ทะเบียนรถ': record.plateNumber || 'ไม่ระบุ',
-      'พนักงานขับรถ': record.driver_name || 'ไม่ระบุ',
+      'วันและเวลา บันทึกเหตุ': record.date ? formatDate(record.date) : '',
+      'วันและเวลา เกิดเหตุ': record.incident_date ? formatDate(record.incident_date) : '',
+      'ระดับความรุนแรง': record.priority || '',
+      'สถานะ': record.status,
+      'ลูกค้า': record.client_name || '',
+      'ผู้รายงาน': record.reporter_name || '',
+      'สำนักงาน/ศูนย์': record.site_name || '',
+      'แผนก': record.department_name || '',
+      'พนักงานขับรถ': record.driver_name || '',
+      'ตำแหน่งพนักงานขับรถ': record.driver_role_name || '',
+      'ทะเบียนรถหัว': record.vehicle_head_plate || '',
+      'ทะเบียนรถท้าย': record.vehicle_tail_plate || '',
+      'สาเหตุของเหตุการณ์': record.incident_cause || '',
+      'รายละเอียด': record.description || '',
+      'สถานที่เกิดเหตุ': record.location || '',
       'มูลค่าความเสียหายประมาณการ': record.estimated_cost != null ? Number(record.estimated_cost).toLocaleString() : '-',
       'มูลค่าความเสียหายจริง': record.actual_price != null ? Number(record.actual_price).toLocaleString() : '-',
-      'ระดับความรุนแรง': record.priority || 'ไม่ระบุ',
-      'สถานะ': record.status,
-      'รายละเอียด': record.description || 'ไม่ระบุ',
-      'สถานที่เกิดเหตุ': record.location || 'ไม่ระบุ'
+      'ประเภทการเคลม': record.claim_type || '',
+      'ค่าใช้จ่ายบริษัท': record.company_cost != null ? Number(record.company_cost).toLocaleString() : '-',
+      'ค่าใช้จ่ายพนักงานขับรถ': record.driver_cost != null ? Number(record.driver_cost).toLocaleString() : '-',
+      'ประกันเคลม': record.insurance_claim != null ? Number(record.insurance_claim).toLocaleString() : '-',
+      'ขายต่อ': record.product_resellable != null ? Number(record.product_resellable).toLocaleString() : '-',
+      'ค่าความเสียหายที่เหลือ': record.remaining_damage_cost != null ? Number(record.remaining_damage_cost).toLocaleString() : '-',
+      
     }));
 
     // สร้าง workbook และ worksheet
@@ -595,7 +628,7 @@ export const NCRecordsComponent = () => {
             <div className="space-y-3">
               <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
                 <Calendar size={16} />
-                ช่วงเวลา (Date Range)
+                ช่วงวันที่ (Date Range)
               </label>
               <div className="flex flex-wrap gap-2">
                 {(

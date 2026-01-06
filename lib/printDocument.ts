@@ -610,11 +610,11 @@ const generateNCFormHTML = (formData: NCFormData, investigateData?: InvestigateD
               <div class="form-value">${formData.reporter_name || ' '}</div>
             </div>
             <div class="form-group">
-              <label class="form-label">วันที่และเวลา แจ้งเหตุ:</label>
+              <label class="form-label">วันและเวลา บันทึกเหตุ:</label>
               <div class="form-value">${formatDate(formData.record_date)}</div>
             </div>
             <div class="form-group">
-              <label class="form-label">วันที่และเวลา เกิดเหตุ:</label>
+              <label class="form-label">วันและเวลา เกิดเหตุ:</label>
               <div class="form-value">${formatDate(formData.incident_date)}</div>
             </div>
             <div class="form-group">
@@ -1041,11 +1041,11 @@ const generateACFormHTML = (formData: caseReport_AC, userinfo?: any, attachedFil
               <div class="form-value">${formData.reporter_name || ' '}</div>
             </div>
             <div class="form-group">
-              <label class="form-label">วันที่และเวลา แจ้งเหตุ:</label>
+              <label class="form-label">วันและเวลา บันทึกเหตุ:</label>
               <div class="form-value">${formatDate(formData.record_datetime)}</div>
             </div>
             <div class="form-group">
-              <label class="form-label">วันที่และเวลา เกิดเหตุ:</label>
+              <label class="form-label">วันและเวลา เกิดเหตุ:</label>
               <div class="form-value">${formatDate(formData.incident_datetime)}</div>
             </div>
             <div class="form-group">

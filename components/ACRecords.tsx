@@ -41,6 +41,25 @@ interface ACRecord {
   priority: string;
   estimated_cost?: number;
   actual_price?: number;
+  date_event: string;
+  driver_role_name: string;
+  vehicle_head_plate: string;
+  vehicle_tail_plate: string;
+  drug_test: string;
+  drug_test_result: string;
+  alcohol_test: string;
+  alcohol_test_result: string;
+  province_name: string;
+  district_name: string;
+  sub_district_name: string;
+  product_damage: string;
+  product_damage_details: string;
+  estimated_goods_damage_value: number;
+  actual_goods_damage_value: number;
+  truck_damage: string;
+  truck_damage_details: string;
+  estimated_vehicle_damage_value: number;
+  actual_vehicle_damage_value: number;
 }
 
 interface FilterCriteria {
@@ -241,16 +260,35 @@ export const ACRecordsComponent = () => {
         const transformedRecords = data.map((record: any) => ({
           id: record.document_no_ac,
           date: record.record_datetime,
+          date_event: record.incident_datetime,
           customer: record.client_name,
           reporter: record.reporter_name,
           site: record.site_name,
           department: record.department_name,
           plateNumber: record.vehicle_head_plate,
           driver: record.driver_name,
+          driver_role_name: record.driver_role_name,
+          vehicle_head_plate: record.vehicle_head_plate,
+          vehicle_tail_plate: record.vehicle_tail_plate,
+          drug_test: record.drug_test,
+          drug_test_result: record.drug_test_result,
+          alcohol_test: record.alcohol_test,
+          alcohol_test_result: record.alcohol_test_result,
           status: record.casestatus,
           priority: record.priority,
           description: record.case_details,
           location: record.case_location,
+          province_name: record.province_name,
+          district_name: record.district_name,
+          sub_district_name: record.sub_district_name,
+          product_damage: record.product_damage,
+          product_damage_details: record.product_damage_details,
+          estimated_goods_damage_value: record.estimated_goods_damage_value,
+          actual_goods_damage_value: record.actual_goods_damage_value,
+          truck_damage: record.truck_damage,
+          truck_damage_details: record.truck_damage_details,
+          estimated_vehicle_damage_value: record.estimated_vehicle_damage_value,
+          actual_vehicle_damage_value: record.actual_vehicle_damage_value,
           estimated_cost: (record.estimated_goods_damage_value + record.estimated_vehicle_damage_value),
           actual_price: (record.actual_goods_damage_value + record.actual_vehicle_damage_value),
         }));
@@ -522,22 +560,36 @@ export const ACRecordsComponent = () => {
       });
       return;
     }
-
+    // console.log("Exporting records:", filteredRecords);
     const excelData = filteredRecords.map(record => ({
       'เลขที่เอกสาร': record.id,
-      'วันที่': record.date ? formatDate(record.date) : 'ไม่ระบุ',
-      'ลูกค้า': record.customer || 'ไม่ระบุ',
-      'ผู้รายงาน': record.reporter || 'ไม่ระบุ',
-      'สำนักงาน/ศูนย์': record.site || 'ไม่ระบุ',
-      'แผนก': record.department || 'ไม่ระบุ',
-      'ทะเบียนรถ': record.plateNumber || 'ไม่ระบุ',
-      'พนักงานขับรถ': record.driver || 'ไม่ระบุ',
+      'วันและเวลา บันทึกเหตุ': record.date ? formatDate(record.date) : '',
+      'วันและเวลา เกิดเหตุ': record.date_event ? formatDate(record.date_event) : '',
+      'ระดับความรุนแรง': record.priority || '',
+      'สถานะ': record.status || '',
+      'ลูกค้า': record.customer || '',
+      'ผู้รายงาน': record.reporter || '',
+      'สำนักงาน/ศูนย์': record.site || '',
+      'แผนก': record.department || '',
+      'พนักงานขับรถ': record.driver || '',
+      'ตำแหน่งพนักงานขับรถ': record.driver_role_name || '',
+      'ทะเบียนหัวรถ': record.vehicle_head_plate || '',
+      'ทะเบียนหางรถ': record.vehicle_tail_plate || '',
+      'การตรวจสารเสพติด': record.drug_test || '',
+      'ผลการตรวจสารเสพติด': record.drug_test_result || '',
+      'การตรวจแอลกอฮอล์': record.alcohol_test || '',
+      'ผลการตรวจแอลกอฮอล์': record.alcohol_test_result || '',
+      'รายละเอียด': record.description || '',
+      'สถานที่เกิดเหตุ': record.location || '',
+      'จังหวัด': record.province_name || '',
+      'อำเภอ': record.district_name || '',
+      'ตำบล': record.sub_district_name || '',
+      'ความเสียหายของสินค้า': record.product_damage || '',
+      'รายละเอียดความเสียหายของสินค้า': record.product_damage_details || '',
+      'ความเสียหายของรถ': record.truck_damage || '',
+      'รายละเอียดความเสียหายของรถ': record.truck_damage_details || '',
       'มูลค่าความเสียหายประมาณการ': record.estimated_cost != null ? Number(record.estimated_cost).toLocaleString() : '-',
-      'มูลค่าความเสียหายจริง': record.actual_price != null ? Number(record.actual_price).toLocaleString() : '-',
-      'ระดับความรุนแรง': record.priority || 'ไม่ระบุ',
-      'สถานะ': record.status,
-      'รายละเอียด': record.description || 'ไม่ระบุ',
-      'สถานที่เกิดเหตุ': record.location || 'ไม่ระบุ'
+      'มูลค่าความเสียหายจริง': record.actual_price != null ? Number(record.actual_price).toLocaleString() : '-'
     }));
 
     // สร้าง workbook และ worksheet
@@ -595,7 +647,7 @@ export const ACRecordsComponent = () => {
             <div className="space-y-3">
               <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
                 <Calendar size={16} />
-                ช่วงเวลา (Date Range)
+                ช่วงวันที่ (Date Range)
               </label>
               <div className="flex flex-wrap gap-2">
                 {(

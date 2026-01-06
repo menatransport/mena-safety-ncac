@@ -19,6 +19,8 @@ export default function Login() {
   const [registerData, setRegisterData] = useState({
     firstname: "",
     lastname: "",
+    firstname_th: "",
+    lastname_th: "",
     employee_id: "",
     department_id: "",
     site_id: "",
@@ -182,8 +184,8 @@ export default function Login() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          firstname: registerData.firstname,
-          lastname: registerData.lastname,
+          firstname: registerData.firstname_th,
+          lastname: registerData.lastname_th,
           employee_id: registerData.employee_id,
           department_id: parseInt(registerData.department_id),
           site_id: parseInt(registerData.site_id),
@@ -460,6 +462,27 @@ export default function Login() {
                     required
                   />
                 </div>
+                {/* firstname_lastname_TH */}
+                <div className="space-y-1">
+                  <label className="text-gray-700 text-xs font-semibold">ชื่อจริง (ภาษาไทย)</label>
+                  <input
+                    type="text"
+                    value={registerData.firstname_th}
+                    onChange={(e) => handleRegisterInputChange('firstname_th', e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#cfe5d0] focus:border-[#cfe5d0] transition-all duration-200 text-sm"
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-gray-700 text-xs font-semibold">นามสกุล (ภาษาไทย)</label>
+                  <input
+                    type="text"
+                    value={registerData.lastname_th}
+                    onChange={(e) => handleRegisterInputChange('lastname_th', e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#cfe5d0] focus:border-[#cfe5d0] transition-all duration-200 text-sm"
+                    required
+                  />
+                </div>
               </div>
               
               <div className="space-y-1">
@@ -620,6 +643,8 @@ export default function Login() {
                     setRegisterData({
                       firstname: "",
                       lastname: "",
+                      firstname_th: "",
+                      lastname_th: "",
                       employee_id: "",
                       department_id: "",
                       site_id: "",
@@ -704,7 +729,7 @@ export default function Login() {
             {/* Footer */}
             <div className="text-center space-y-2">
               <p className="text-gray-400 text-xs">
-                © 2025 MENA NCAC • V.1.1.0
+                © 2025 MENA NCAC • V.1.2.0
               </p>
               <div className="hidden justify-center space-x-4 text-xs">
                 <a href="#" className="text-gray-500 hover:text-emerald-600 transition-colors">นโยบายความเป็นส่วนตัว</a>
