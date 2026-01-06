@@ -5,6 +5,7 @@ import { LordIcon } from './LordIcon';
 import { useDropdownStore , handleFetchData } from '../lib/dropdownlist';
 import { SearchableSelect } from "./ui/searchable-select";
 import Swal from "sweetalert2";
+import { sendErrorLog } from "@/lib/logError";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -116,6 +117,7 @@ export default function Login() {
           router.push("/overview");
         }, 3000)
       } else {
+        sendErrorLog("Login/handleLogin", `Login failed for user: ${username} ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง`);
         Swal.fire({
           icon: 'error',
           title: 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง',
@@ -126,6 +128,7 @@ export default function Login() {
       }
     } catch (error) {
       console.error('เกิดข้อผิดพลาดในการเข้าสู่ระบบ:', error);
+      sendErrorLog("Login/handleLogin", error instanceof Error ? error : String(error));
       Swal.fire({
         icon: 'error',
         title: 'เกิดข้อผิดพลาดในการเชื่อมต่อ',
@@ -213,6 +216,7 @@ export default function Login() {
           // });
         });
       } else {
+        sendErrorLog("Login/handleRegister", `Registration failed: ${data.message || 'Unknown error'}`);
         Swal.fire({
           icon: 'error',
           title: 'การลงทะเบียนไม่สำเร็จ',
@@ -222,6 +226,7 @@ export default function Login() {
       }
     } catch (error) {
       console.error('เกิดข้อผิดพลาดในการลงทะเบียน:', error);
+      sendErrorLog("Login/handleRegister", error instanceof Error ? error : String(error));
       Swal.fire({
         icon: 'error',
         title: 'เกิดข้อผิดพลาดในการเชื่อมต่อ',
@@ -699,7 +704,7 @@ export default function Login() {
             {/* Footer */}
             <div className="text-center space-y-2">
               <p className="text-gray-400 text-xs">
-                © 2025 MENA NCAC • V.1.0.0
+                © 2025 MENA NCAC • V.1.1.0
               </p>
               <div className="hidden justify-center space-x-4 text-xs">
                 <a href="#" className="text-gray-500 hover:text-emerald-600 transition-colors">นโยบายความเป็นส่วนตัว</a>

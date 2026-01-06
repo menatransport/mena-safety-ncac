@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { useClipboard_nc } from "@/lib/clipboard";
 import { LoaderPage } from "./LoaderPage";
 import { printDocument_nc } from "@/lib/printDocument";
+import { sendErrorLog } from "@/lib/logError";
 
 interface FileWithId {
   id: string;
@@ -171,7 +172,7 @@ export const NCFormComponent = () => {
           }
         );
         const data = await res.json();
-        console.log("Fetched record data:", data);
+        // console.log("Fetched record data:", data);
         if (res.ok) {
           if (data.reporter_name == name) {
             setIsViewMode(false);
@@ -624,6 +625,7 @@ export const NCFormComponent = () => {
       });
     } catch (error) {
       console.error("Error copying to clipboard:", error);
+      sendErrorLog("NCForm/clipboard", error instanceof Error ? error : String(error));
       Swal.fire({
         icon: "error",
         title: "เกิดข้อผิดพลาด",
@@ -682,7 +684,7 @@ export const NCFormComponent = () => {
         client_name: selectedClient?.client_name || formData.client_name,
         origin_name: selectedOrigin?.location_name || formData.origin_name,
         driver_role_name: selectedDriverRole?.role_name || formData.driver_role_name,
-        driver_name: selectedDriver 
+        driver_name: selectedDriver
           ? `${selectedDriver.first_name} ${selectedDriver.last_name}`
           : formData.driver_name,
         vehicle_head_plate: selectedVehicleHead?.vehicle_number_plate || formData.vehicle_head_plate,
@@ -700,6 +702,7 @@ export const NCFormComponent = () => {
 
     } catch (error) {
       console.error("Error printing document:", error);
+      sendErrorLog("NCForm/handlePrintDocument", error instanceof Error ? error : String(error));
       Swal.fire({
         icon: "error",
         title: "เกิดข้อผิดพลาด",
@@ -1009,10 +1012,9 @@ export const NCFormComponent = () => {
       });
 
       const responseData = await res.json();
-      console.log("API Response:", responseData);
-
+  
       if (res.ok) {
-        console.log("Success response data:", responseData);
+     
         Swal.fire({
           icon: "success",
           title: "บันทึกข้อมูลสำเร็จ",
@@ -1039,10 +1041,13 @@ export const NCFormComponent = () => {
       }
     } catch (error) {
       console.error("Error submitting NC Form:", error);
-      alert(
-        `เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
+      sendErrorLog("NCForm/handleSubmit", error instanceof Error ? error : String(error));
+      Swal.fire({
+        icon: "error",
+        title: "เกิดข้อผิดพลาดในการบันทึกข้อมูล",
+        text: error instanceof Error ? error.message : "Unknown error",
+        confirmButtonText: "ตกลง"
+      });
     }
   };
 
@@ -1137,6 +1142,7 @@ export const NCFormComponent = () => {
         allowOutsideClick: false,
       });
     } else {
+      sendErrorLog("NCForm/handleUpdateInvestigate", `Investigate update failed: ${responseData.message || 'Unknown error'}`);
       Swal.fire({
         icon: "error",
         title: "การบันทึกไม่สำเร็จลองใหม่อีกครั้ง",
@@ -1197,11 +1203,16 @@ export const NCFormComponent = () => {
         const result = await res.json();
         console.log("Attachments upload result:", result);
       } else {
-        throw new Error(`Failed to upload attachments: ${res.statusText}`);
+        Swal.fire({
+          icon: "error",
+          title: "เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ",
+        });
+        sendErrorLog("NCForm/attatchments_post", `เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ : ${res}`);
       }
     } catch (error) {
       console.error("Error uploading attachments:", error);
       alert("เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ");
+      sendErrorLog("NCForm/attatchments_post", `เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ catch : ${error}`);
     }
   };
   // ========== Helper Functions ==========
@@ -1848,7 +1859,7 @@ export const NCFormComponent = () => {
                                 driver_id: String(value),
                               }))
                             }
-                            onAdd={() => handleAddItem("masterdrivers")}
+                            // onAdd={() => handleAddItem("masterdrivers")}
                             showAddRemove={false}
                             className="w-full"
                             disabled={isViewMode}

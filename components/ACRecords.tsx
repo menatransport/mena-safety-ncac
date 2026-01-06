@@ -24,6 +24,7 @@ import { Calendar as CalendarComponent } from "./ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import Swal from "sweetalert2";
 import * as XLSX from 'xlsx';
+import { sendErrorLog } from '@/lib/logError';
 
 interface ACRecord {
   id: string;
@@ -38,6 +39,8 @@ interface ACRecord {
   description: string;
   location: string;
   priority: string;
+  estimated_cost?: number;
+  actual_price?: number;
 }
 
 interface FilterCriteria {
@@ -124,6 +127,7 @@ export const ACRecordsComponent = () => {
 
       } catch (error) {
         console.error("Error fetching AC dropdown data:", error);
+        sendErrorLog('ACRecords/fetchDropdownData', error instanceof Error ? error : String(error));
       }
     };
 
@@ -247,14 +251,17 @@ export const ACRecordsComponent = () => {
           priority: record.priority,
           description: record.case_details,
           location: record.case_location,
+          estimated_cost: (record.estimated_goods_damage_value + record.estimated_vehicle_damage_value),
+          actual_price: (record.actual_goods_damage_value + record.actual_vehicle_damage_value),
         }));
-
         setRecords(transformedRecords);
       } else {
         console.error("AC Search failed");
+        sendErrorLog('ACRecords/handleSearch', `AC Search failed with status ${response}`);
       }
     } catch (error) {
       console.error("Error searching AC records:", error);
+      sendErrorLog('ACRecords/handleSearch', error instanceof Error ? error : String(error));
     } finally {
       setLoading(false);
     }
@@ -516,7 +523,6 @@ export const ACRecordsComponent = () => {
       return;
     }
 
-    // เตรียมข้อมูลสำหรับ Excel
     const excelData = filteredRecords.map(record => ({
       'เลขที่เอกสาร': record.id,
       'วันที่': record.date ? formatDate(record.date) : 'ไม่ระบุ',
@@ -526,6 +532,8 @@ export const ACRecordsComponent = () => {
       'แผนก': record.department || 'ไม่ระบุ',
       'ทะเบียนรถ': record.plateNumber || 'ไม่ระบุ',
       'พนักงานขับรถ': record.driver || 'ไม่ระบุ',
+      'มูลค่าความเสียหายประมาณการ': record.estimated_cost != null ? Number(record.estimated_cost).toLocaleString() : '-',
+      'มูลค่าความเสียหายจริง': record.actual_price != null ? Number(record.actual_price).toLocaleString() : '-',
       'ระดับความรุนแรง': record.priority || 'ไม่ระบุ',
       'สถานะ': record.status,
       'รายละเอียด': record.description || 'ไม่ระบุ',
@@ -983,11 +991,11 @@ export const ACRecordsComponent = () => {
               <thead className="bg-gray-300">
                 <tr>
                   <th
-                    className="w-50 px-6 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
+                    className="px-6 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
                     onClick={() => handleSort("id")}
                   >
-                    <div className="flex items-center gap-2">
-                      <span>เลขที่เอกสาร</span>
+                    <div className="flex justify-center items-center gap-2 min-w-36">
+                      <span>Doc.</span>
                       {getSortIcon("id")}
                     </div>
                   </th>
@@ -996,7 +1004,7 @@ export const ACRecordsComponent = () => {
                     onClick={() => handleSort("date")}
                   >
                     <div className="flex items-center gap-2">
-                      <span>วันที่และเวลารายงาน</span>
+                      <span>Date Reported</span>
                       {getSortIcon("date")}
                     </div>
                   </th>
@@ -1005,7 +1013,7 @@ export const ACRecordsComponent = () => {
                     onClick={() => handleSort("customer")}
                   >
                     <div className="flex items-center gap-2">
-                      <span>ลูกค้า</span>
+                      <span>Customer</span>
                       {getSortIcon("customer")}
                     </div>
                   </th>
@@ -1014,7 +1022,7 @@ export const ACRecordsComponent = () => {
                     onClick={() => handleSort("reporter")}
                   >
                     <div className="flex items-center gap-2">
-                      <span>ชื่อผู้แจ้ง</span>
+                      <span>Reporter</span>
                       {getSortIcon("reporter")}
                     </div>
                   </th>
@@ -1023,7 +1031,7 @@ export const ACRecordsComponent = () => {
                     onClick={() => handleSort("site")}
                   >
                     <div className="flex items-center gap-2">
-                      <span>สำนักงาน/ศูนย์ปฏิบัติการ</span>
+                      <span>Site</span>
                       {getSortIcon("site")}
                     </div>
                   </th>
@@ -1032,7 +1040,7 @@ export const ACRecordsComponent = () => {
                     onClick={() => handleSort("department")}
                   >
                     <div className="flex items-center gap-2">
-                      <span>ฝ่าย</span>
+                      <span>Dept.</span>
                       {getSortIcon("department")}
                     </div>
                   </th>
@@ -1041,8 +1049,26 @@ export const ACRecordsComponent = () => {
                     onClick={() => handleSort("driver")}
                   >
                     <div className="flex items-center gap-2">
-                      <span>ชื่อคนขับ</span>
+                      <span>Driver</span>
                       {getSortIcon("driver")}
+                    </div>
+                  </th>
+                   <th
+                    className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
+                    onClick={() => handleSort("estimated_cost")}
+                  >
+                    <div className="flex items-center gap-2" title="มูลค่าความเสียหายประมาณการ">
+                      <span>Est.</span>
+                      {getSortIcon("estimated_cost")}
+                    </div>
+                  </th>
+                   <th
+                    className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
+                    onClick={() => handleSort("actual_price")}
+                  >
+                    <div className="flex items-center gap-2" title="มูลค่าความเสียหายจริง">
+                      <span>Act.</span>
+                      {getSortIcon("actual_price")}
                     </div>
                   </th>
 
@@ -1051,12 +1077,12 @@ export const ACRecordsComponent = () => {
                     onClick={() => handleSort("status")}
                   >
                     <div className="flex items-center gap-2">
-                      <span>สถานะ</span>
+                      <span>Status</span>
                       {getSortIcon("status")}
                     </div>
                   </th>
                   <th className="px-4 py-4 text-center text-sm font-medium text-gray-600">
-                    <span>จัดการ</span>
+                    <span></span>
                   </th>
                 </tr>
               </thead>
@@ -1066,7 +1092,7 @@ export const ACRecordsComponent = () => {
                   ? Array.from({ length: 5 }).map((_, index) => (
                     <tr key={`loading-${index}`} className="animate-pulse">
                       <td className="px-6 py-4">
-                        <div className="h-4 bg-gray-200 rounded w-32"></div>
+                        <div className="h-4 bg-gray-200 rounded w-24"></div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="h-4 bg-gray-200 rounded w-24"></div>
@@ -1139,8 +1165,14 @@ export const ACRecordsComponent = () => {
                       <td className="px-6 py-4 text-xs text-gray-600">
                         {record.department || "ไม่ระบุ"}
                       </td>
-                      <td className="px-6 py-4 text-xs text-gray-600 max-w-[140px] truncate">
+                      <td className="px-6 py-4 text-xs text-gray-600" >
                         {record.driver || "ไม่ระบุ"}
+                      </td>
+                       <td className="px-6 py-4 text-xs text-gray-600">
+                        {record.estimated_cost != null ? Number(record.estimated_cost).toLocaleString() : "-"}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-gray-600">
+                        {record.actual_price != null ? Number(record.actual_price).toLocaleString() : "-"}
                       </td>
                        <td className="px-6 py-4">
                         <span
@@ -1155,11 +1187,11 @@ export const ACRecordsComponent = () => {
 
                         </span>
                       </td>
-                      <td className="flex flex-row px-6 py-4 bg-gray-50 w-32">
+                      <td className="flex flex-row px-6 py-4 bg-gray-50 w-fit">
                         <div className="flex flex-col items-center justify-center space-x-2">
                           <button
                             onClick={() => handleRouter(record.id)}
-                            className="p-2 text-blue-600  hover:scale-110 rounded-lg cursor-pointer"
+                            className="p-2 text-blue-600  hover:scale-110 rounded-lg cursor-pointer" 
                             title="ดูรายละเอียด"
                           >
                             <LordIcon
@@ -1251,44 +1283,58 @@ export const ACRecordsComponent = () => {
                       <div className="space-y-2 text-sm">
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <span className="font-medium text-gray-600">ลูกค้า:</span>
-                            <p className="text-gray-900">{record.customer || "ไม่ระบุ"}</p>
+                            <span className="font-semibold text-indigo-600">ลูกค้า:</span>
+                            <p className="text-gray-900 text-xs border-b-1 w-fit">{record.customer || "ไม่ระบุ"}</p>
                           </div>
                           <div>
-                            <span className="font-medium text-gray-600">ผู้รายงาน:</span>
-                            <p className="text-gray-900">{record.reporter || "ไม่ระบุ"}</p>
+                            <span className="font-semibold text-indigo-600">ผู้รายงาน:</span>
+                            <p className="text-gray-900 text-xs border-b-1 w-fit">{record.reporter || "ไม่ระบุ"}</p>
                           </div>
                         </div>
                         
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <span className="font-medium text-gray-600">สำนักงาน/ศูนย์:</span>
-                            <p className="text-gray-900">{record.site || "ไม่ระบุ"}</p>
+                            <span className="font-semibold text-indigo-600">สำนักงาน/ศูนย์:</span>
+                            <p className="text-gray-900 text-xs border-b-1 w-fit">{record.site || "ไม่ระบุ"}</p>
                           </div>
                           <div>
-                            <span className="font-medium text-gray-600">ทะเบียนรถ:</span>
-                            <p className="text-gray-900">{record.plateNumber || "ไม่ระบุ"}</p>
+                            <span className="font-semibold text-indigo-600">ทะเบียนรถ:</span>
+                            <p className="text-gray-900 text-xs border-b-1 w-fit">{record.plateNumber || "ไม่ระบุ"}</p>
                           </div>
                         </div>
 
+                        <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <span className="font-medium text-gray-600">พนักงานขับรถ:</span>
-                          <p className="text-gray-900">{record.driver || "ไม่ระบุ"}</p>
+                          <span className="font-semibold text-indigo-600">มูลค่าความเสียหายประมาณการ:</span>
+                          <p className="text-gray-900 text-xs border-b-1 w-fit">{record.estimated_cost != null ? Number(record.estimated_cost).toLocaleString() : "-"}</p>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-indigo-600">มูลค่าความเสียหายจริง:</span>
+                          <p className="text-gray-900 text-xs border-b-1 w-fit">{record.actual_price != null ? Number(record.actual_price).toLocaleString() : "-"}</p>
+                        </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">    
+                        <div>
+                          <span className="font-semibold text-indigo-600">พนักงานขับรถ:</span>
+                          <p className="text-gray-900 text-xs border-b-1 w-fit">{record.driver || "ไม่ระบุ"}</p>
+                        </div>
+                        {record.location && (
+                          <div>
+                            <span className="font-semibold text-indigo-600">สถานที่:</span>
+                            <p className="text-gray-900 text-xs border-b-1 w-fit">{record.location}</p>
+                          </div>
+                        )}
                         </div>
 
                         {record.description && (
                           <div>
-                            <span className="font-medium text-gray-600">รายละเอียด:</span>
-                            <p className="text-gray-900 text-sm mt-1">{record.description}</p>
+                            <span className="font-semibold text-indigo-600">รายละเอียด:</span>
+                            <p className="text-gray-900 text-xs mt-1 border-1 p-1 w-fit">{record.description}</p>
                           </div>
                         )}
 
-                        {record.location && (
-                          <div>
-                            <span className="font-medium text-gray-600">สถานที่:</span>
-                            <p className="text-gray-900 text-sm mt-1">{record.location}</p>
-                          </div>
-                        )}
+                        
                       </div>
 
                       {/* Actions */}

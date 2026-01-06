@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import Swal from 'sweetalert2';
 import { caseReport_NC, caseReport_AC } from '@/lib/caseReport';
+import { sendErrorLog } from '@/lib/logError';
 import {
   FilterSection,
   ViewSelector,
@@ -236,6 +237,7 @@ export const DashboardComponent = () => {
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      sendErrorLog('Dashboard/fetchData', error instanceof Error ? error : String(error));
     } finally {
       setLoading(false);
     }

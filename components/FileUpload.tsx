@@ -9,6 +9,8 @@ import {
   ExternalLink,
   Trash,
 } from "lucide-react";
+import Swal from "sweetalert2";
+import { sendErrorLog } from '@/lib/logError';
 
 interface FileWithId {
   id: string;
@@ -297,27 +299,55 @@ export const FileUpload = ({
     setDragOver(false);
   };
 
-  const removeFile = (category: string, fileId: string) => {
+  const removeFile = async (category: string, fileId: string) => {
+    const fileToRemove = attachedFiles[category]?.find((f) => f.id === fileId);
+    if (!fileToRemove) return;
 
+    const isExistingFile = fileToRemove.updateData === "existing";
+    
+    if (isExistingFile) {
+      const result = await Swal.fire({
+        title: 'ยืนยันการลบไฟล์',
+        text: `คุณแน่ใจหรือไม่ว่าต้องการลบไฟล์ "${fileToRemove.file.name}"?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'ใช่, ลบไฟล์นี้',
+        cancelButtonText: 'ยกเลิก'
+      });
+      if (!result.isConfirmed) return;
+    }
+
+    URL.revokeObjectURL(fileToRemove.url);
     const updatedFiles = { ...attachedFiles };
-    if (updatedFiles[category]) {
-      const fileToRemove = updatedFiles[category].find((f) => f.id === fileId);
-      if (fileToRemove) {
-        URL.revokeObjectURL(fileToRemove.url);
-      }
-      updatedFiles[category] = updatedFiles[category].filter(
-        (f) => f.id !== fileId
-      );
-
-      if (updatedFiles[category].length === 0) {
-        delete updatedFiles[category];
-        // อัปเดต documentInfo เป็น "ไม่มี" เมื่อลบไฟล์สุดท้ายออก
-        const updatedDocInfo = { ...documentInfo, [category]: "" };
-        setDocumentInfo(updatedDocInfo);
-        onChangedocs?.(updatedDocInfo);
-      }
+    updatedFiles[category] = updatedFiles[category].filter((f) => f.id !== fileId);
+    
+    if (updatedFiles[category].length === 0) {
+      delete updatedFiles[category];
+      const updatedDocInfo = { ...documentInfo, [category]: "" };
+      setDocumentInfo(updatedDocInfo);
+      onChangedocs?.(updatedDocInfo);
     }
     handleFilesChange(updatedFiles);
+
+    if (isExistingFile) {
+      try {
+        const res = await fetch('/api/attachment', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: fileToRemove.id }),
+        });
+        
+        Swal.fire(res.ok ? 'ลบไฟล์สำเร็จ' : 'เกิดข้อผิดพลาด', 
+          res.ok ? `ไฟล์ "${fileToRemove.file.name}" ถูกลบเรียบร้อยแล้ว.` : `ไม่สามารถลบไฟล์ได้ โปรดลองอีกครั้ง.`,
+          res.ok ? 'success' : 'error');
+        
+        if (!res.ok) sendErrorLog('FileUpload/removeFile', `Failed to delete: ${fileToRemove.id}`);
+      } catch (error) {
+        sendErrorLog('FileUpload/removeFile', error instanceof Error ? error : String(error));
+      }
+    }
   };
 
   const getTotalFileCount = () => {
@@ -448,17 +478,16 @@ export const FileUpload = ({
         <body>
       
            
-            ${
-              (fileItem.file.type === "application/pdf") || (fileItem.file.type === "image/jpeg") || (fileItem.file.type === "image/png")
-                ? `<embed src="${fileItem.url}" type="application/pdf" class="document-viewer" />`
-                : `<div style="text-align: center; padding: 50px;">
+            ${(fileItem.file.type === "application/pdf") || (fileItem.file.type === "image/jpeg") || (fileItem.file.type === "image/png")
+          ? `<embed src="${fileItem.url}" type="application/pdf" class="document-viewer" />`
+          : `<div style="text-align: center; padding: 50px;">
                 <p>ไม่สามารถแสดงตัวอย่างไฟล์ชื่อนี้ได้</p>
                 <a href="${fileItem.url}" download="${fileItem.file.name}" 
                    style="background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
                    ดาวน์โหลดไฟล์
                 </a>
               </div>`
-            }
+        }
         
         </body>
         </html>
@@ -481,38 +510,37 @@ export const FileUpload = ({
   return (
     <div className="space-y-6">
       {/* Category Selection */}
-   
-        <div className="flex flex-row space-y-1">
-          <div className="w-1/2">
-            <label className="block text-gray-700 font-medium mb-2 text-sm">
-              ชื่อเอกสาร:
-            </label>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black disabled:bg-gray-100"
-            >
-              <option value="">-- เลือกชื่อเอกสาร --</option>
-              {Object.entries(getGroupedCategories()).map(
-                ([department, categories]) => (
-                  <optgroup
-                    key={department}
-                    label={`${
-                      DEPARTMENTS.find((dept) => dept.value === department)
-                        ?.label || department
+
+      <div className="flex flex-row space-y-1">
+        <div className="w-1/2">
+          <label className="block text-gray-700 font-medium mb-2 text-sm">
+            ชื่อเอกสาร:
+          </label>
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black disabled:bg-gray-100"
+          >
+            <option value="">-- เลือกชื่อเอกสาร --</option>
+            {Object.entries(getGroupedCategories()).map(
+              ([department, categories]) => (
+                <optgroup
+                  key={department}
+                  label={`${DEPARTMENTS.find((dept) => dept.value === department)
+                      ?.label || department
                     }`}
-                  >
-                    {categories.map((category) => (
-                      <option key={category.value} value={category.value}>
-                        💠{category.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                )
-              )}
-            </select>
-          </div>
-          {/* <div className="w-1/2 ml-4">
+                >
+                  {categories.map((category) => (
+                    <option key={category.value} value={category.value}>
+                      💠{category.label}
+                    </option>
+                  ))}
+                </optgroup>
+              )
+            )}
+          </select>
+        </div>
+        {/* <div className="w-1/2 ml-4">
         <label className="block text-gray-700 font-medium mb-2 text-sm">
           เลขที่เอกสาร (ถ้ามี):
         </label>
@@ -523,48 +551,47 @@ export const FileUpload = ({
             className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black disabled:bg-gray-100"
           />
         </div> */}
-        </div>
-    
+      </div>
+
 
       {/* File Upload Area */}
-    
-        <div
-          className={`border-2 border-dashed rounded-lg p-6 transition-colors ${
-            dragOver
-              ? "border-green-500 bg-green-50"
-              : "border-gray-400 bg-gray-50 hover:border-gray-500"
+
+      <div
+        className={`border-2 border-dashed rounded-lg p-6 transition-colors ${dragOver
+            ? "border-green-500 bg-green-50"
+            : "border-gray-400 bg-gray-50 hover:border-gray-500"
           }`}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-        >
-          <div className="text-center">
-            <Upload
-              className={`mx-auto h-12 w-12 "text-gray-400"
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+      >
+        <div className="text-center">
+          <Upload
+            className={`mx-auto h-12 w-12 "text-gray-400"
               `}
+          />
+          <p className="mt-2 text-sm text-gray-600">
+            ลากและวางไฟล์ที่นี่ หรือ
+          </p>
+          <label
+            className={`mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-gray-600 bg-gray-100 hover:bg-gray-200 cursor-pointer"
+              `}
+          >
+            เลือกไฟล์
+            <input
+              type="file"
+              className="hidden"
+              accept="image/*,.pdf,.doc,.docx"
+              multiple
+              onChange={handleFileSelect}
             />
-            <p className="mt-2 text-sm text-gray-600">
-                 ลากและวางไฟล์ที่นี่ หรือ
-            </p>
-            <label
-              className={`mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-gray-600 bg-gray-100 hover:bg-gray-200 cursor-pointer"
-              `}
-            >
-              เลือกไฟล์
-              <input
-                type="file"
-                className="hidden"
-                accept="image/*,.pdf,.doc,.docx"
-                multiple
-                onChange={handleFileSelect}
-              />
-            </label>
-            <p className="mt-2 text-xs text-gray-500">
-              รองรับไฟล์ภาพ, PDF (สูงสุด 10MB ต่อไฟล์)
-            </p>
-          </div>
+          </label>
+          <p className="mt-2 text-xs text-gray-500">
+            รองรับไฟล์ภาพ, PDF (สูงสุด 10MB ต่อไฟล์)
+          </p>
         </div>
-    
+      </div>
+
 
       {/* Attached Files Display */}
       {Object.keys(attachedFiles).length > 0 && (
@@ -674,7 +701,7 @@ export const FileUpload = ({
                             </span>
                           </td>
 
-                          <td  key={fileItem.id} className="px-2 py-3 whitespace-nowrap text-xs text-gray-500">
+                          <td key={fileItem.id} className="px-2 py-3 whitespace-nowrap text-xs text-gray-500">
                             <input
                               type="text"
                               id={fileItem.category + "_no"}
@@ -683,48 +710,47 @@ export const FileUpload = ({
                               }
                               onChange={handleChanges}
                               placeholder="เลขที่เอกสาร"
-                              className={`${
-                                DOCUMENT_CATEGORIES.find(
-                                  (val) => val.value === fileItem.category
-                                )?.no
+                              className={`${DOCUMENT_CATEGORIES.find(
+                                (val) => val.value === fileItem.category
+                              )?.no
                                   ? ""
                                   : "hidden"
-                              } w-full text-xs px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black disabled:bg-gray-100`}
+                                } w-full text-xs px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black disabled:bg-gray-100`}
                             />
                           </td>
 
                           <td className="px-3 py-3 whitespace-nowrap text-xs font-medium">
                             <div className="flex items-center justify-center space-x-2">
                               {/* ปุ่มดูไฟล์ */}
-                                <div
-                                  onClick={(e) =>
-                                    isImageFile(fileItem.file)
-                                      ? handleOpenPreview(fileItem, e)
-                                      : handleOpenDocument(fileItem)
-                                  }
-                                  className="text-blue-600 hover:text-blue-800 cursor-pointer hover:bg-blue-50 p-1 rounded-md transition-colors"
-                                  title={
-                                    isImageFile(fileItem.file)
-                                      ? "ดูรูปภาพ"
-                                      : "เปิดเอกสาร"
-                                  }
-                                >
-                                  {isImageFile(fileItem.file) ? (
-                                    <Eye className="w-4 h-4" />
-                                  ) : (
-                                    <ExternalLink className="w-4 h-4" />
-                                  )}
-                                </div>
+                              <div
+                                onClick={(e) =>
+                                  isImageFile(fileItem.file)
+                                    ? handleOpenPreview(fileItem, e)
+                                    : handleOpenDocument(fileItem)
+                                }
+                                className="text-blue-600 hover:text-blue-800 cursor-pointer hover:bg-blue-50 p-1 rounded-md transition-colors"
+                                title={
+                                  isImageFile(fileItem.file)
+                                    ? "ดูรูปภาพ"
+                                    : "เปิดเอกสาร"
+                                }
+                              >
+                                {isImageFile(fileItem.file) ? (
+                                  <Eye className="w-4 h-4" />
+                                ) : (
+                                  <ExternalLink className="w-4 h-4" />
+                                )}
+                              </div>
 
-                                <div
-                                  onClick={() =>
-                                    removeFile(fileItem.category, fileItem.id)
-                                  }
-                                  className="text-red-600 hover:text-red-800 hover:bg-red-100 bg-red-50 hover:scale-110 cursor-pointer p-1 rounded-md transition-colors"
-                                  title="ลบไฟล์"
-                                >
-                                  <Trash className="w-4 h-4" />
-                                </div>
+                              <div
+                                onClick={() =>
+                                  removeFile(fileItem.category, fileItem.id)
+                                }
+                                className="text-red-600 hover:text-red-800 hover:bg-red-100 bg-red-50 hover:scale-110 cursor-pointer p-1 rounded-md transition-colors"
+                                title="ลบไฟล์"
+                              >
+                                <Trash className="w-4 h-4" />
+                              </div>
                             </div>
                           </td>
                         </tr>
@@ -822,9 +848,9 @@ export const FileUpload = ({
       {previewFile && (
         <div
           className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center"
-          // onClick={() => setPreviewFile(null)}
+        // onClick={() => setPreviewFile(null)}
         >
-          <div 
+          <div
             className="relative max-w-[90vw] max-h-[90vh]"
             style={{
               animation: 'scaleIn 0.2s ease-out'

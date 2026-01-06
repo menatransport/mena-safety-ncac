@@ -37,6 +37,8 @@ interface NCRecord {
   status: string;
   description: string;
   location: string;
+  estimated_cost: number;
+  actual_price: number;
 }
 
 interface FilterCriteria {
@@ -248,6 +250,8 @@ export const NCRecordsComponent = () => {
           status: record.casestatus,
           description: record.case_details,
           location: record.case_location,
+          actual_price: record.actual_price,
+          estimated_cost: record.estimated_cost,
         }));
 
         setRecords(transformedRecords);
@@ -519,7 +523,6 @@ export const NCRecordsComponent = () => {
       return;
     }
 
-    // เตรียมข้อมูลสำหรับ Excel
     const excelData = filteredRecords.map(record => ({
       'เลขที่เอกสาร': record.id,
       'วันที่': record.date ? formatDate(record.date) : 'ไม่ระบุ',
@@ -529,6 +532,8 @@ export const NCRecordsComponent = () => {
       'แผนก': record.department_name || 'ไม่ระบุ',
       'ทะเบียนรถ': record.plateNumber || 'ไม่ระบุ',
       'พนักงานขับรถ': record.driver_name || 'ไม่ระบุ',
+      'มูลค่าความเสียหายประมาณการ': record.estimated_cost != null ? Number(record.estimated_cost).toLocaleString() : '-',
+      'มูลค่าความเสียหายจริง': record.actual_price != null ? Number(record.actual_price).toLocaleString() : '-',
       'ระดับความรุนแรง': record.priority || 'ไม่ระบุ',
       'สถานะ': record.status,
       'รายละเอียด': record.description || 'ไม่ระบุ',
@@ -938,6 +943,10 @@ export const NCRecordsComponent = () => {
                   {dateRangePreset === "month" && "เดือนนี้"}
                 </span>
               )}
+              {/* <span className="p-2 bg-gray-700 text-xs ml-4 rounded">
+              Est. คือ มูลค่าความเสียหายประมาณการ , Act. คือ มูลค่าความเสียหายจริง
+              </span> */}
+
             </h2>
             <div className="text-white mt-1 space-y-1">
               <p>พบข้อมูล {filteredRecords.length} รายการ</p>
@@ -998,15 +1007,15 @@ export const NCRecordsComponent = () => {
           </div>
           {/* Desktop View */}
           <div className="hidden lg:block overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full ">
               <thead className="bg-gray-300">
                 <tr>
                   <th
-                    className="w-50 px-6 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
+                    className="px-6 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
                     onClick={() => handleSort("id")}
                   >
-                    <div className="flex items-center gap-2">
-                      <span>เลขที่เอกสาร</span>
+                    <div className="flex justify-center items-center gap-2 min-w-36">
+                      <span>Doc.</span>
                       {getSortIcon("id")}
                     </div>
                   </th>
@@ -1015,7 +1024,7 @@ export const NCRecordsComponent = () => {
                     onClick={() => handleSort("date")}
                   >
                     <div className="flex items-center gap-2">
-                      <span>วันที่และเวลารายงาน</span>
+                      <span>Date Reported</span>
                       {getSortIcon("date")}
                     </div>
                   </th>
@@ -1024,7 +1033,7 @@ export const NCRecordsComponent = () => {
                     onClick={() => handleSort("client_name")}
                   >
                     <div className="flex items-center gap-2">
-                      <span>ลูกค้า</span>
+                      <span>Customer</span>
                       {getSortIcon("client_name")}
                     </div>
                   </th>
@@ -1033,7 +1042,7 @@ export const NCRecordsComponent = () => {
                     onClick={() => handleSort("reporter_name")}
                   >
                     <div className="flex items-center gap-2">
-                      <span>ชื่อผู้แจ้ง</span>
+                      <span>Reporter</span>
                       {getSortIcon("reporter_name")}
                     </div>
                   </th>
@@ -1042,7 +1051,7 @@ export const NCRecordsComponent = () => {
                     onClick={() => handleSort("site_name")}
                   >
                     <div className="flex items-center gap-2">
-                      <span>สำนักงาน/ศูนย์ปฏิบัติการ</span>
+                      <span>Site</span>
                       {getSortIcon("site_name")}
                     </div>
                   </th>
@@ -1051,7 +1060,7 @@ export const NCRecordsComponent = () => {
                     onClick={() => handleSort("department_name")}
                   >
                     <div className="flex items-center gap-2">
-                      <span>ฝ่าย</span>
+                      <span>Dept.</span>
                       {getSortIcon("department_name")}
                     </div>
                   </th>
@@ -1060,8 +1069,26 @@ export const NCRecordsComponent = () => {
                     onClick={() => handleSort("driver_name")}
                   >
                     <div className="flex items-center gap-2">
-                      <span>ชื่อคนขับ</span>
+                      <span>Driver</span>
                       {getSortIcon("driver_name")}
+                    </div>
+                  </th>
+                   <th
+                    className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
+                    onClick={() => handleSort("estimated_cost")}
+                  >
+                    <div className="flex items-center gap-2" title="มูลค่าความเสียหายประมาณการ">
+                      <span>Est.</span>
+                      {getSortIcon("estimated_cost")}
+                    </div>
+                  </th>
+                   <th
+                    className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
+                    onClick={() => handleSort("actual_price")}
+                  >
+                    <div className="flex items-center gap-2" title="มูลค่าความเสียหายจริง">
+                      <span>Act.</span>
+                      {getSortIcon("actual_price")}
                     </div>
                   </th>
 
@@ -1070,12 +1097,12 @@ export const NCRecordsComponent = () => {
                     onClick={() => handleSort("status")}
                   >
                     <div className="flex items-center gap-2">
-                      <span>สถานะ</span>
+                      <span>Status</span>
                       {getSortIcon("status")}
                     </div>
                   </th>
                   <th className="px-4 py-4 text-center text-sm font-medium text-gray-600">
-                    <span>จัดการ</span>
+                    <span></span>
                   </th>
                 </tr>
               </thead>
@@ -1158,8 +1185,14 @@ export const NCRecordsComponent = () => {
                       <td className="px-6 py-4 text-xs text-gray-600">
                         {record.department_name || "ไม่ระบุ"}
                       </td>
-                      <td className="px-6 py-4 text-xs text-gray-600  max-w-[140px] truncate">
+                      <td className="px-6 py-4 text-xs text-gray-600" >
                         {record.driver_name || "ไม่ระบุ"}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-gray-600">
+                        {record.estimated_cost != null ? Number(record.estimated_cost).toLocaleString() : "-"}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-gray-600">
+                        {record.actual_price != null ? Number(record.actual_price).toLocaleString() : "-"}
                       </td>
                       <td className="px-6 py-4">
                         <span
@@ -1174,7 +1207,7 @@ export const NCRecordsComponent = () => {
 
                         </span>
                       </td>
-                      <td className="flex flex-row px-6 py-4 bg-gray-50 w-32">
+                      <td className="flex flex-row px-6 py-4 bg-gray-50 w-fit">
                         <div className="flex flex-col items-center justify-center space-x-2">
                           <button
                             onClick={() => handleRouter(record.id)}
@@ -1270,44 +1303,57 @@ export const NCRecordsComponent = () => {
                       <div className="space-y-2 text-sm">
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <span className="font-medium text-gray-600">ลูกค้า:</span>
-                            <p className="text-gray-900">{record.client_name || "ไม่ระบุ"}</p>
+                            <span className="font-semibold text-indigo-600">ลูกค้า:</span>
+                            <p className="text-gray-900 text-xs border-b-1 w-fit">{record.client_name || "ไม่ระบุ"}</p>
                           </div>
                           <div>
-                            <span className="font-medium text-gray-600">ผู้รายงาน:</span>
-                            <p className="text-gray-900">{record.reporter_name || "ไม่ระบุ"}</p>
+                            <span className="font-semibold text-indigo-600">ผู้รายงาน:</span>
+                            <p className="text-gray-900 text-xs border-b-1 w-fit">{record.reporter_name || "ไม่ระบุ"}</p>
                           </div>
                         </div>
                         
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <span className="font-medium text-gray-600">สำนักงาน/ศูนย์:</span>
-                            <p className="text-gray-900">{record.site_name || "ไม่ระบุ"}</p>
+                            <span className="font-semibold text-indigo-600">สำนักงาน/ศูนย์:</span>
+                            <p className="text-gray-900 text-xs border-b-1 w-fit">{record.site_name || "ไม่ระบุ"}</p>
                           </div>
                           <div>
-                            <span className="font-medium text-gray-600">ทะเบียนรถ:</span>
-                            <p className="text-gray-900">{record.plateNumber || "ไม่ระบุ"}</p>
+                            <span className="font-semibold text-indigo-600">ทะเบียนรถ:</span>
+                            <p className="text-gray-900 text-xs border-b-1 w-fit">{record.plateNumber || "ไม่ระบุ"}</p>
                           </div>
                         </div>
-
+                        
+                        <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <span className="font-medium text-gray-600">พนักงานขับรถ:</span>
-                          <p className="text-gray-900">{record.driver_name || "ไม่ระบุ"}</p>
+                          <span className="font-semibold text-indigo-600">มูลค่าความเสียหายประมาณการ:</span>
+                          <p className="text-gray-900 text-xs border-b-1 w-fit">{record.estimated_cost != null ? Number(record.estimated_cost).toLocaleString() : "-"}</p>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-indigo-600">มูลค่าความเสียหายจริง:</span>
+                          <p className="text-gray-900 text-xs border-b-1 w-fit">{record.actual_price != null ? Number(record.actual_price).toLocaleString() : "-"}</p>
+                        </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                         <div>
+                          <span className="font-semibold text-indigo-600">พนักงานขับรถ:</span>
+                          <p className="text-gray-900 text-xs border-b-1 w-fit">{record.driver_name || "ไม่ระบุ"}</p>
+                        </div>
+                        {record.location && (
+                          <div>
+                            <span className="font-semibold text-indigo-600">สถานที่:</span>
+                            <p className="text-gray-900 text-xs mt-1 border-b-1 w-fit">{record.location}</p>
+                          </div>
+                        )}
                         </div>
 
                         {record.description && (
                           <div>
-                            <span className="font-medium text-gray-600">รายละเอียด:</span>
-                            <p className="text-gray-900 text-sm mt-1">{record.description}</p>
+                            <span className="font-semibold text-indigo-600">รายละเอียด:</span>
+                            <p className="text-gray-900 text-xs mt-1 border-1 p-1 w-fit">{record.description}</p>
                           </div>
                         )}
 
-                        {record.location && (
-                          <div>
-                            <span className="font-medium text-gray-600">สถานที่:</span>
-                            <p className="text-gray-900 text-sm mt-1">{record.location}</p>
-                          </div>
-                        )}
+                        
                       </div>
 
                       {/* Actions */}

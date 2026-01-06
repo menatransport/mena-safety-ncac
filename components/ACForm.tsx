@@ -12,6 +12,7 @@ import { useClipboard_ac } from "@/lib/clipboard";
 import { LoaderPage } from "./LoaderPage";
 import { Printer } from "lucide-react";
 import { printDocument_ac } from "@/lib/printDocument";
+import { sendErrorLog } from "@/lib/logError";
 
 interface FileWithId {
   id: string;
@@ -159,7 +160,7 @@ export const ACFormComponent = () => {
         );
 
         const data = await res.json();
-        console.log("Fetched AC record data:", data);
+        // console.log("Fetched AC record data:", data);
         if (res.ok) {
           if (data.reporter_name == name) {
             setIsViewMode(false);
@@ -614,6 +615,7 @@ export const ACFormComponent = () => {
       });
     } catch (error) {
       console.error("Error copying to clipboard:", error);
+      sendErrorLog("ACForm/clipboard", error instanceof Error ? error : String(error));
       Swal.fire({
         icon: "error",
         title: "เกิดข้อผิดพลาด",
@@ -697,6 +699,7 @@ export const ACFormComponent = () => {
 
     } catch (error) {
       console.error("Error printing document:", error);
+      sendErrorLog("ACForm/handlePrintDocument", error instanceof Error ? error : String(error));
       Swal.fire({
         icon: "error",
         title: "เกิดข้อผิดพลาด",
@@ -713,7 +716,7 @@ export const ACFormComponent = () => {
     const itemName = prompt(`เพิ่มรายการใหม่สำหรับ ${type}:`);
     if (itemName && itemName.trim()) {
       const obj = finditems(type, itemName)
-      console.log("obj : ", obj);
+      // console.log("obj : ", obj);
       const res = await fetch(`/api/list`, {
         method: "POST",
         headers: {
@@ -923,7 +926,7 @@ export const ACFormComponent = () => {
     e.preventDefault();
 
     const validation = validateRequiredFields();
-    console.log('validation : ', validation)
+    // console.log('validation : ', validation)
     if (validation.missingFields.length > 0) {
       const missingFieldsList = validation.missingFields.join("\n• ");
       Swal.fire({
@@ -970,7 +973,6 @@ export const ACFormComponent = () => {
       });
 
       const responseData = await res.json();
-      console.log("API Response:", responseData);
 
       if (res.ok) {
         Swal.fire({
@@ -988,7 +990,7 @@ export const ACFormComponent = () => {
           casestatus: responseData.casestatus,
         }));
         if (
-          responseData.document_no_ac &&
+          responseData.document_no_ac !== "" &&
           Object.keys(attachedFiles).length > 0
         ) {
           await attatchments_post(responseData.document_no_ac);
@@ -1000,10 +1002,13 @@ export const ACFormComponent = () => {
       }
     } catch (error) {
       console.error("Error submitting AC form:", error);
-      alert(
-        `เกิดข้อผิดพลาดในการบันทึกข้อมูล: ${error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
+      sendErrorLog("ACForm/handleSubmit", error instanceof Error ? error : String(error));
+      Swal.fire({
+        icon: "error",
+        title: "เกิดข้อผิดพลาดในการบันทึกข้อมูล",
+        text: error instanceof Error ? error.message : "Unknown error",
+        confirmButtonText: "ตกลง"
+      });
     }
   };
 
@@ -1069,6 +1074,7 @@ export const ACFormComponent = () => {
         allowOutsideClick: false,
       });
     } else {
+      sendErrorLog("ACForm/handleUpdate", `Update failed: ${responseData.message || 'Unknown error'}`);
       Swal.fire({
         icon: "error",
         title: "เกิดข้อผิดพลาดในการอัปเดตข้อมูล",
@@ -1079,7 +1085,7 @@ export const ACFormComponent = () => {
       priority: responseData.priority,
     }));
     // console.log("Attached Files on Update:", attachedFiles);
-    if (responseData.document_no_ac && Object.keys(attachedFiles).length > 0) {
+    if (responseData.document_no_ac !== "" && Object.keys(attachedFiles).length > 0) {
       await attatchments_post(responseData.document_no_ac);
     }
     // }
@@ -1088,6 +1094,7 @@ export const ACFormComponent = () => {
   const attatchments_post = async (document_no_ac: string) => {
     if (!document_no_ac) {
       console.error("Document number is required for attachments upload.");
+      alert("ไม่พบเลขที่เอกสารสำหรับการอัปโหลดไฟล์แนบ");
       return;
     }
     try {
@@ -1096,7 +1103,6 @@ export const ACFormComponent = () => {
         if (Array.isArray(files)) {
           files.forEach((fileItem: FileWithId, index: number) => {
             if (fileItem.updateData === "existing") {
-              // Skip existing files
               return;
             }
 
@@ -1128,7 +1134,6 @@ export const ACFormComponent = () => {
       });
 
       if (res.ok) {
-        const result = await res.json();
         if (attachedFiles['investigate_report'] && attachedFiles['investigate_report'].length > 0) {
           const statusRes = await fetch("/api/document/ac", {
             method: "PUT",
@@ -1152,10 +1157,12 @@ export const ACFormComponent = () => {
           icon: "error",
           title: "เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ",
         });
+        sendErrorLog("ACForm/attatchments_post", `เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ : ${res}`);
       }
     } catch (error) {
-      console.error("Error uploading attachments:", error);
-      alert("เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ");
+      console.error("Error uploading attachments catch :", error);
+      alert("เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ catch ");
+      sendErrorLog("ACForm/attatchments_post", `เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ catch : ${error}`);
     }
   };
 
@@ -1724,7 +1731,7 @@ const statusDesign = (status: string) => {
                             driver_id: String(value),
                           }))
                         }
-                        onAdd={() => handleAddItem("masterdrivers")}
+                        // onAdd={() => handleAddItem("masterdrivers")}
                         disabled={isViewMode}
                         className="w-full"
                       />
