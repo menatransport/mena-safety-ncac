@@ -238,7 +238,7 @@ export const NCRecordsComponent = () => {
           params.append(key, value.toString());
         }
       });
-      
+
       const response = await fetch(`/api/record/nc?${params.toString()}`, {
         method: "GET",
         headers: {
@@ -247,7 +247,7 @@ export const NCRecordsComponent = () => {
       });
       if (response.ok) {
         const data = await response.json();
-        // console.log('data :',data)
+        // console.log('data :', data)
         const transformedRecords = data.map((record: any) => ({
           id: record.document_no,
           date: record.record_date,
@@ -379,7 +379,7 @@ export const NCRecordsComponent = () => {
           );
           return site && record.site_name === (site.site_name_th || site.site_name);
         });
-        
+
     const matchesDriver =
       !filterCriteria.driver_id ||
       filterCriteria.driver_id
@@ -570,7 +570,7 @@ export const NCRecordsComponent = () => {
       'ประกันเคลม': record.insurance_claim != null ? Number(record.insurance_claim).toLocaleString() : '-',
       'ขายต่อ': record.product_resellable != null ? Number(record.product_resellable).toLocaleString() : '-',
       'ค่าความเสียหายที่เหลือ': record.remaining_damage_cost != null ? Number(record.remaining_damage_cost).toLocaleString() : '-',
-      
+
     }));
 
     // สร้าง workbook และ worksheet
@@ -761,9 +761,9 @@ export const NCRecordsComponent = () => {
                   เลขที่เอกสาร
                 </label>
                 <input
-                className="flex items-center justify-between w-full text-sm p-2 border  rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black bg-white cursor-pointer "
-                type="text"  
-                value={filterCriteria.document_no || ""}
+                  className="flex items-center justify-between w-full text-sm p-2 border  rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black bg-white cursor-pointer "
+                  type="text"
+                  value={filterCriteria.document_no || ""}
                   onChange={(e) =>
                     setFilterCriteria((prev) => ({
                       ...prev,
@@ -777,7 +777,7 @@ export const NCRecordsComponent = () => {
               {/* Site Selection */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                 สำนักงาน/ศูนย์ปฏิบัติการ (Site)
+                  สำนักงาน/ศูนย์ปฏิบัติการ (Site)
                 </label>
                 <SearchableSelect
                   options={
@@ -1010,7 +1010,7 @@ export const NCRecordsComponent = () => {
                 )}
             </div>
             <div className="absolute top-4 right-4 flex flex-col sm:flex-row gap-2">
-              <button 
+              <button
                 onClick={exportToExcel}
                 className="bg-emerald-600 border border-white hover:bg-emerald-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 shadow-lg hover:shadow-xl"
               >
@@ -1044,11 +1044,11 @@ export const NCRecordsComponent = () => {
               <thead className="bg-gray-300">
                 <tr>
                   <th
-                    className="px-6 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
+                    className="px-3 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
                     onClick={() => handleSort("id")}
                   >
-                    <div className="flex justify-center items-center gap-2 min-w-36">
-                      <span>Doc.</span>
+                    <div className="flex justify-center items-center gap-2 min-w-32">
+                      <span>ID</span>
                       {getSortIcon("id")}
                     </div>
                   </th>
@@ -1057,8 +1057,17 @@ export const NCRecordsComponent = () => {
                     onClick={() => handleSort("date")}
                   >
                     <div className="flex items-center gap-2">
-                      <span>Date Reported</span>
+                      <span>Report date</span>
                       {getSortIcon("date")}
+                    </div>
+                  </th>
+                  <th
+                    className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
+                    onClick={() => handleSort("incident_date")}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span>Incident date</span>
+                      {getSortIcon("incident_date")}
                     </div>
                   </th>
                   <th
@@ -1106,7 +1115,7 @@ export const NCRecordsComponent = () => {
                       {getSortIcon("driver_name")}
                     </div>
                   </th>
-                   <th
+                  <th
                     className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
                     onClick={() => handleSort("estimated_cost")}
                   >
@@ -1115,7 +1124,7 @@ export const NCRecordsComponent = () => {
                       {getSortIcon("estimated_cost")}
                     </div>
                   </th>
-                   <th
+                  <th
                     className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
                     onClick={() => handleSort("actual_price")}
                   >
@@ -1151,6 +1160,9 @@ export const NCRecordsComponent = () => {
                         <div className="h-4 bg-gray-200 rounded w-24"></div>
                       </td>
                       <td className="px-6 py-4">
+                        <div className="h-4 bg-gray-200 rounded w-24"></div>
+                      </td>
+                      <td className="px-6 py-4">
                         <div className="h-4 bg-gray-200 rounded w-28"></div>
                       </td>
                       <td className="px-6 py-4">
@@ -1178,7 +1190,7 @@ export const NCRecordsComponent = () => {
                   ))
                   : currentRecords.map((record) => (
                     <tr className="hover:bg-gray-100 transition-colors">
-                      <td className="px-6 py-4 text-xs font-medium text-gray-800">
+                      <td className="px-3 py-4 text-xs font-medium text-gray-800">
                         <div className="flex items-center gap-2">
                           <div
                             className={`flex items-center justify-center w-6 h-6 rounded-full ${getPriorityIcon(record.priority).bgColor
@@ -1200,34 +1212,37 @@ export const NCRecordsComponent = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-xs text-gray-600">
+                      <td className="px-3 py-4 text-xs text-gray-600">
                         {formatDate(record.date)}
                       </td>
+                      <td className="px-3 py-4 text-xs text-gray-600">
+                        {formatDate(record.incident_date)}
+                      </td>
                       <td
-                        className="px-6 py-4 text-xs text-gray-600 max-w-[140px] truncate"
+                        className="px-3 py-4 text-xs text-gray-600 max-w-[140px] truncate"
                         title={record.client_name || "ไม่ระบุ"}
                       >
                         {record.client_name || "ไม่ระบุ"}
                       </td>
-                      <td className="px-6 py-4 text-xs text-gray-600">
+                      <td className="px-3 py-4 text-xs text-gray-600">
                         {record.reporter_name || "ไม่ระบุ"}
                       </td>
-                      <td className="px-6 py-4 text-xs text-gray-600">
+                      <td className="px-3 py-4 text-xs text-gray-600">
                         {record.site_name || "ไม่ระบุ"}
                       </td>
-                      <td className="px-6 py-4 text-xs text-gray-600">
+                      <td className="px-3 py-4 text-xs text-gray-600">
                         {record.department_name || "ไม่ระบุ"}
                       </td>
-                      <td className="px-6 py-4 text-xs text-gray-600" >
+                      <td className="px-3 py-4 text-xs text-gray-600" >
                         {record.driver_name || "ไม่ระบุ"}
                       </td>
-                      <td className="px-6 py-4 text-xs text-gray-600">
+                      <td className="px-3 py-4 text-xs text-gray-600">
                         {record.estimated_cost != null ? Number(record.estimated_cost).toLocaleString() : "-"}
                       </td>
-                      <td className="px-6 py-4 text-xs text-gray-600">
+                      <td className="px-3 py-4 text-xs text-gray-600">
                         {record.actual_price != null ? Number(record.actual_price).toLocaleString() : "-"}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 py-4">
                         <span
                           className={`flex justify-center px-3 py-1 rounded-full text-xs font-medium text-center shadow-sm border ${getStatusColor(
                             record.status
@@ -1240,11 +1255,11 @@ export const NCRecordsComponent = () => {
 
                         </span>
                       </td>
-                      <td className="flex flex-row px-6 py-4 bg-gray-50 w-fit">
+                      <td className="flex flex-row px-3 py-4 bg-gray-50 w-fit">
                         <div className="flex flex-col items-center justify-center space-x-2">
                           <button
                             onClick={() => handleRouter(record.id)}
-                            className="p-2 text-blue-600  hover:scale-110 rounded-lg cursor-pointer" 
+                            className="p-2 text-blue-600  hover:scale-110 rounded-lg cursor-pointer"
                             title="ดูรายละเอียด"
                           >
                             <LordIcon
@@ -1277,86 +1292,83 @@ export const NCRecordsComponent = () => {
               </tbody>
             </table>
           </div>
-       
-           {/* Mobile View */}
-        <div className="lg:hidden space-y-4 p-4">
+
+          {/* Mobile View */}
+          <div className="lg:hidden space-y-4 p-4">
             {loading
               ? Array.from({ length: 3 }).map((_, index) => (
-                  <div key={index} className="bg-white rounded-lg border border-gray-200 p-4 animate-pulse">
-                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                    <div className="h-3 bg-gray-200 rounded w-1/2 mb-3"></div>
-                    <div className="space-y-2">
-                      <div className="h-3 bg-gray-200 rounded w-full"></div>
-                      <div className="h-3 bg-gray-200 rounded w-2/3"></div>
-                      <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                    </div>
-                    <div className="flex justify-between items-center mt-4">
-                      <div className="h-6 bg-gray-200 rounded w-16"></div>
-                      <div className="flex space-x-2">
-                        <div className="h-8 bg-gray-200 rounded w-16"></div>
-                        <div className="h-8 bg-gray-200 rounded w-12"></div>
-                      </div>
+                <div key={index} className="bg-white rounded-lg border border-gray-200 p-4 animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-1/2 mb-3"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 bg-gray-200 rounded w-full"></div>
+                    <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                  </div>
+                  <div className="flex justify-between items-center mt-4">
+                    <div className="h-6 bg-gray-200 rounded w-16"></div>
+                    <div className="flex space-x-2">
+                      <div className="h-8 bg-gray-200 rounded w-16"></div>
+                      <div className="h-8 bg-gray-200 rounded w-12"></div>
                     </div>
                   </div>
-                ))
+                </div>
+              ))
               : currentRecords.map((record) => {
-                  const priorityInfo = getPriorityIcon(record.priority);
-                  return (
-                    <div key={record.id} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
-                      {/* Header */}
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-900">{record.id}</h3>
-                          <p className="text-sm text-gray-500">
-                            {record.date ? formatDate(record.date) : "ไม่ระบุ"}
-                          </p>
-                        </div>
-                        <span
-                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${
-                            priorityInfo.bgColor
-                          } ${
-                            priorityInfo.color
-                          } ${
-                            priorityInfo.borderColor
+                const priorityInfo = getPriorityIcon(record.priority);
+                return (
+                  <div key={record.id} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
+                    {/* Header */}
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{record.id}</h3>
+                        <p className="text-sm text-gray-500">
+                          {record.date ? formatDate(record.date) : "ไม่ระบุ"}
+                        </p>
+                      </div>
+                      <span
+                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${priorityInfo.bgColor
+                          } ${priorityInfo.color
+                          } ${priorityInfo.borderColor
                           }`}
-                        >
-                          <span className="mr-1">{priorityInfo.icon}</span>
-                          {priorityInfo.label}
-                        </span>
+                      >
+                        <span className="mr-1">{priorityInfo.icon}</span>
+                        {priorityInfo.label}
+                      </span>
+                    </div>
+
+                    {/* Status Badge */}
+                    <div className="mb-3">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(record.status)}`}>
+                        {record.status}
+                      </span>
+                    </div>
+
+                    {/* Details */}
+                    <div className="space-y-2 text-sm">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="font-semibold text-indigo-600">ลูกค้า:</span>
+                          <p className="text-gray-900 text-xs border-b-1 w-fit">{record.client_name || "ไม่ระบุ"}</p>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-indigo-600">ผู้รายงาน:</span>
+                          <p className="text-gray-900 text-xs border-b-1 w-fit">{record.reporter_name || "ไม่ระบุ"}</p>
+                        </div>
                       </div>
 
-                      {/* Status Badge */}
-                      <div className="mb-3">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(record.status)}`}>
-                          {record.status}
-                        </span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="font-semibold text-indigo-600">สำนักงาน/ศูนย์:</span>
+                          <p className="text-gray-900 text-xs border-b-1 w-fit">{record.site_name || "ไม่ระบุ"}</p>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-indigo-600">ทะเบียนรถ:</span>
+                          <p className="text-gray-900 text-xs border-b-1 w-fit">{record.plateNumber || "ไม่ระบุ"}</p>
+                        </div>
                       </div>
 
-                      {/* Details */}
-                      <div className="space-y-2 text-sm">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <span className="font-semibold text-indigo-600">ลูกค้า:</span>
-                            <p className="text-gray-900 text-xs border-b-1 w-fit">{record.client_name || "ไม่ระบุ"}</p>
-                          </div>
-                          <div>
-                            <span className="font-semibold text-indigo-600">ผู้รายงาน:</span>
-                            <p className="text-gray-900 text-xs border-b-1 w-fit">{record.reporter_name || "ไม่ระบุ"}</p>
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <span className="font-semibold text-indigo-600">สำนักงาน/ศูนย์:</span>
-                            <p className="text-gray-900 text-xs border-b-1 w-fit">{record.site_name || "ไม่ระบุ"}</p>
-                          </div>
-                          <div>
-                            <span className="font-semibold text-indigo-600">ทะเบียนรถ:</span>
-                            <p className="text-gray-900 text-xs border-b-1 w-fit">{record.plateNumber || "ไม่ระบุ"}</p>
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-2">
                         <div>
                           <span className="font-semibold text-indigo-600">มูลค่าความเสียหายประมาณการ:</span>
                           <p className="text-gray-900 text-xs border-b-1 w-fit">{record.estimated_cost != null ? Number(record.estimated_cost).toLocaleString() : "-"}</p>
@@ -1365,9 +1377,9 @@ export const NCRecordsComponent = () => {
                           <span className="font-semibold text-indigo-600">มูลค่าความเสียหายจริง:</span>
                           <p className="text-gray-900 text-xs border-b-1 w-fit">{record.actual_price != null ? Number(record.actual_price).toLocaleString() : "-"}</p>
                         </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                         <div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
                           <span className="font-semibold text-indigo-600">พนักงานขับรถ:</span>
                           <p className="text-gray-900 text-xs border-b-1 w-fit">{record.driver_name || "ไม่ระบุ"}</p>
                         </div>
@@ -1377,44 +1389,44 @@ export const NCRecordsComponent = () => {
                             <p className="text-gray-900 text-xs mt-1 border-b-1 w-fit">{record.location}</p>
                           </div>
                         )}
+                      </div>
+
+                      {record.description && (
+                        <div>
+                          <span className="font-semibold text-indigo-600">รายละเอียด:</span>
+                          <p className="text-gray-900 text-xs mt-1 border-1 p-1 w-fit">{record.description}</p>
                         </div>
+                      )}
 
-                        {record.description && (
-                          <div>
-                            <span className="font-semibold text-indigo-600">รายละเอียด:</span>
-                            <p className="text-gray-900 text-xs mt-1 border-1 p-1 w-fit">{record.description}</p>
-                          </div>
-                        )}
 
-                        
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex justify-end space-x-2 mt-4 pt-3 border-t border-gray-100">
-                        <button
-                          onClick={() => handleRouter(record.id)}
-                          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium transition-colors shadow-sm hover:shadow-md flex items-center"
-                        >
-                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                          แก้ไข
-                        </button>
-                        <button
-                          onClick={() => handleVoided(record.id)}
-                          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm font-medium transition-colors shadow-sm hover:shadow-md flex items-center"
-                        >
-                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                          ลบ
-                        </button>
-                      </div>
                     </div>
-                  );
-                })}
-        </div>
-        
+
+                    {/* Actions */}
+                    <div className="flex justify-end space-x-2 mt-4 pt-3 border-t border-gray-100">
+                      <button
+                        onClick={() => handleRouter(record.id)}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium transition-colors shadow-sm hover:shadow-md flex items-center"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        แก้ไข
+                      </button>
+                      <button
+                        onClick={() => handleVoided(record.id)}
+                        className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm font-medium transition-colors shadow-sm hover:shadow-md flex items-center"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        ลบ
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+
         </div>
       </div>
     </div>
