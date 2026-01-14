@@ -20,148 +20,10 @@ export const DashboardComponent = () => {
   const [ncData, setNcData] = useState<caseReport_NC[]>([]);
   const [acData, setAcData] = useState<caseReport_AC[]>([]);
   const [loading, setLoading] = useState(false);
-  const [useMockData, setUseMockData] = useState(false); // เปิด MockData
   const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
   const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-  // Mock Data สำหรับทดสอบ
-  const generateMockData = () => {
-    const mockNCData: caseReport_NC[] = [];
-    const mockACData: caseReport_AC[] = [];
 
-    const priorities = ['Minor', 'Major', 'Crisis'];
-    const causes = ['สินค้าเสียหายระหว่างจัดส่ง- การจัดเรียงสินค้า',
-      'สินค้าเสียหายระหว่างจัดส่ง- การโหลดสินค้า',
-      'สินค้าเสียหายระหว่างจัดส่ง- อุณหภูมิมีปัญหา',
-      'สินค้าเสียหายระหว่างจัดส่ง-จากการขับขี่',
-      'สินค้าขาดส่ง-จากการตรวจนับ',
-      'สินค้าขาดส่ง-จากการไม่ปฏิบัติตามขั้นตอนการทำงาน',
-      'ปรับ-พจร. แต่ลูกค้าไม่ปรับ',
-      'ค่าปรับ Driver App',
-      'รถเสีย-ทำให้สินค้าเสียหาย',
-      'ตก Ontime',
-      'น้ำหนักขาด',
-      'ส่งผิดหน่วยงาน',
-      'อื่นๆ',
-      'ค่าจัดเรียงสินค้าใหม่'];
-    const sites = ['ลาดกระบัง', 'สระบุรี', 'บางประกง', 'ระยอง'];
-    // สร้าง Mock NC Data
-    for (let i = 0; i < 30; i++) {
-      const randomDay = Math.floor(Math.random() * 28) + 1;
-      const randomMonth = selectedMonth === 'all' ? Math.floor(Math.random() * 12) + 1 : parseInt(selectedMonth);
-      const date = `${selectedYear}-${String(randomMonth).padStart(2, '0')}-${String(randomDay).padStart(2, '0')}`;
-
-      mockNCData.push({
-        document_no: `NC-2025-${String(i + 1).padStart(4, '0')}`,
-        site_id: Math.floor(Math.random() * 4) + 1,
-        department_id: 1,
-        department: 'แผนกขนส่ง',
-        client_id: 1,
-        client: 'บริษัท ABC จำกัด',
-        vehicle_id_head: 1,
-        vehicle_head: 'ABC-1234',
-        vehicle_id_tail: 1,
-        vehicle_tail: 'DEF-5678',
-        vehicle_truckno: `TRUCK-${i + 1}`,
-        origin_id: 1,
-        reporter: 'ผู้แจ้ง ' + (i + 1),
-        priority: priorities[Math.floor(Math.random() * priorities.length)],
-        site: sites[Math.floor(Math.random() * sites.length)],
-        driver_role: 'พนักงานขับรถ',
-        driver: 'พจส. ' + (i + 1),
-        driver_role_id: 1,
-        driver_id: String(i + 1),
-        incident_cause_id: Math.floor(Math.random() * 5) + 1,
-        reporter_id: i + 1,
-        record_date: date,
-        incident_date: date,
-        case_location: 'สถานที่เกิดเหตุ ' + (i + 1),
-        incident_cause: causes[Math.floor(Math.random() * causes.length)],
-        description: 'รายละเอียดเหตุการณ์ที่ ' + (i + 1),
-        destination: 'จุดหมายปลายทาง ' + (i + 1),
-        case_details: 'รายละเอียดเคส ' + (i + 1),
-        estimated_cost: Math.random() * 100000,
-        actual_price: Math.random() * 100000,
-        attachments: '',
-        casestatus: 'Open',
-        products: [{
-          product_id: 1,
-          product_name: 'สินค้า',
-          amount: 100,
-          unit: 'ชิ้น'
-        }],
-        docs: [{
-          warning_doc: '',
-          warning_doc_no: '',
-          warning_doc_remark: '',
-          debt_doc: '',
-          debt_doc_no: '',
-          debt_doc_remark: '',
-          customer_invoice: ''
-        }]
-      } as any);
-    }
-
-    // สร้าง Mock AC Data
-    for (let i = 0; i < 25; i++) {
-      const randomDay = Math.floor(Math.random() * 28) + 1;
-      const randomMonth = selectedMonth === 'all' ? Math.floor(Math.random() * 12) + 1 : parseInt(selectedMonth);
-      const date = `${selectedYear}-${String(randomMonth).padStart(2, '0')}-${String(randomDay).padStart(2, '0')}`;
-
-      mockACData.push({
-        document_no: `AC-2025-${String(i + 1).padStart(4, '0')}`,
-        site_id: Math.floor(Math.random() * 4) + 1,
-        department_id: 1,
-        department: 'แผนกขนส่ง',
-        client_id: 1,
-        client: 'บริษัท XYZ จำกัด',
-        vehicle_id_head: 1,
-        vehicle_head: 'GHI-9012',
-        vehicle_id_tail: 1,
-        vehicle_tail: 'JKL-3456',
-        vehicle_truckno: `TRUCK-AC-${i + 1}`,
-        origin_id: 1,
-        reporter: 'ผู้แจ้ง ' + (i + 1),
-        priority: priorities[Math.floor(Math.random() * priorities.length)],
-        site: sites[Math.floor(Math.random() * sites.length)],
-        driver_role: 'พนักงานขับรถ',
-        driver: 'พจส. ' + (i + 1),
-        driver_role_id: 1,
-        driver_id: String(i + 1),
-        incident_cause_id: Math.floor(Math.random() * 5) + 1,
-        reporter_id: i + 1,
-        record_date: date,
-        incident_date: date,
-        case_location: 'สถานที่เกิดเหตุ AC ' + (i + 1),
-        incident_cause: causes[Math.floor(Math.random() * causes.length)],
-        description: 'รายละเอียดเหตุการณ์ AC ที่ ' + (i + 1),
-        destination: 'จุดหมายปลายทาง ' + (i + 1),
-        case_details: 'รายละเอียดเคส AC ' + (i + 1),
-        estimated_cost: Math.random() * 100000,
-        actual_price: Math.random() * 100000,
-        attachments: '',
-        casestatus: 'Open',
-        products: [{
-          product_id: 1,
-          product_name: 'สินค้า',
-          amount: 100,
-          unit: 'ชิ้น'
-        }],
-        docs: [{
-          warning_doc: '',
-          warning_doc_no: '',
-          warning_doc_remark: '',
-          debt_doc: '',
-          debt_doc_no: '',
-          debt_doc_remark: '',
-          customer_invoice: ''
-        }]
-      } as any);
-    }
-
-    setNcData(mockNCData.map(item => ({ ...item, type: 'NC' as const })));
-    setAcData(mockACData.map(item => ({ ...item, type: 'AC' as const })));
-  };
 
   useEffect(() => {
     const showWelcome = sessionStorage.getItem("showWelcome")
@@ -181,17 +43,7 @@ export const DashboardComponent = () => {
     fetchData();
   }, [selectedMonth, selectedYear]);
 
-  useEffect(() => {
-    if (useMockData) {
-      generateMockData();
-    }
-  }, [useMockData, selectedMonth, selectedYear]);
-
   const fetchData = async () => {
-    if (useMockData) {
-      generateMockData();
-      return;
-    }
 
     setLoading(true);
     try {
@@ -225,7 +77,8 @@ export const DashboardComponent = () => {
         setAcData((Array.isArray(acResult) ? acResult : []).map((item: any) => ({
           ...item,
           type: 'AC' as const,
-          incident_date: item.incident_date || item.incident_datetime,
+          record_date: item.record_date || item.record_date,
+          incident_date: item.incident_date || item.incident_date,
           actual_price: (item.actual_price !== undefined && item.actual_price !== null) 
             ? item.actual_price 
             : (item.actual_goods_damage_value || 0) + (item.actual_vehicle_damage_value || 0),
@@ -235,6 +88,8 @@ export const DashboardComponent = () => {
           incident_cause: item.incident_cause || 'อุบัติเหตุ'
         })));
       }
+      // console.log('NC - ',ncData)
+      // console.log('AC - ',acData)
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       sendErrorLog('Dashboard/fetchData', error instanceof Error ? error : String(error));
@@ -296,7 +151,7 @@ export const DashboardComponent = () => {
     // สร้างข้อมูลสำหรับ Calendar Chart
     const dataByDate: { [key: string]: number } = {};
     allData.forEach((item: any) => {
-      const date = item.incident_date?.split('T')[0];
+      const date = item.record_date?.split('T')[0];
       if (date) {
         dataByDate[date] = (dataByDate[date] || 0) + 1;
       }
@@ -354,7 +209,7 @@ export const DashboardComponent = () => {
     // สร้างข้อมูลสำหรับ Stacked Bar Chart (รายเดือน)
     const dataByMonth: { [key: string]: { Major: number; Minor: number; Crisis: number } } = {};
     allData.forEach((item: any) => {
-      const date = new Date(item.incident_date?.split('T')[0] || '');
+      const date = new Date(item.record_date?.split('T')[0] || '');
       const monthKey = date.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' });
       if (monthKey && monthKey !== 'Invalid Date') {
         if (!dataByMonth[monthKey]) {
@@ -463,7 +318,7 @@ export const DashboardComponent = () => {
     const monthlyCosts: { [key: string]: { NC: number; AC: number } } = {};
 
     filteredNcData.forEach(item => {
-      const date = new Date(item.incident_date || '');
+      const date = new Date(item.record_date || '');
       const monthKey = date.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' });
       if (!monthlyCosts[monthKey]) {
         monthlyCosts[monthKey] = { NC: 0, AC: 0 };
@@ -472,7 +327,7 @@ export const DashboardComponent = () => {
     });
 
     filteredAcData.forEach((item: any) => {
-      const date = new Date(item.incident_date || '');
+      const date = new Date(item.record_date || '');
       const monthKey = date.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' });
       if (!monthlyCosts[monthKey]) {
         monthlyCosts[monthKey] = { NC: 0, AC: 0 };
@@ -692,25 +547,7 @@ export const DashboardComponent = () => {
   return (
     <div className="min-h-screen p-10 bg-gradient-to-br from-[#d1ffe1] to-indigo-100">
       <div className="space-y-6">
-        {/* Header - Mock Data Toggle */}
-        <div className="hidden items-center justify-between">
-          <div className="flex items-center gap-3 bg-white rounded-xl shadow-md px-4 py-2 border border-gray-200">
-            <span className="text-sm font-medium text-gray-700">Mock Data</span>
-            <button
-              onClick={() => setUseMockData(!useMockData)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${useMockData ? 'bg-green-500' : 'bg-gray-300'
-                }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${useMockData ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-              />
-            </button>
-            <span className={`text-xs font-semibold ${useMockData ? 'text-green-600' : 'text-gray-400'}`}>
-              {useMockData ? 'ON' : 'OFF'}
-            </span>
-          </div>
-        </div>
+
 
         {/* Filter Section */}
         <FilterSection
