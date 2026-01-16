@@ -3,6 +3,7 @@ import { ResponsivePie } from '@nivo/pie';
 import { ResponsiveCalendar } from '@nivo/calendar';
 import { ResponsiveBar } from '@nivo/bar';
 import { dashboardColors } from './ColorPalette';
+import { useEffect } from 'react';
 
 interface CalendarData {
   day: string;
@@ -66,6 +67,10 @@ export const DashboardView = ({
   selectedMonth, 
   selectedYear 
 }: DashboardViewProps) => {
+
+useEffect(() => {
+  console.log('Dashboard Data:', data);
+}, [data]);
 
   return (
     <>

@@ -119,7 +119,7 @@ export const DashboardComponent = () => {
     }
 
     const allData = [...filteredNcData, ...filteredAcData];
-
+    // console.log('allData', allData);
     const majorCount = allData.filter(item => item.priority === 'Major').length;
     const minorCount = allData.filter(item => item.priority === 'Minor').length;
     const crisisCount = allData.filter(item => item.priority === 'Crisis').length;
@@ -151,7 +151,7 @@ export const DashboardComponent = () => {
     // สร้างข้อมูลสำหรับ Calendar Chart
     const dataByDate: { [key: string]: number } = {};
     allData.forEach((item: any) => {
-      const date = item.record_date?.split('T')[0];
+      const date = item.record_date?.split('T')[0] || item.record_datetime?.split('T')[0];
       if (date) {
         dataByDate[date] = (dataByDate[date] || 0) + 1;
       }
@@ -209,8 +209,8 @@ export const DashboardComponent = () => {
     // สร้างข้อมูลสำหรับ Stacked Bar Chart (รายเดือน)
     const dataByMonth: { [key: string]: { Major: number; Minor: number; Crisis: number } } = {};
     allData.forEach((item: any) => {
-      const date = new Date(item.record_date?.split('T')[0] || '');
-      const monthKey = date.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' });
+      const date = item.record_date?.split('T')[0] || item.record_datetime?.split('T')[0];
+      const monthKey = date ? new Date(date).toLocaleDateString('th-TH', { month: 'short', year: '2-digit' }) : null;
       if (monthKey && monthKey !== 'Invalid Date') {
         if (!dataByMonth[monthKey]) {
           dataByMonth[monthKey] = { Major: 0, Minor: 0, Crisis: 0 };
@@ -231,7 +231,7 @@ export const DashboardComponent = () => {
         const monthB = monthNames.indexOf(b.date.split(' ')[0]);
         return monthA - monthB;
       });
-
+      // console.log('stackedBarData', stackedBarData);
     // วิเคราะห์สาเหตุที่เกิดขึ้นบ่อยที่สุด
     const causeCounts: { [key: string]: number } = {};
     allData.forEach((item: any) => {
