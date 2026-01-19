@@ -678,9 +678,9 @@ export const NCRecordsComponent = () => {
                       </button>
                     </PopoverTrigger>
                     <PopoverContent
-                      className="w-auto p-0 z-[10]"
+                      className="w-auto p-0 z-[9999]"
                       align="start"
-                      style={{ zIndex: 10 }}
+                      style={{ zIndex: 9999 }}
                     >
                       <CalendarComponent
                         mode="single"
@@ -725,9 +725,9 @@ export const NCRecordsComponent = () => {
                       </button>
                     </PopoverTrigger>
                     <PopoverContent
-                      className="w-auto p-0 z-[10]"
+                      className="w-auto p-0 z-[9999]"
                       align="start"
-                      style={{ zIndex: 10 }}
+                      style={{ zIndex: 9999 }}
                     >
                       <CalendarComponent
                         mode="single"

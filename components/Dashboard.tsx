@@ -62,8 +62,8 @@ export const DashboardComponent = () => {
       }
 
       const [ncResponse, acResponse] = await Promise.all([
-        fetch(`/api/dashboard/nc?start_date=${startDate}&end_date=${endDate}`,{method: 'GET', headers: { 'Content-Type': 'application/json' }}),
-        fetch(`/api/dashboard/ac?start_date=${startDate}&end_date=${endDate}`,{method: 'GET', headers: { 'Content-Type': 'application/json' }})
+        fetch(`/api/dashboard/nc?start_date=${startDate}&end_date=${endDate}&casestatus=Pending&casestatus=Completed Investigate&casestatus=Completed`,{method: 'GET', headers: { 'Content-Type': 'application/json' }}),
+        fetch(`/api/dashboard/ac?start_date=${startDate}&end_date=${endDate}&casestatus=Pending&casestatus=Completed Investigate&casestatus=Completed`,{method: 'GET', headers: { 'Content-Type': 'application/json' }})
       ]);
 
       if (ncResponse.ok && acResponse.ok) {

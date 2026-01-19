@@ -52,14 +52,17 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('start_date');
     const endDate = searchParams.get('end_date');
+    const caseStatus = searchParams.getAll('casestatus');
 
     let apiUrl = `${process.env.nc_url}/`;
     
     if (startDate && endDate) {
       apiUrl += `?start_date=${startDate}&end_date=${endDate}`;
+      caseStatus.forEach(status => {
+        apiUrl += `&casestatus=${encodeURIComponent(status)}`;
+      });
     }
     
-    console.log('APIURL NC:', apiUrl);
     const res = await fetch(apiUrl, {
       method: 'GET',
       headers: {  
