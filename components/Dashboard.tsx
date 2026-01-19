@@ -111,7 +111,9 @@ export const DashboardComponent = () => {
     // คำนวณข้อมูลสำหรับ Summary Cards
     let filteredNcData = selectedCaseType === 'ac' ? [] : ncData;
     let filteredAcData = selectedCaseType === 'nc' ? [] : acData;
-
+    // console.log('filteredNcData', filteredNcData);
+    // console.log('filteredAcData', filteredAcData);
+    // console.log('selectedCenter', selectedCenter);
     // กรองตาม Center
     if (selectedCenter !== 'all') {
       filteredNcData = filteredNcData.filter(item => item.site_name === selectedCenter);
@@ -266,7 +268,7 @@ export const DashboardComponent = () => {
 
     let filteredNcData = selectedCaseType === 'ac' ? [] : ncData;
     let filteredAcData = selectedCaseType === 'nc' ? [] : acData;
-
+  
     // กรองตาม Center
     if (selectedCenter !== 'all') {
       filteredNcData = filteredNcData.filter(item => item.site_name === selectedCenter);
@@ -327,7 +329,7 @@ export const DashboardComponent = () => {
     });
 
     filteredAcData.forEach((item: any) => {
-      const date = new Date(item.record_date || '');
+      const date = new Date(item.record_datetime || '');
       const monthKey = date.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' });
       if (!monthlyCosts[monthKey]) {
         monthlyCosts[monthKey] = { NC: 0, AC: 0 };
@@ -347,6 +349,9 @@ export const DashboardComponent = () => {
         const monthB = monthNames.indexOf(b.month.split(' ')[0]);
         return monthA - monthB;
       });
+
+      // console.log('monthlyCostData', monthlyCostData);
+      // console.log('centerCostData', centerCostData);
 
     return {
       centerCosts: centerCostData,

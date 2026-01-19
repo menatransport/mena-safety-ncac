@@ -33,10 +33,12 @@ const MONTHS = [
 
 const OPERATION_CENTERS = [
   { value: 'all', label: 'ทั้งหมด' },
-  { value: 'ลาดกระบัง', label: 'ลาดกระบัง' },
-  { value: 'สระบุรี', label: 'สระบุรี' },
-  { value: 'บางประกง', label: 'บางประกง' },
-  { value: 'ระยอง', label: 'ระยอง' }
+  { value: 'ศลบ.', label: 'ลาดกระบัง' },
+  { value: 'สสบ.', label: 'สระบุรี' },
+  { value: 'ศบก.', label: 'บางประกง' },
+  { value: 'ศรย.', label: 'ระยอง' },
+  { value: 'ศขก.', label: 'ขอนแก่น' },
+  { value: 'สกท.', label: 'Bangkok HQ' }
 ];
 
 const CASE_TYPES = [
