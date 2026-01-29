@@ -1,7 +1,9 @@
 "use client";
-import { useState, useEffect, use } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { 
+import { useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
+import Swal from "sweetalert2";
+import {
   LayoutDashboard,
   SquarePen,
   Database,
@@ -10,8 +12,9 @@ import {
   ChevronRight,
   Menu,
   X,
-  Bell
-  } from "lucide-react";
+  Bell,
+  LogOut
+} from "lucide-react";
 
 const menuItems = [
   {
@@ -49,7 +52,7 @@ const recordMenuItems = [
 
 const systemMenuItems = [
   {
-    title: "Setting", 
+    title: "Setting",
     url: "/settings",
     icon: Settings
   }
@@ -71,7 +74,7 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
   const [userInfo, setUserInfo] = useState<any>(null);
   const router = useRouter();
   const pathname = usePathname();
-  
+
 
   useEffect(() => {
     const storedUserData = localStorage.getItem("userData");
@@ -79,17 +82,17 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
       setUserInfo(JSON.parse(storedUserData));
     }
   }, []);
-  
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const currentDocId = params.get("doc");
-    
+
     if (currentDocId) {
       setSidebarCollapsed(true);
       setSidebarHidden("hidden");
     }
-  }, [pathname]); 
-  
+  }, [pathname]);
+
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -97,7 +100,7 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
         setMobileMenuOpen(false);
       }
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
@@ -135,31 +138,60 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
     }
   };
 
+  const handleLogout = async () => {
+    const result = await Swal.fire({
+      title: 'Logout',
+      text: 'คุณต้องการออกจากระบบหรือไม่?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'ออกจากระบบ',
+      cancelButtonText: 'ยกเลิก',
+      reverseButtons: false,
+      customClass: {
+        popup: 'rounded-xl',
+        title: 'text-gray-800',
+        confirmButton: 'rounded-lg',
+        cancelButton: 'rounded-lg'
+      }
+    });
+
+    if (result.isConfirmed) {
+      const rememberMe = localStorage.getItem("userData") ? JSON.parse(localStorage.getItem("userData") || "{}").rememberMe : false;
+      console.log('rememberMe : ', rememberMe);
+      if (!rememberMe) {
+        localStorage.removeItem("userData");
+      }
+      localStorage.removeItem("authToken");
+      await signOut({ callbackUrl: '/login' });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      
+
       {/* Mobile Overlay */}
       {isMobile && mobileMenuOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
-      
+
       {/* Sidebar - Fixed */}
-      <div className={`${sidebarHidden} ${
-        isMobile 
+      <div className={`${sidebarHidden} ${isMobile
           ? `fixed inset-y-0 left-0 transform ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} w-64 z-50 transition-transform duration-300 ease-in-out`
           : `${sidebarCollapsed ? 'w-16' : 'w-64'} fixed h-full z-30 transition-all duration-300`
-      } bg-white shadow-lg border-r border-gray-200 flex-shrink-0`}>
-        
+        } bg-white shadow-lg border-r border-gray-200 flex-shrink-0`}>
+
         {/* Header */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             {(!sidebarCollapsed || isMobile) && (
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center">
-                 <img src="/mena.png" alt="Logo" className="w-16 h-8 text-white" />
+                  <img src="/mena.png" alt="Logo" className="w-16 h-8 text-white" />
                 </div>
                 <div>
                   <h2 className="font-bold text-gray-800 text-md">MENA NCAC</h2>
@@ -167,7 +199,7 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                 </div>
               </div>
             )}
-            
+
             <button
               onClick={handleMobileToggle}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -182,30 +214,29 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
         </div>
 
         <div className="p-4 space-y-6">
-          
+
 
           <div>
             <h3 className={`text-md font-bold text-gray-500 uppercase tracking-wider mb-3 ${(sidebarCollapsed && !isMobile) ? 'hidden' : ''}`}>
               เมนูหลัก
             </h3>
             <nav className="space-y-2">
-  
-            
+
+
               {menuItems.map((item) => (
                 <button
                   key={item.title}
                   onClick={() => handleNavigation(item.url)}
-                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ${
-                    isActive(item.url)
+                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ${isActive(item.url)
                       ? 'bg-teal-100 text-teal-800 scale-105 border border-teal-200 shadow-sm'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center space-x-3">
-                  <item.icon 
-                    size={sidebarCollapsed && !isMobile ? 24 : 20}
-                    className={`hover:rotate-45 hover:scale-110 ${isActive(item.url) ? "text-emerald-700" : "text-gray-600"}`}
-                  />
+                    <item.icon
+                      size={sidebarCollapsed && !isMobile ? 24 : 20}
+                      className={`hover:rotate-45 hover:scale-110 ${isActive(item.url) ? "text-emerald-700" : "text-gray-600"}`}
+                    />
                   </div>
                   {(!sidebarCollapsed || isMobile) && (
                     <span className="font-medium">{item.title}</span>
@@ -248,11 +279,10 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                       <button
                         key={item.title}
                         onClick={() => handleNavigation(item.url)}
-                        className={`w-full flex items-center space-x-3 px-3 py-2 rounded-sm text-sm transition-all duration-200 ${
-                          isActive(item.url)
+                        className={`w-full flex items-center space-x-3 px-3 py-2 rounded-sm text-sm transition-all duration-200 ${isActive(item.url)
                             ? 'bg-teal-100 text-teal-800 scale-105 border border-teal-200 shadow-sm'
                             : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
-                        }`}
+                          }`}
                       >
                         <div className="w-2 h-2 rounded-full bg-gray-400"></div>
                         <span className="font-medium text-sm">{item.title}</span>
@@ -297,11 +327,10 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                       <button
                         key={item.title}
                         onClick={() => handleNavigation(item.url)}
-                        className={`w-full flex items-center space-x-3 px-3 py-2 rounded-sm text-sm transition-all duration-200 ${
-                          isActive(item.url)
+                        className={`w-full flex items-center space-x-3 px-3 py-2 rounded-sm text-sm transition-all duration-200 ${isActive(item.url)
                             ? 'bg-teal-100 text-teal-800 scale-105 border border-teal-200 shadow-sm'
                             : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
-                        }`}
+                          }`}
                       >
                         <div className="w-2 h-2 rounded-full bg-gray-400"></div>
                         <span className="font-medium text-sm">{item.title}</span>
@@ -313,46 +342,30 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
             </nav>
           </div>
 
-          {/* System Menu */}
-          {/* <div>
-            <h3 className={`text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 ${(sidebarCollapsed && !isMobile) ? 'hidden' : ''}`}>
-              System
-            </h3>
-            <nav className="space-y-2">
-              {systemMenuItems.map((item) => (
-                <button
-                  key={item.title}
-                  onClick={() => handleNavigation(item.url)}
-                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
-                    isActive(item.url)
-                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-sm'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                  <item.icon 
-                    size={sidebarCollapsed && !isMobile ? 24 : 20}
-                    className={`hover:rotate-45 hover:scale-110 ${isActive(item.url) ? "text-emerald-700" : "text-gray-600"}`}
-                  />
-                  </div>
-                  {(!sidebarCollapsed || isMobile) && (
-                    <span className="font-medium">{item.title}</span>
-                  )}
-                </button>
-              ))}
-            </nav>
-          </div> */}
+          <div className="absolute bottom-4 left-0 right-0 px-4">
+            <button
+              onClick={handleLogout}
+              className={`w-full cursor-pointer flex items-center ${sidebarCollapsed && !isMobile ? 'justify-center' : 'space-x-3'} px-3 py-3 rounded-xl transition-all duration-300 text-red-700 shadow-xs group`}
+            >
+              <LogOut
+                size={sidebarCollapsed && !isMobile ? 22 : 20}
+                className="transition-transform duration-300 group-hover:-translate-x-1"
+              />
+              {(!sidebarCollapsed || isMobile) && (
+                <span className="font-bold text-md">ออกจากระบบ</span>
+              )}
+            </button>
+          </div>
         </div>
 
       </div>
 
       {/* Main Content Area */}
-      <div className={`flex-1 flex flex-col ${
-        isMobile 
-          ? 'ml-0' 
+      <div className={`flex-1 flex flex-col ${isMobile
+          ? 'ml-0'
           : sidebarCollapsed ? 'ml-16' : 'ml-64'
-      } transition-all duration-300`}>
-        
+        } transition-all duration-300`}>
+
         {/* Mobile Menu Button - Only visible on mobile when menu is closed */}
         {isMobile && !mobileMenuOpen && (
           <button
@@ -362,17 +375,17 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
             <Menu size={20} className="hover:rotate-45 hover:scale-110 text-gray-600" />
           </button>
         )}
-        
+
         {/* Top Header Bar - Fixed */}
-        <header className="bg-gradient-to-r from-white via-white to-white shadow-lg border-b border-emerald-200 p-3 md:p-4 fixed top-0 right-0 left-0 z-20 backdrop-blur-sm" 
-                style={{marginLeft: isMobile ? '0px' : sidebarCollapsed ? '64px' : '256px'}}>
+        <header className="bg-gradient-to-r from-white via-white to-white shadow-lg border-b border-emerald-200 p-3 md:p-4 fixed top-0 right-0 left-0 z-20 backdrop-blur-sm"
+          style={{ marginLeft: isMobile ? '0px' : sidebarCollapsed ? '64px' : '256px' }}>
           <div className="flex items-center justify-between">
-            
+
             {/* User Info - Mobile: Click to expand, Desktop: Always visible */}
             <div className={`flex-1 ${isMobile ? 'pl-12' : ''}`}>
               {isMobile ? (
                 <div className="relative">
-                  <button 
+                  <button
                     onClick={() => setShowUserInfo(!showUserInfo)}
                     className="flex items-center space-x-2 p-2 rounded-lg hover:bg-white/50 transition-all duration-200"
                   >
@@ -384,7 +397,7 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                       <ChevronDown size={14} className={`text-gray-600 transition-transform duration-200 ${showUserInfo ? 'rotate-180' : ''}`} />
                     </div>
                   </button>
-                  
+
                   {/* Mobile User Info Dropdown */}
                   {showUserInfo && (
                     <div className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 p-4 min-w-80 z-30">
@@ -397,7 +410,7 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                           <p className="text-sm text-emerald-600">{userInfo?.position}</p>
                         </div>
                       </div>
-                      
+
                       <div className="grid grid-cols-1 gap-2 text-xs">
                         <div className="flex justify-between">
                           <span className="text-gray-600">รหัสพนักงาน:</span>
@@ -412,7 +425,7 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                           <span className="font-medium text-gray-900">{userInfo?.position_level_id}</span>
                         </div>
                       </div>
-                      
+
 
                     </div>
                   )}
@@ -433,18 +446,18 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                 </div>
               )}
             </div>
-            
+
             {/* Right Side Actions */}
             <div className="flex items-center space-x-2 md:space-x-4">
-              
+
               {/* Time Display - Desktop only */}
               {!isMobile && (
                 <div className="text-right mr-4">
                   <p className="text-xs text-gray-600">วันนี้</p>
-                  <p className="text-sm font-medium text-gray-800">{new Date().toLocaleDateString('th-TH', { year: 'numeric' , month: 'long', day: 'numeric' })}</p>
+                  <p className="text-sm font-medium text-gray-800">{new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                 </div>
               )}
-              
+
               {/* Weather Snowy */}
               <div className="flex items-center justify-center">
                 <style jsx>{`
@@ -476,14 +489,14 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                 <svg xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" version="1.1" width="64" height="64" viewBox="0 0 64 64">
                   <defs>
                     <filter id="blur" width="200%" height="200%">
-                      <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
-                      <feOffset dx="0" dy="4" result="offsetblur"/>
+                      <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
+                      <feOffset dx="0" dy="4" result="offsetblur" />
                       <feComponentTransfer>
-                        <feFuncA type="linear" slope="0.05"/>
+                        <feFuncA type="linear" slope="0.05" />
                       </feComponentTransfer>
-                      <feMerge> 
-                        <feMergeNode/>
-                        <feMergeNode in="SourceGraphic"/> 
+                      <feMerge>
+                        <feMergeNode />
+                        <feMergeNode in="SourceGraphic" />
                       </feMerge>
                     </filter>
                   </defs>
@@ -491,36 +504,36 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                     <g transform="translate(20,10)">
                       <g transform="translate(0,16) scale(1.2)">
                         <g className="am-weather-sun">
-                          <g><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3"/></g>
-                          <g transform="rotate(45)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3"/></g>
-                          <g transform="rotate(90)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3"/></g>
-                          <g transform="rotate(135)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3"/></g>
-                          <g transform="rotate(180)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3"/></g>
-                          <g transform="rotate(225)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3"/></g>
-                          <g transform="rotate(270)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3"/></g>
-                          <g transform="rotate(315)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3"/></g>
+                          <g><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3" /></g>
+                          <g transform="rotate(45)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3" /></g>
+                          <g transform="rotate(90)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3" /></g>
+                          <g transform="rotate(135)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3" /></g>
+                          <g transform="rotate(180)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3" /></g>
+                          <g transform="rotate(225)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3" /></g>
+                          <g transform="rotate(270)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3" /></g>
+                          <g transform="rotate(315)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3" /></g>
                         </g>
-                        <circle cx="0" cy="0" fill="orange" r="5" stroke="orange" strokeWidth="2"/>
+                        <circle cx="0" cy="0" fill="orange" r="5" stroke="orange" strokeWidth="2" />
                       </g>
                       <g>
-                        <path d="M47.7,35.4c0-4.6-3.7-8.2-8.2-8.2c-1,0-1.9,0.2-2.8,0.5c-0.3-3.4-3.1-6.2-6.6-6.2c-3.7,0-6.7,3-6.7,6.7c0,0.8,0.2,1.6,0.4,2.3c-0.3-0.1-0.7-0.1-1-0.1c-3.7,0-6.7,3-6.7,6.7c0,3.6,2.9,6.6,6.5,6.7l17.2,0C44.2,43.3,47.7,39.8,47.7,35.4z" fill="#57A0EE" stroke="white" strokeLinejoin="round" strokeWidth="1.5" transform="translate(-15,-5) scale(0.85)"/>
+                        <path d="M47.7,35.4c0-4.6-3.7-8.2-8.2-8.2c-1,0-1.9,0.2-2.8,0.5c-0.3-3.4-3.1-6.2-6.6-6.2c-3.7,0-6.7,3-6.7,6.7c0,0.8,0.2,1.6,0.4,2.3c-0.3-0.1-0.7-0.1-1-0.1c-3.7,0-6.7,3-6.7,6.7c0,3.6,2.9,6.6,6.5,6.7l17.2,0C44.2,43.3,47.7,39.8,47.7,35.4z" fill="#57A0EE" stroke="white" strokeLinejoin="round" strokeWidth="1.5" transform="translate(-15,-5) scale(0.85)" />
                       </g>
                     </g>
                     <g transform="translate(20,9)">
                       <g className="am-weather-snow-1">
                         <g transform="translate(7,28)">
-                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1.2" transform="translate(0,9) rotate(0)" x1="0" x2="0" y1="-2.5" y2="2.5"/>
-                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(45)" x1="0" x2="0" y1="-2.5" y2="2.5"/>
-                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(90)" x1="0" x2="0" y1="-2.5" y2="2.5"/>
-                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(135)" x1="0" x2="0" y1="-2.5" y2="2.5"/>
+                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1.2" transform="translate(0,9) rotate(0)" x1="0" x2="0" y1="-2.5" y2="2.5" />
+                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(45)" x1="0" x2="0" y1="-2.5" y2="2.5" />
+                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(90)" x1="0" x2="0" y1="-2.5" y2="2.5" />
+                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(135)" x1="0" x2="0" y1="-2.5" y2="2.5" />
                         </g>
                       </g>
                       <g className="am-weather-snow-2">
                         <g transform="translate(16,28)">
-                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1.2" transform="translate(0,9) rotate(0)" x1="0" x2="0" y1="-2.5" y2="2.5"/>
-                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(45)" x1="0" x2="0" y1="-2.5" y2="2.5"/>
-                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(90)" x1="0" x2="0" y1="-2.5" y2="2.5"/>
-                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(135)" x1="0" x2="0" y1="-2.5" y2="2.5"/>
+                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1.2" transform="translate(0,9) rotate(0)" x1="0" x2="0" y1="-2.5" y2="2.5" />
+                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(45)" x1="0" x2="0" y1="-2.5" y2="2.5" />
+                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(90)" x1="0" x2="0" y1="-2.5" y2="2.5" />
+                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(135)" x1="0" x2="0" y1="-2.5" y2="2.5" />
                         </g>
                       </g>
                     </g>
@@ -528,7 +541,7 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                 </svg>
               </div>
 
-       
+
             </div>
           </div>
         </header>

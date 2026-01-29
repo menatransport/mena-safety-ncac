@@ -1,4 +1,4 @@
-import { FileText, Activity, Truck, AlertTriangle, Calculator } from 'lucide-react';
+import { FileText, Calculator } from 'lucide-react';
 
 interface ViewSelectorProps {
   activeView: string;
@@ -8,7 +8,6 @@ interface ViewSelectorProps {
 const menu = [
   { value: 'dashboard', name: 'เบื้องต้น', icon: FileText },
   { value: 'finance', name: 'การเงิน', icon: Calculator },
-  // { value: 'transport', name: 'จัดส่งและความปลอดภัย', icon: Truck },
 ];
 
 export const ViewSelector = ({ activeView, setActiveView }: ViewSelectorProps) => {

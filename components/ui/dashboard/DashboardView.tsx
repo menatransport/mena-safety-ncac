@@ -68,10 +68,6 @@ export const DashboardView = ({
   selectedYear 
 }: DashboardViewProps) => {
 
-useEffect(() => {
-  console.log('Dashboard Data:', data);
-}, [data]);
-
   return (
     <>
     {/* Summary Stats Cards */}

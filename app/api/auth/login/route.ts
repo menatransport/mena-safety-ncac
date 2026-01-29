@@ -2,17 +2,20 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   try {
-    const { username, password } = await request.json();
+    const reqBody = await request.json();
+    const isGoogleLogin = 'id_token' in reqBody;
+    const endpoint = isGoogleLogin 
+        ? "https://api-ncac.onrender.com/auth/login/google"
+        : "https://api-ncac.onrender.com/auth/login";
 
-    const res = await fetch(process.env.login_url!, {
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: {  
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify(reqBody),
     });
     
-
     return NextResponse.json(await res.json());
   } catch (error) {
     console.error('Login API error:', error);

@@ -60,17 +60,14 @@ export const ACFormComponent = () => {
     alcohol_test_result: 0,
   });
 
-
-
-
-  const [displayPIC, setDisplayPIC] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
   const [isLoadingFormData, setIsLoadingFormData] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<CategoryFiles>({});
   const [userinfo, setUserinfo] = useState<any>(null);
   const [docValue, setDocValue] = useState<any[]>([]);
 
-  // Filtered Data for Site Dependencies
+  const searchParams = useSearchParams();
+
   const [filteredData, setFilteredData] = useState<{
     masterdrivers?: any[];
     locations?: any[];
@@ -123,7 +120,6 @@ export const ACFormComponent = () => {
           position_level_id: parsedUserData.position_level_id || "",
         };
 
-        // console.log("Setting userinfo:", newUserinfo);
         setUserinfo(newUserinfo);
         if (sites?.length == 0) {
           await fetchDropdownData();
@@ -138,13 +134,10 @@ export const ACFormComponent = () => {
     loadUserInfo();
   }, []);
 
-  const searchParams = useSearchParams();
-
   const getvaluesparams = async (name: string) => {
     const docId = searchParams.get("doc");
 
     if (docId) {
-      // เปลี่ยน title ของหน้าเว็บเมื่อมี doc parameter
       document.title = `${docId}`;
       setIsLoadingFormData(true);
 

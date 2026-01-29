@@ -4,7 +4,7 @@ export const LoaderPage = () => {
   return (
     <>
       <style jsx>{`
-        .loader {
+        .loaderbook {
           --background: linear-gradient(135deg, #23c4f8, #275efe);
           --shadow: rgba(39, 94, 254, 0.28);
           --text: #6c7486;
@@ -16,8 +16,8 @@ export const LoaderPage = () => {
           position: relative;
         }
 
-        .loader:before,
-        .loader:after {
+        .loaderbook:before,
+        .loaderbook:after {
           --r: -6deg;
           content: "";
           position: absolute;
@@ -28,16 +28,16 @@ export const LoaderPage = () => {
           transform: rotate(var(--r));
         }
 
-        .loader:before {
+        .loaderbook:before {
           left: 4px;
         }
 
-        .loader:after {
+        .loaderbook:after {
           --r: 6deg;
           right: 4px;
         }
 
-        .loader div {
+        .loaderbook div {
           width: 100%;
           height: 100%;
           border-radius: 13px;
@@ -48,14 +48,14 @@ export const LoaderPage = () => {
           background-image: var(--background);
         }
 
-        .loader div ul {
+        .loaderbook div ul {
           margin: 0;
           padding: 0;
           list-style: none;
           position: relative;
         }
 
-        .loader div ul li {
+        .loaderbook div ul li {
           --r: 180deg;
           --o: 0;
           --c: var(--page);
@@ -69,42 +69,42 @@ export const LoaderPage = () => {
           animation: var(--duration) ease infinite;
         }
 
-        .loader div ul li:nth-child(2) {
+        .loaderbook div ul li:nth-child(2) {
           --c: var(--page-fold);
           animation-name: page-2;
         }
 
-        .loader div ul li:nth-child(3) {
+        .loaderbook div ul li:nth-child(3) {
           --c: var(--page-fold);
           animation-name: page-3;
         }
 
-        .loader div ul li:nth-child(4) {
+        .loaderbook div ul li:nth-child(4) {
           --c: var(--page-fold);
           animation-name: page-4;
         }
 
-        .loader div ul li:nth-child(5) {
+        .loaderbook div ul li:nth-child(5) {
           --c: var(--page-fold);
           animation-name: page-5;
         }
 
-        .loader div ul li svg {
+        .loaderbook div ul li svg {
           width: 90px;
           height: 120px;
           display: block;
         }
 
-        .loader div ul li:first-child {
+        .loaderbook div ul li:first-child {
           --r: 0deg;
           --o: 1;
         }
 
-        .loader div ul li:last-child {
+        .loaderbook div ul li:last-child {
           --o: 1;
         }
 
-        .loader span {
+        .loaderbook span {
           display: block;
           left: 0;
           right: 0;
@@ -186,7 +186,7 @@ export const LoaderPage = () => {
           }
         }
 
-        .loader-container {
+        .loaderbook-container {
           display: flex;
           justify-content: center;
           padding-bottom: 20vh;
@@ -197,8 +197,8 @@ export const LoaderPage = () => {
         }
       `}</style>
 
-      <div className="loader-container">
-        <div className="loader md:scale-160">
+      <div className="loaderbook-container">
+        <div className="loaderbook md:scale-160">
           <div>
             <ul>
               <li>
