@@ -111,19 +111,20 @@ export function DateTimePicker24h (values: {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0">
-        <div className="sm:flex">
-          <div className="flex flex-col">
+      <PopoverContent className="w-auto p-0 bg-white border border-slate-200 shadow-xl z-[99999]" sideOffset={4}>
+        <div className="sm:flex bg-white rounded-lg">
+          <div className="flex flex-col bg-white">
             <Calendar
               mode="single"
               selected={date}
               onSelect={handleDateSelect}
+              className="bg-white"
             />
-            <div className="flex gap-2 p-3 border-t">
+            <div className="flex gap-2 p-3 border-t border-slate-100 bg-slate-50">
               <Button
                 size="sm"
                 variant="outline"
-                className="flex-1"
+                className="flex-1 bg-white hover:bg-slate-50 text-slate-700 border-slate-200"
                 onClick={handleTodayClick}
                 disabled={values.disabled}
               >
@@ -132,8 +133,8 @@ export function DateTimePicker24h (values: {
               {!values.usedFor && (
                 <Button
                   size="sm"
-                  variant={dateOnly ? "default" : "default"}
-                  className="flex-1"
+                  variant="default"
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white"
                   onClick={handleDateOnlyToggle}
                   disabled={values.disabled}
                 >
@@ -143,17 +144,17 @@ export function DateTimePicker24h (values: {
             </div>
           </div>
           {!dateOnly && (
-          <div className="flex flex-col sm:flex-row sm:h-[300px] divide-y sm:divide-y-0 sm:divide-x">
-            <ScrollArea className="w-64 sm:w-auto">
-              <div className="p-2">
-                <span className="text-sm font-medium text-gray-600 mb-2 block text-center">ชั่วโมง</span>
+          <div className="flex flex-col sm:flex-row sm:h-[300px] divide-y sm:divide-y-0 sm:divide-x bg-white border-l border-slate-100">
+            <ScrollArea className="w-64 sm:w-auto bg-white">
+              <div className="p-2 bg-white">
+                <span className="text-sm font-medium text-slate-700 mb-2 block text-center">ชั่วโมง</span>
                 <div className="flex sm:flex-col">
                   {hours.map((hour) => (
                     <Button
                       key={hour}
                       size="icon"
                       variant={date && date.getHours() === hour ? "default" : "ghost"}
-                      className="sm:w-full shrink-0 aspect-square"
+                      className={`sm:w-full shrink-0 aspect-square ${date && date.getHours() === hour ? 'bg-emerald-500 text-white hover:bg-emerald-600' : 'text-slate-700 hover:bg-slate-100'}`}
                       onClick={() => handleTimeChange("hour", hour.toString())}
                       disabled={values.disabled}
                     >
@@ -164,16 +165,16 @@ export function DateTimePicker24h (values: {
               </div>
               <ScrollBar orientation="horizontal" className="sm:hidden" />
             </ScrollArea>
-            <ScrollArea className="w-64 sm:w-auto">
-              <div className="p-2">
-                <span className="text-sm font-medium text-gray-600 mb-2 block text-center">นาที</span>
+            <ScrollArea className="w-64 sm:w-auto bg-white">
+              <div className="p-2 bg-white">
+                <span className="text-sm font-medium text-slate-700 mb-2 block text-center">นาที</span>
                 <div className="flex sm:flex-col">
                   {Array.from({ length: 12 }, (_, i) => i * 5).map((minute) => (
                     <Button
                       key={minute}
                       size="icon"
                       variant={date && date.getMinutes() === minute ? "default" : "ghost"}
-                      className="sm:w-full shrink-0 aspect-square"
+                      className={`sm:w-full shrink-0 aspect-square ${date && date.getMinutes() === minute ? 'bg-emerald-500 text-white hover:bg-emerald-600' : 'text-slate-700 hover:bg-slate-100'}`}
                       onClick={() => handleTimeChange("minute", minute.toString())}
                       disabled={values.disabled}
                     >

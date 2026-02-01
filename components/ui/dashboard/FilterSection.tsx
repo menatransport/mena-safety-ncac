@@ -62,37 +62,38 @@ export const FilterSection = ({
   onSearch
 }: FilterSectionProps) => {
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
+    <div className="bg-white rounded-xl md:rounded-2xl shadow-lg border border-gray-100">
       <div 
-        className="flex items-center justify-between p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+        className="flex items-center justify-between p-4 md:p-6 cursor-pointer hover:bg-gray-50 transition-colors"
         onClick={() => setIsCollapsed(!isCollapsed)}
       >
-        <div className="flex items-center gap-4">
-          <Search className="w-5 h-5 text-gray-500" />
-          <h2 className="text-lg font-semibold text-gray-700">ตัวกรองข้อมูล</h2>
+        <div className="flex items-center gap-2 md:gap-4">
+          <Search className="w-4 h-4 md:w-5 md:h-5 text-gray-500" />
+          <h2 className="text-base md:text-lg font-semibold text-gray-700">ตัวกรองข้อมูล</h2>
         </div>
-        <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+        <button className="p-1.5 md:p-2 hover:bg-gray-100 rounded-lg transition-colors">
           {isCollapsed ? (
-            <ChevronDown className="w-5 h-5 text-gray-600" />
+            <ChevronDown className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
           ) : (
-            <ChevronUp className="w-5 h-5 text-gray-600" />
+            <ChevronUp className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
           )}
         </button>
       </div>
       
       {!isCollapsed && (
-        <div className="px-6 pb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="px-4 pb-4 md:px-6 md:pb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             {/* Month Select */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                เดือน
+            <div className="space-y-1.5 md:space-y-2">
+              <label className="text-xs md:text-sm font-medium text-gray-700 flex items-center gap-1.5 md:gap-2">
+                <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                <span className="hidden sm:inline">เดือน</span>
+                <span className="sm:hidden">เดือน</span>
               </label>
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                className="w-full px-3 py-2 md:px-4 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
               >
                 {MONTHS.map(month => (
                   <option key={month.value} value={month.value}>
@@ -103,15 +104,15 @@ export const FilterSection = ({
             </div>
 
             {/* Year Select */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                ปี
+            <div className="space-y-1.5 md:space-y-2">
+              <label className="text-xs md:text-sm font-medium text-gray-700 flex items-center gap-1.5 md:gap-2">
+                <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                <span>ปี</span>
               </label>
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                className="w-full px-3 py-2 md:px-4 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
               >
                 {[2025, 2026].map(year => (
                   <option key={year} value={year}>
@@ -122,15 +123,16 @@ export const FilterSection = ({
             </div>
 
             {/* Operation Center Select */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                <Building2 className="w-4 h-4" />
-                สำนักงาน/ศูนย์ปฏิบัติการ
+            <div className="space-y-1.5 md:space-y-2">
+              <label className="text-xs md:text-sm font-medium text-gray-700 flex items-center gap-1.5 md:gap-2">
+                <Building2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                <span className="hidden md:inline">สำนักงาน/ศูนย์ปฏิบัติการ</span>
+                <span className="md:hidden">ศูนย์</span>
               </label>
               <select
                 value={selectedCenter}
                 onChange={(e) => setSelectedCenter(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                className="w-full px-3 py-2 md:px-4 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
               >
                 {OPERATION_CENTERS.map(center => (
                   <option key={center.value} value={center.value}>
@@ -141,15 +143,16 @@ export const FilterSection = ({
             </div>
 
             {/* Case Type Select */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                <FileText className="w-4 h-4" />
-                ประเภทอุบัติการณ์
+            <div className="space-y-1.5 md:space-y-2">
+              <label className="text-xs md:text-sm font-medium text-gray-700 flex items-center gap-1.5 md:gap-2">
+                <FileText className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                <span className="hidden md:inline">ประเภทอุบัติการณ์</span>
+                <span className="md:hidden">ประเภท</span>
               </label>
               <select
                 value={selectedCaseType}
                 onChange={(e) => setSelectedCaseType(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                className="w-full px-3 py-2 md:px-4 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
               >
                 {CASE_TYPES.map(type => (
                   <option key={type.value} value={type.value}>
@@ -161,11 +164,11 @@ export const FilterSection = ({
           </div>
 
           {/* Search Button */}
-          <div className="mt-4">
+          <div className="mt-3 md:mt-4">
             <button
               onClick={onSearch}
               disabled={loading}
-              className="w-full md:w-auto px-8 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full sm:w-50 px-5 py-2.5 rounded-xl cursor-pointer bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-semibold shadow-lg shadow-emerald-500/25 hover:from-emerald-700 hover:to-teal-700 hover:shadow-xl active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <Search className="w-4 h-4" />
               {loading ? 'กำลังค้นหา...' : 'ค้นหา'}

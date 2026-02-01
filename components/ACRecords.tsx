@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 import { LordIcon } from "./LordIcon";
 import {
@@ -19,11 +19,8 @@ import {
   ArrowDown,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { SearchableSelect } from "./ui/searchable-select";
-import { Calendar as CalendarComponent } from "./ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { RecordFilter, RecordFilterResult, RecordFilterRef } from "./ui/record-filter";
 import Swal from "sweetalert2";
-import * as XLSX from 'xlsx';
 import { sendErrorLog } from '@/lib/logError';
 
 interface ACRecord {
@@ -72,8 +69,6 @@ interface FilterCriteria {
   priority?: string;
 }
 
-type DateRangePreset = "custom" | "7days" | "3days" | "week" | "month";
-
 type SortConfig = {
   key: keyof ACRecord | null;
   direction: "asc" | "desc";
@@ -84,9 +79,8 @@ export const ACRecordsComponent = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
   const recordsPerPage = 10;
-  const router = useRouter();
+  const filterRef = useRef<RecordFilterRef>(null);
 
   // Sort state
   const [sortConfig, setSortConfig] = useState<SortConfig>({
@@ -96,18 +90,12 @@ export const ACRecordsComponent = () => {
 
   // Filter states
   const [filterCriteria, setFilterCriteria] = useState<FilterCriteria>({});
-  const [dateRangePreset, setDateRangePreset] =
-    useState<DateRangePreset>("custom");
-  const [startDateOpen, setStartDateOpen] = useState(false);
-  const [endDateOpen, setEndDateOpen] = useState(false);
   const [dropdownData, setDropdownData] = useState<{
     sites: any[];
     drivers: any[];
-    documentNumbers: string[];
   }>({
     sites: [],
     drivers: [],
-    documentNumbers: [],
   });
 
   useEffect(() => {
@@ -141,7 +129,6 @@ export const ACRecordsComponent = () => {
         setDropdownData({
           sites: sortedSites,
           drivers: sortedDrivers,
-          documentNumbers: [],
         });
 
       } catch (error) {
@@ -153,15 +140,11 @@ export const ACRecordsComponent = () => {
     fetchDropdownData();
   }, []);
 
-  useEffect(() => {
-    handleDatePresetChange("month");
-  }, []);
 
-  useEffect(() => {
-    if (filterCriteria.start_date) {
-      handleSearch();
-    }
-  }, [filterCriteria]);
+  const handleFilterChange = async (filters: RecordFilterResult) => {
+    setFilterCriteria(filters);
+    await handleSearchWithFilters(filters);
+  };
 
   const formatDate = (dateString: string) => {
     const [year, month, day] = dateString.split("T")[0].split("-");
@@ -172,76 +155,13 @@ export const ACRecordsComponent = () => {
     return `${day}/${month}/${year}, ${hours}:${minutes}`;
   };
 
-  const formatDateToLocal = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  };
-
-  const getDateRange = (preset: DateRangePreset) => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    switch (preset) {
-      case "3days":
-        const threeDaysAgo = new Date(today);
-        threeDaysAgo.setDate(today.getDate() - 3);
-        return {
-          start_date: formatDateToLocal(threeDaysAgo),
-          end_date: formatDateToLocal(today),
-        };
-
-      case "7days":
-        const sevenDaysAgo = new Date(today);
-        sevenDaysAgo.setDate(today.getDate() - 7);
-        return {
-          start_date: formatDateToLocal(sevenDaysAgo),
-          end_date: formatDateToLocal(today),
-        };
-
-      case "week":
-        const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - today.getDay());
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 6);
-        return {
-          start_date: formatDateToLocal(startOfWeek),
-          end_date: formatDateToLocal(endOfWeek),
-        };
-
-      case "month":
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        return {
-          start_date: formatDateToLocal(startOfMonth),
-          end_date: formatDateToLocal(endOfMonth),
-        };
-
-      default:
-        return {};
-    }
-  };
-
-  const handleDatePresetChange = (preset: DateRangePreset) => {
-    setDateRangePreset(preset);
-    if (preset !== "custom") {
-      const dateRange = getDateRange(preset);
-      setFilterCriteria((prev) => ({
-        ...prev,
-        ...dateRange,
-      }));
-    }
-  };
-
-  // Search function
-  const handleSearch = async () => {
+  const handleSearchWithFilters = async (filters: RecordFilterResult) => {
     setLoading(true);
     setCurrentPage(1);
     try {
       const params = new URLSearchParams();
 
-      Object.entries(filterCriteria).forEach(([key, value]) => {
+      Object.entries(filters).forEach(([key, value]) => {
         if (value && value.toString().trim()) {
           params.append(key, value.toString());
         }
@@ -256,7 +176,6 @@ export const ACRecordsComponent = () => {
 
       if (response.ok) {
         const data = await response.json();
-        // console.log("AC Search data:", data);
         const transformedRecords = data.map((record: any) => ({
           id: record.document_no_ac,
           date: record.record_datetime,
@@ -305,13 +224,6 @@ export const ACRecordsComponent = () => {
     }
   };
 
-  // Clear filters
-  const clearFilters = () => {
-    setFilterCriteria({});
-    setDateRangePreset("7days");
-    handleDatePresetChange("7days");
-  };
-
   // Sort function
   const handleSort = (key: keyof ACRecord) => {
     let direction: "asc" | "desc" = "asc";
@@ -323,7 +235,6 @@ export const ACRecordsComponent = () => {
     setSortConfig({ key, direction });
   };
 
-  // Get sort icon
   const getSortIcon = (key: keyof ACRecord) => {
     if (sortConfig.key !== key) {
       return <ArrowUpDown size={14} className="text-gray-400" />;
@@ -336,7 +247,6 @@ export const ACRecordsComponent = () => {
     }
   };
 
-  // Sort records
   const sortedRecords = React.useMemo(() => {
     const sortableRecords = [...records];
 
@@ -345,7 +255,6 @@ export const ACRecordsComponent = () => {
         const aValue = a[sortConfig.key!];
         const bValue = b[sortConfig.key!];
 
-        // Handle date sorting
         if (sortConfig.key === "date") {
           const aDate = new Date(aValue as string).getTime();
           const bDate = new Date(bValue as string).getTime();
@@ -447,8 +356,6 @@ export const ACRecordsComponent = () => {
     switch (status) {
       case "Voided":
         return "bg-red-100 text-red-800 border-red-200";
-      // case (status.startsWith("W")):
-      //   return "bg-blue-100 text-blue-800 border-blue-200";
       case "Pending":
         return "bg-yellow-100 text-yellow-800 border-yellow-200";
       case "Completed Investigate":
@@ -538,7 +445,7 @@ export const ACRecordsComponent = () => {
             text: "คุณลบรายการนี้สำเร็จแล้ว",
             icon: "success"
           });
-          handleSearch();
+          filterRef.current?.triggerSearch();
         } else {
           Swal.fire({
             title: "ไม่สำเร็จ!",
@@ -551,7 +458,7 @@ export const ACRecordsComponent = () => {
 
   }
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     if (filteredRecords.length === 0) {
       Swal.fire({
         title: "ไม่มีข้อมูล",
@@ -592,12 +499,12 @@ export const ACRecordsComponent = () => {
       'มูลค่าความเสียหายจริง': record.actual_price != null ? Number(record.actual_price).toLocaleString() : '-'
     }));
 
-    // สร้าง workbook และ worksheet
+    const XLSX = await import('xlsx');
+    
     const ws = XLSX.utils.json_to_sheet(excelData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'AC Records');
 
-    // ตั้งชื่อไฟล์: AC_วันที่_เวลา
     const now = new Date();
     const dateStr = now.toLocaleDateString('th-TH', {
       year: 'numeric',
@@ -625,345 +532,14 @@ export const ACRecordsComponent = () => {
   return (
     <div className="min-h-screen bg-[#d1ffe1] p-6">
       <div className="max-w-7xl mx-auto m-4">
-        {/* Filter Section */}
-        <div className="bg-white z-[10] relative backdrop-blur-md rounded-2xl shadow-xl border border-white/30 p-6 mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-              <Filter size={24} />
-              ตัวกรองข้อมูล
-            </h2>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="md:hidden bg-gray-200 hover:bg-gray-300 p-2 rounded-lg transition-colors"
-            >
-              <ChevronDown size={20} />
-            </button>
-          </div>
-
-          <div
-            className={`space-y-6 ${showFilters ? "block" : "hidden md:block"}`}
-          >
-            {/* Date Range Preset Buttons */}
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                <Calendar size={16} />
-                ช่วงวันที่ (Date Range)
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {(
-                  [
-                    { key: "3days", label: "3 วันย้อนหลัง" },
-                    { key: "7days", label: "7 วันย้อนหลัง" },
-                    { key: "week", label: "สัปดาห์นี้" },
-                    { key: "month", label: "เดือนนี้" },
-                    { key: "custom", label: "กำหนดเอง" },
-                  ] as Array<{ key: DateRangePreset; label: string }>
-                ).map((preset) => (
-                  <button
-                    key={preset.key}
-                    onClick={() => handleDatePresetChange(preset.key)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${dateRangePreset === preset.key
-                      ? "border-1 border-emerald-500 bg-green-100 shadow-md"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-105 border border-gray-300"
-                      }`}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Custom Date Range (แสดงเมื่อเลือก กำหนดเอง) */}
-            {dateRangePreset === "custom" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                    <Calendar size={16} />
-                    วันที่เริ่มต้น
-                  </label>
-                  <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
-                    <PopoverTrigger asChild>
-                      <button className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors text-left flex items-center justify-between">
-                        <span
-                          className={
-                            filterCriteria.start_date
-                              ? "text-gray-900"
-                              : "text-gray-500"
-                          }
-                        >
-                          {filterCriteria.start_date || "เลือกวันที่เริ่มต้น"}
-                        </span>
-                        <Calendar size={16} className="text-gray-400" />
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="w-auto p-0 z-[9999]"
-                      align="start"
-                      style={{ zIndex: 9999 }}
-                    >
-                      <CalendarComponent
-                        mode="single"
-                        selected={
-                          filterCriteria.start_date
-                            ? new Date(filterCriteria.start_date)
-                            : undefined
-                        }
-                        onSelect={(date) => {
-                          if (date) {
-                            setFilterCriteria((prev) => ({
-                              ...prev,
-                              start_date: formatDateToLocal(date),
-                            }));
-                          }
-                          setStartDateOpen(false);
-                        }}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                    <Calendar size={16} />
-                    วันที่สิ้นสุด
-                  </label>
-                  <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
-                    <PopoverTrigger asChild>
-                      <button className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors text-left flex items-center justify-between">
-                        <span
-                          className={
-                            filterCriteria.end_date
-                              ? "text-gray-900"
-                              : "text-gray-500"
-                          }
-                        >
-                          {filterCriteria.end_date || "เลือกวันที่สิ้นสุด"}
-                        </span>
-                        <Calendar size={16} className="text-gray-400" />
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      className="w-auto p-0 z-[9999]"
-                      align="start"
-                      style={{ zIndex: 9999 }}
-                    >
-                      <CalendarComponent
-                        mode="single"
-                        selected={
-                          filterCriteria.end_date
-                            ? new Date(filterCriteria.end_date)
-                            : undefined
-                        }
-                        onSelect={(date) => {
-                          if (date) {
-                            setFilterCriteria((prev) => ({
-                              ...prev,
-                              end_date: formatDateToLocal(date),
-                            }));
-                          }
-                          setEndDateOpen(false);
-                        }}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-            )}
-
-            {/* Main Filter Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              {/* Document Number */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                  เลขที่เอกสาร
-                </label>
-                <input
-                  className="flex items-center justify-between w-full text-sm p-2 border  rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black bg-white cursor-pointer "
-                  type="text"
-                  value={filterCriteria.document_no || ""}
-                  onChange={(e) =>
-                    setFilterCriteria((prev) => ({
-                      ...prev,
-                      document_no: e.target.value,
-                    }))
-                  }
-                  placeholder="ค้นหาเลขที่เอกสาร..."
-                />
-              </div>
-
-              {/* Site Selection */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                  สำนักงาน/ศูนย์ปฏิบัติการ (Site)
-                </label>
-                <SearchableSelect
-                  options={
-                    dropdownData.sites?.map((site: any) => ({
-                      value: site.site_id?.toString() || "",
-                      label:
-                        site.site_name_th || site.site_name || "ไม่ระบุชื่อ",
-                    })) || []
-                  }
-                  value={filterCriteria.site_id || ""}
-                  onChange={(value) =>
-                    setFilterCriteria((prev) => ({
-                      ...prev,
-                      site_id: value.toString(),
-                    }))
-                  }
-                  placeholder="เลือกสำนักงาน/ศูนย์ปฏิบัติการ"
-                />
-              </div>
-
-              {/* Driver Selection */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                  พนักงานขับรถ (Driver)
-                </label>
-                <SearchableSelect
-                  options={
-                    dropdownData.drivers?.map((driver: any) => ({
-                      value: driver.driver_id?.toString() || "",
-                      label:
-                        `${driver.first_name || ""} ${driver.last_name || ""
-                          }`.trim() || "ไม่ระบุชื่อ",
-                    })) || []
-                  }
-                  value={filterCriteria.driver_id || ""}
-                  onChange={(value) =>
-                    setFilterCriteria((prev) => ({
-                      ...prev,
-                      driver_id: value.toString(),
-                    }))
-                  }
-                  // onAddFilter={(value) => {
-                  //   const currentValue = filterCriteria.driver_id || "";
-                  //   const currentItems = currentValue
-                  //     .split(",")
-                  //     .map((item) => item.trim())
-                  //     .filter(Boolean);
-                  //   const newValue = value.toString();
-
-                  //   if (!currentItems.includes(newValue)) {
-                  //     const updatedItems = [...currentItems, newValue];
-                  //     setFilterCriteria((prev) => ({
-                  //       ...prev,
-                  //       driver_id: updatedItems.join(", "),
-                  //     }));
-                  //   }
-                  // }}
-                  placeholder="เลือกพนักงานขับรถ"
-                />
-              </div>
-
-              {/* Status */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                  สถานะ (Status)
-                </label>
-                <SearchableSelect
-                  options={[
-                    { value: "Pending", label: "Pending" },
-                    {
-                      value: "Completed Investigate",
-                      label: "Completed",
-                    },
-                    { value: "Voided", label: "Voided" },
-                  ]}
-                  value={filterCriteria.casestatus || ""}
-                  onChange={(value) =>
-                    setFilterCriteria((prev) => ({
-                      ...prev,
-                      casestatus: value.toString(),
-                    }))
-                  }
-                  // onAddFilter={(value) => {
-                  //   const currentValue = filterCriteria.casestatus || "";
-                  //   const currentItems = currentValue
-                  //     .split(",")
-                  //     .map((item) => item.trim())
-                  //     .filter(Boolean);
-                  //   const newValue = value.toString();
-
-                  //   if (!currentItems.includes(newValue)) {
-                  //     const updatedItems = [...currentItems, newValue];
-                  //     setFilterCriteria((prev) => ({
-                  //       ...prev,
-                  //       casestatus: updatedItems.join(", "),
-                  //     }));
-                  //   }
-                  // }}
-                  placeholder="เลือกสถานะ"
-                />
-              </div>
-
-              {/* Priority */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-600 flex items-center gap-2">
-                  ระดับความรุนแรง (Priority)
-                </label>
-                <SearchableSelect
-                  options={[
-                    { value: "Minor", label: "🟡 Minor" },
-                    { value: "Major", label: "🟠 Major" },
-                    { value: "Crisis", label: "🔴 Crisis" },
-                  ]}
-                  value={filterCriteria.priority || ""}
-                  onChange={(value) =>
-                    setFilterCriteria((prev) => ({
-                      ...prev,
-                      priority: value.toString(),
-                    }))
-                  }
-                  // onAddFilter={(value) => {
-                  //   const currentValue = filterCriteria.priority || "";
-                  //   const currentItems = currentValue
-                  //     .split(",")
-                  //     .map((item) => item.trim())
-                  //     .filter(Boolean);
-                  //   const newValue = value.toString();
-
-                  //   if (!currentItems.includes(newValue)) {
-                  //     const updatedItems = [...currentItems, newValue];
-                  //     setFilterCriteria((prev) => ({
-                  //       ...prev,
-                  //       priority: updatedItems.join(", "),
-                  //     }));
-                  //   }
-                  // }}
-                  placeholder="เลือกระดับความรุนแรง"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div
-            className={`flex flex-col sm:flex-row gap-3 mt-6 ${showFilters ? "block" : "hidden md:flex"
-              }`}
-          >
-            <button
-              onClick={handleSearch}
-              disabled={loading}
-              className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg flex items-center justify-center gap-2 transition-all duration-200 shadow-lg hover:shadow-xl"
-            >
-              {loading ? (
-                <RefreshCw size={20} className="animate-spin" />
-              ) : (
-                <Search size={20} />
-              )}
-              {loading ? "กำลังค้นหา..." : "ค้นหาข้อมูล"}
-            </button>
-            <button
-              onClick={clearFilters}
-              className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg flex items-center justify-center gap-2 transition-all duration-200 shadow-lg hover:shadow-xl"
-            >
-              <RefreshCw size={20} />
-              รีเซ็ต
-            </button>
-          </div>
-        </div>
+        <RecordFilter
+          ref={filterRef}
+          type="AC"
+          onFilter={handleFilterChange}
+          loading={loading}
+          dropdownData={dropdownData}
+          className="mb-6 z-[10] relative"
+        />
 
         {/* Records Table */}
         {/* Data Table */}
@@ -971,14 +547,6 @@ export const ACRecordsComponent = () => {
           <div className="p-4 bg-gray-500 border-b border-gray-200">
             <h2 className="text-xl text-white font-semibold">
               ข้อมูล AC Records
-              {dateRangePreset !== "custom" && (
-                <span className="text-sm font-normal ml-2 bg-emerald-600 px-2 py-1 rounded">
-                  {dateRangePreset === "3days" && "3 วันย้อนหลัง"}
-                  {dateRangePreset === "7days" && "7 วันย้อนหลัง"}
-                  {dateRangePreset === "week" && "สัปดาห์นี้"}
-                  {dateRangePreset === "month" && "เดือนนี้"}
-                </span>
-              )}
             </h2>
             <div className="text-white mt-1 space-y-1">
               <p>พบข้อมูล {filteredRecords.length} รายการ</p>

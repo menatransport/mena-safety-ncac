@@ -11,6 +11,9 @@ export default function Loading() {
   <span className="loader-letter">i</span>
   <span className="loader-letter">n</span>
   <span className="loader-letter">g</span>
+  <span className="loader-letter">.</span>
+  <span className="loader-letter">.</span>
+  <span className="loader-letter">.</span>
 
   <div className="loader"></div>
 </div>

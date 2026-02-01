@@ -12,9 +12,11 @@ import {
   TransportView
 } from '@/components/ui/dashboard';
 
+const MONTH_NAMES = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'] as const;
+
 export const DashboardComponent = () => {
   const [selectedMonth, setSelectedMonth] = useState('all');
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
   const [selectedCenter, setSelectedCenter] = useState('all');
   const [selectedCaseType, setSelectedCaseType] = useState('all');
   const [ncData, setNcData] = useState<caseReport_NC[]>([]);
@@ -22,7 +24,6 @@ export const DashboardComponent = () => {
   const [loading, setLoading] = useState(false);
   const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
-  const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 
 
   useEffect(() => {
@@ -111,10 +112,7 @@ export const DashboardComponent = () => {
     // คำนวณข้อมูลสำหรับ Summary Cards
     let filteredNcData = selectedCaseType === 'ac' ? [] : ncData;
     let filteredAcData = selectedCaseType === 'nc' ? [] : acData;
-    // console.log('filteredNcData', filteredNcData);
-    // console.log('filteredAcData', filteredAcData);
-    // console.log('selectedCenter', selectedCenter);
-    // กรองตาม Center
+ 
     if (selectedCenter !== 'all') {
       filteredNcData = filteredNcData.filter(item => item.site_name === selectedCenter);
       filteredAcData = filteredAcData.filter(item => item.site_name === selectedCenter);
@@ -229,8 +227,8 @@ export const DashboardComponent = () => {
         ...values
       }))
       .sort((a, b) => {
-        const monthA = monthNames.indexOf(a.date.split(' ')[0]);
-        const monthB = monthNames.indexOf(b.date.split(' ')[0]);
+        const monthA = MONTH_NAMES.indexOf(a.date.split(' ')[0] as typeof MONTH_NAMES[number]);
+        const monthB = MONTH_NAMES.indexOf(b.date.split(' ')[0] as typeof MONTH_NAMES[number]);
         return monthA - monthB;
       });
       // console.log('stackedBarData', stackedBarData);
@@ -345,8 +343,8 @@ export const DashboardComponent = () => {
         total: costs.NC + costs.AC
       }))
       .sort((a, b) => {
-        const monthA = monthNames.indexOf(a.month.split(' ')[0]);
-        const monthB = monthNames.indexOf(b.month.split(' ')[0]);
+        const monthA = MONTH_NAMES.indexOf(a.month.split(' ')[0] as typeof MONTH_NAMES[number]);
+        const monthB = MONTH_NAMES.indexOf(b.month.split(' ')[0] as typeof MONTH_NAMES[number]);
         return monthA - monthB;
       });
 
@@ -550,8 +548,8 @@ export const DashboardComponent = () => {
   }, [activeView, ncData, acData, selectedCaseType, selectedCenter]);
 
   return (
-    <div className="min-h-screen p-10 bg-gradient-to-br from-[#d1ffe1] to-indigo-100">
-      <div className="space-y-6">
+    <div className="min-h-screen p-4 md:p-6 lg:p-10 bg-gradient-to-br from-[#d1ffe1] to-indigo-100">
+      <div className="space-y-4 md:space-y-6">
 
 
         {/* Filter Section */}

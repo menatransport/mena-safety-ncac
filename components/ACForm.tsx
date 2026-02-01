@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { DateTimePicker24h } from "./ui/datetime-picker";
 import { SearchableSelect } from "./ui/searchable-select";
 import { useSearchParams } from "next/navigation";
@@ -665,7 +665,6 @@ export const ACFormComponent = () => {
         (sub) => sub.sub_district_id === formData.sub_district_id
       );
 
-      // สร้างข้อมูลที่มีชื่อแทน ID สำหรับการพิมพ์
       const printFormData = {
         ...formData,
         site_name: selectedSite?.site_name_th || formData.site_name,
@@ -683,7 +682,6 @@ export const ACFormComponent = () => {
         sub_district_name: selectedSubDistrict?.sub_district_name_th || formData.sub_district_name,
       };
 
-      // เรียกใช้ฟังก์ชันพิมพ์
       printDocument_ac({
         formData: printFormData as caseReport_AC,
         userinfo,
