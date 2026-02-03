@@ -467,40 +467,58 @@ export const ACRecordsComponent = () => {
       });
       return;
     }
-    // console.log("Exporting records:", filteredRecords);
-    const excelData = filteredRecords.map(record => ({
-      'เลขที่เอกสาร': record.id,
-      'วันและเวลา บันทึกเหตุ': record.date ? formatDate(record.date) : '',
-      'วันและเวลา เกิดเหตุ': record.date_event ? formatDate(record.date_event) : '',
-      'ระดับความรุนแรง': record.priority || '',
-      'สถานะ': record.status || '',
-      'ลูกค้า': record.customer || '',
-      'ผู้รายงาน': record.reporter || '',
-      'สำนักงาน/ศูนย์': record.site || '',
-      'แผนก': record.department || '',
-      'พนักงานขับรถ': record.driver || '',
-      'ตำแหน่งพนักงานขับรถ': record.driver_role_name || '',
-      'ทะเบียนหัวรถ': record.vehicle_head_plate || '',
-      'ทะเบียนหางรถ': record.vehicle_tail_plate || '',
-      'การตรวจสารเสพติด': record.drug_test || '',
-      'ผลการตรวจสารเสพติด': record.drug_test_result || '',
-      'การตรวจแอลกอฮอล์': record.alcohol_test || '',
-      'ผลการตรวจแอลกอฮอล์': record.alcohol_test_result || '',
-      'รายละเอียด': record.description || '',
-      'สถานที่เกิดเหตุ': record.location || '',
-      'จังหวัด': record.province_name || '',
-      'อำเภอ': record.district_name || '',
-      'ตำบล': record.sub_district_name || '',
-      'ความเสียหายของสินค้า': record.product_damage || '',
-      'รายละเอียดความเสียหายของสินค้า': record.product_damage_details || '',
-      'ความเสียหายของรถ': record.truck_damage || '',
-      'รายละเอียดความเสียหายของรถ': record.truck_damage_details || '',
-      'มูลค่าความเสียหายประมาณการ': record.estimated_cost != null ? Number(record.estimated_cost).toLocaleString() : '-',
-      'มูลค่าความเสียหายจริง': record.actual_price != null ? Number(record.actual_price).toLocaleString() : '-'
-    }));
+    const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+    const excelData = filteredRecords.map(record => {
+      let reportYear = '';
+      let reportMonth = '';
+      let reportDate = '';
+      let reportTime = '';
+
+      if (record.date) {
+        const date = new Date(record.date);
+        reportYear = date.getFullYear().toString();
+        reportMonth = thaiMonths[date.getMonth()];
+        reportDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+        reportTime = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+      }
+      return {
+        'เลขที่เอกสาร': record.id,
+        'ปีที่บันทึกเหตุ': reportYear,
+        'เดือนที่บันทึกเหตุ': reportMonth,
+        'วันที่บันทึกเหตุ': reportDate,
+        'เวลาที่บันทึกเหตุ': reportTime,
+        'วันและเวลา เกิดเหตุ': record.date_event ? formatDate(record.date_event) : '',
+        'ระดับความรุนแรง': record.priority || '',
+        'สถานะ': record.status || '',
+        'ลูกค้า': record.customer || '',
+        'ผู้รายงาน': record.reporter || '',
+        'สำนักงาน/ศูนย์': record.site || '',
+        'แผนก': record.department || '',
+        'พนักงานขับรถ': record.driver || '',
+        'ตำแหน่งพนักงานขับรถ': record.driver_role_name || '',
+        'ทะเบียนหัวรถ': record.vehicle_head_plate || '',
+        'ทะเบียนหางรถ': record.vehicle_tail_plate || '',
+        'การตรวจสารเสพติด': record.drug_test || '',
+        'ผลการตรวจสารเสพติด': record.drug_test_result || '',
+        'การตรวจแอลกอฮอล์': record.alcohol_test || '',
+        'ผลการตรวจแอลกอฮอล์': record.alcohol_test_result || '',
+        'รายละเอียด': record.description || '',
+        'สถานที่เกิดเหตุ': record.location || '',
+        'จังหวัด': record.province_name || '',
+        'อำเภอ': record.district_name || '',
+        'ตำบล': record.sub_district_name || '',
+        'ความเสียหายของสินค้า': record.product_damage || '',
+        'รายละเอียดความเสียหายของสินค้า': record.product_damage_details || '',
+        'ความเสียหายของรถ': record.truck_damage || '',
+        'รายละเอียดความเสียหายของรถ': record.truck_damage_details || '',
+        'มูลค่าความเสียหายประมาณการ': record.estimated_cost != null ? Number(record.estimated_cost) : null,
+        'มูลค่าความเสียหายจริง': record.actual_price != null ? Number(record.actual_price) : null
+      };
+    });
 
     const XLSX = await import('xlsx');
-    
+
     const ws = XLSX.utils.json_to_sheet(excelData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'AC Records');

@@ -192,7 +192,7 @@ export const NCRecordsComponent = () => {
           product_resellable: record.investigation.product_resellable,
           remaining_damage_cost: record.investigation.remaining_damage_cost
         }));
-         console.log("filteredRecords NC :", transformedRecords);
+        // console.log("filteredRecords NC :", transformedRecords);
         setRecords(transformedRecords);
       } else {
         console.error("Search failed");
@@ -455,36 +455,52 @@ export const NCRecordsComponent = () => {
       return;
     }
 
-    const excelData = filteredRecords.map(record => ({
-      'เลขที่เอกสาร': record.id,
-      'วันและเวลา บันทึกเหตุ': record.date ? formatDate(record.date) : '',
-      'วันและเวลา เกิดเหตุ': record.incident_date ? formatDate(record.incident_date) : '',
-      'ระดับความรุนแรง': record.priority || '',
-      'สถานะ': record.status,
-      'ลูกค้า': record.client_name || '',
-      'ผู้รายงาน': record.reporter_name || '',
-      'สำนักงาน/ศูนย์': record.site_name || '',
-      'แผนก': record.department_name || '',
-      'พนักงานขับรถ': record.driver_name || '',
-      'ตำแหน่งพนักงานขับรถ': record.driver_role_name || '',
-      'ทะเบียนรถหัว': record.vehicle_head_plate || '',
-      'ทะเบียนรถท้าย': record.vehicle_tail_plate || '',
-      'สาเหตุของเหตุการณ์': record.incident_cause || '',
-      // 'สินค้า': record.products?.map((p: any) => p.product_name).join(", ") || '',
-      // 'จำนวนสินค้า': record.products?.map((p: any) => p.amount).join(", ") || '',
-      // 'หน่วยสินค้า': record.products?.map((p: any) => p.unit).join(", ") || '',
-      'รายละเอียด': record.description || '',
-      'สถานที่เกิดเหตุ': record.location || '',
-      'มูลค่าความเสียหายประมาณการ': record.estimated_cost != null ? Number(record.estimated_cost).toLocaleString() : '-',
-      'มูลค่าความเสียหายจริง': record.actual_price != null ? Number(record.actual_price).toLocaleString() : '-',
-      'ประเภทการเคลม': record.claim_type || '',
-      'ค่าใช้จ่ายบริษัท': record.company_cost != null ? Number(record.company_cost).toLocaleString() : '-',
-      'ค่าใช้จ่ายพนักงานขับรถ': record.driver_cost != null ? Number(record.driver_cost).toLocaleString() : '-',
-      'ประกันเคลม': record.insurance_claim != null ? Number(record.insurance_claim).toLocaleString() : '-',
-      'ขายต่อ': record.product_resellable != null ? Number(record.product_resellable).toLocaleString() : '-',
-      'ค่าความเสียหายที่เหลือ': record.remaining_damage_cost != null ? Number(record.remaining_damage_cost).toLocaleString() : '-',
+    const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 
-    }));
+    const excelData = filteredRecords.map(record => {
+      let reportYear = '';
+      let reportMonth = '';
+      let reportDate = '';
+      let reportTime = '';
+
+      if (record.date) {
+        const date = new Date(record.date);
+        reportYear = date.getFullYear().toString();
+        reportMonth = thaiMonths[date.getMonth()];
+        reportDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+        reportTime = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+      }
+
+      return {
+        'เลขที่เอกสาร': record.id,
+        'ปีที่บันทึกเหตุ': reportYear,
+        'เดือนที่บันทึกเหตุ': reportMonth,
+        'วันที่บันทึกเหตุ': reportDate,
+        'เวลาที่บันทึกเหตุ': reportTime,
+        'วันและเวลา เกิดเหตุ': record.incident_date ? formatDate(record.incident_date) : '',
+        'ระดับความรุนแรง': record.priority || '',
+        'สถานะ': record.status,
+        'ลูกค้า': record.client_name || '',
+        'ผู้รายงาน': record.reporter_name || '',
+        'สำนักงาน/ศูนย์': record.site_name || '',
+        'แผนก': record.department_name || '',
+        'พนักงานขับรถ': record.driver_name || '',
+        'ตำแหน่งพนักงานขับรถ': record.driver_role_name || '',
+        'ทะเบียนรถหัว': record.vehicle_head_plate || '',
+        'ทะเบียนรถท้าย': record.vehicle_tail_plate || '',
+        'สาเหตุของเหตุการณ์': record.incident_cause || '',
+        'รายละเอียด': record.description || '',
+        'สถานที่เกิดเหตุ': record.location || '',
+        'มูลค่าความเสียหายประมาณการ': record.estimated_cost != null ? Number(record.estimated_cost) : null,
+        'มูลค่าความเสียหายจริง': record.actual_price != null ? Number(record.actual_price) : null,
+        'ประเภทการเคลม': record.claim_type || '',
+        'ค่าใช้จ่ายบริษัท': record.company_cost != null ? Number(record.company_cost) : null,
+        'ค่าใช้จ่ายพนักงานขับรถ': record.driver_cost != null ? Number(record.driver_cost) : null,
+        'ประกันเคลม': record.insurance_claim != null ? Number(record.insurance_claim) : null,
+        'ขายต่อ': record.product_resellable != null ? Number(record.product_resellable) : null,
+        'ค่าความเสียหายที่เหลือ': record.remaining_damage_cost != null ? Number(record.remaining_damage_cost) : null,
+      };
+    });
 
 
     const productSheet = filteredRecords.flatMap(record => {
@@ -498,7 +514,7 @@ export const NCRecordsComponent = () => {
     });
 
     const XLSX = await import('xlsx');
-    
+
     const ws = XLSX.utils.json_to_sheet(excelData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'NC Records');
