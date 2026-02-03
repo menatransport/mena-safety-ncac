@@ -11,6 +11,9 @@ export async function POST(request: Request) {
       body: JSON.stringify(data),
     });
     
+    if (!res.ok) {
+      throw new Error(`API responded with status: ${res.status}`);
+    }
 
     return NextResponse.json(await res.json());
   } catch (error) {
@@ -25,7 +28,6 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const data = await request.json();
-    console.log('Received data in PUT /api/document Body:', data);
     const docId = data.document_no;
 
     const res = await fetch(`${process.env.nc_url}/${docId}`, {
@@ -36,7 +38,9 @@ export async function PUT(request: Request) {
       body: JSON.stringify(data),
     });
     
-
+    if (!res.ok) {
+      throw new Error(`API responded with status: ${res.status}`);
+    }
     return NextResponse.json(await res.json());
   } catch (error) {
     console.error('POST DB API error:', error);

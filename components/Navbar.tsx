@@ -150,7 +150,7 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
 
     if (result.isConfirmed) {
       const rememberMe = localStorage.getItem("userData") ? JSON.parse(localStorage.getItem("userData") || "{}").rememberMe : false;
-      console.log('rememberMe : ', rememberMe);
+      // console.log('rememberMe : ', rememberMe);
       if (!rememberMe) {
         localStorage.removeItem("userData");
       }
@@ -390,9 +390,23 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                     onClick={() => setShowUserInfo(!showUserInfo)}
                     className="flex items-center space-x-2 p-1.5 rounded-xl hover:bg-slate-50 transition-all duration-300"
                   >
-                    <div className={`w-8 h-8 bg-gradient-to-br ${userInfo?.employee_id % 2 === 0 ? 'from-emerald-500 to-teal-600' : 'from-teal-500 to-cyan-600'} rounded-lg flex items-center justify-center shadow-sm`}>
-                      <span className="text-white text-[10px] font-bold">{userInfo?.firstname?.charAt(0)}{userInfo?.lastname?.charAt(0)}</span>
-                    </div>
+                    {userInfo?.image_url ? (
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-sm overflow-hidden">
+                        <img 
+                          src={userInfo.image_url} 
+                          alt={`${userInfo?.firstname} ${userInfo?.lastname}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.parentElement!.innerHTML = `<span class="text-white text-[10px] font-bold">${userInfo?.username?.charAt(0).toUpperCase()}${userInfo?.username?.charAt(userInfo?.username?.length - 1).toUpperCase()}</span>`;
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center shadow-sm">
+                        <span className="text-white text-[10px] font-bold">{userInfo?.username?.charAt(0).toUpperCase()}{userInfo?.username?.charAt(userInfo?.username?.length - 1).toUpperCase()}</span>
+                      </div>
+                    )}
                     <div className="flex items-center space-x-1">
                       <span className="text-xs font-semibold text-slate-800 max-w-[100px] truncate">{userInfo?.firstname}</span>
                       <ChevronDown size={12} className={`text-slate-400 transition-transform duration-300 ${showUserInfo ? 'rotate-180' : ''}`} />
@@ -403,9 +417,23 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                   {showUserInfo && (
                     <div className="absolute top-full left-0 mt-2 bg-white/95 backdrop-blur-xl rounded-xl shadow-xl border border-slate-200/60 p-3 w-64 z-[99999] animate-scale-in">
                       <div className="flex items-center space-x-3 mb-3 pb-3 border-b border-slate-100">
-                        <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-md">
-                          <span className="text-white text-xs font-bold">{userInfo?.firstname?.charAt(0)}{userInfo?.lastname?.charAt(0)}</span>
-                        </div>
+                        {userInfo?.image_url ? (
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-md overflow-hidden">
+                            <img 
+                              src={userInfo.image_url} 
+                              alt={`${userInfo?.firstname} ${userInfo?.lastname}`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.parentElement!.innerHTML = `<span class="text-white text-xs font-bold">${userInfo?.username?.charAt(0).toUpperCase()}${userInfo?.username?.charAt(userInfo?.username?.length - 1).toUpperCase()}</span>`;
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-md">
+                            <span className="text-white text-xs font-bold">{userInfo?.username?.charAt(0).toUpperCase()}{userInfo?.username?.charAt(userInfo?.username?.length - 1).toUpperCase()}</span>
+                          </div>
+                        )}
                         <div>
                           <h3 className="font-bold text-slate-900 text-sm">{userInfo?.firstname} {userInfo?.lastname}</h3>
                           <p className="text-xs text-emerald-600 font-medium">{userInfo?.position}</p>
@@ -431,9 +459,23 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                 </div>
               ) : (
                 <div className="flex items-center space-x-4">
-                  <div className={`w-11 h-11 bg-gradient-to-br ${userInfo?.employee_id % 2 === 0 ? 'from-emerald-500 to-teal-600' : 'from-teal-500 to-cyan-600'} rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20`}>
-                    <span className="text-white text-sm font-bold">{userInfo?.firstname?.charAt(0)}{userInfo?.lastname?.charAt(0)}</span>
-                  </div>
+                  {userInfo?.image_url ? (
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20 overflow-hidden">
+                      <img 
+                        src={userInfo.image_url} 
+                        alt={`${userInfo?.firstname} ${userInfo?.lastname}`}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.parentElement!.innerHTML = `<span class="text-white text-sm font-bold">${userInfo?.username?.charAt(0).toUpperCase()}${userInfo?.username?.charAt(userInfo?.username?.length - 1).toUpperCase()}</span>`;
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-11 h-11 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                      <span className="text-white text-sm font-bold">{userInfo?.username?.charAt(0).toUpperCase()}{userInfo?.username?.charAt(userInfo?.username?.length - 1).toUpperCase()}</span>
+                    </div>
+                  )}
                   <div>
                     <h1 className="text-lg font-bold text-slate-900 tracking-tight">
                       {userInfo?.firstname} {userInfo?.lastname} <span className="text-emerald-600 font-semibold">{userInfo?.employee_id}</span>

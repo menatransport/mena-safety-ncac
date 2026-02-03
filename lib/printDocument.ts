@@ -492,7 +492,6 @@ const getSharedStyles = () => `
 // ==================== Print NC Document Function ====================
 
 export const printDocument_nc = (data: PrintDocumentData) => {
-  console.log("printDocument_nc data:", data);
   
   const { formData, investigateData, userinfo, attachedFiles } = data;
   

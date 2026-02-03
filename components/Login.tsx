@@ -42,8 +42,9 @@ export default function Login() {
         },
         body: JSON.stringify(body),
       });
-
+    
       const data = await res.json();
+        // console.log("Login data :", data);
       if (data.access_token && data.user) {
         localStorage.setItem('authToken', data.access_token);
         localStorage.setItem('userData', JSON.stringify({ ...data.user, rememberMe, password }));
@@ -292,7 +293,7 @@ export default function Login() {
             {/* Footer */}
             <div className="text-center space-y-2">
               <p className="text-gray-700 text-xs">
-                © 2025 MENA NCAC • V.1.3.0 
+                © 2025 MENA NCAC • V.1.4.0 
               </p>
               <div className="hidden justify-center space-x-4 text-xs">
                 <a href="#" className="text-gray-500 hover:text-emerald-600 transition-colors">นโยบายความเป็นส่วนตัว</a>

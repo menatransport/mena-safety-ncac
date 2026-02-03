@@ -15,7 +15,6 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify(reqBody),
     });
-    
     return NextResponse.json(await res.json());
   } catch (error) {
     console.error('Login API error:', error);

@@ -200,15 +200,14 @@ export const FileUpload = ({
   const [previewPosition, setPreviewPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [documentInfo, setDocumentInfo] = useState<DocumentInfo>(docs);
 
-  // ตั้งค่า default สำหรับเอกสารทั้งหมดที่ยังไม่มีข้อมูล
   useEffect(() => {
+    
     const filteredCategories = DOCUMENT_CATEGORIES.filter(
       (category) => category.case === caseType || category.case === "all"
     );
 
     const defaultDocInfo: DocumentInfo = { ...documentInfo };
     let hasChanges = false;
-
     filteredCategories.forEach((doc) => {
       // ตั้งค่าเริ่มต้น "มี" ถ้ายังไม่มีข้อมูล
       if (!defaultDocInfo[doc.value]) {
@@ -500,7 +499,6 @@ export const FileUpload = ({
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { id, value } = e.target;
-    console.log("Handling doc change for id:", id, "with value:", value);
 
     const updatedDocInfo = { ...documentInfo, [id]: value } as DocumentInfo;
     setDocumentInfo(updatedDocInfo);
@@ -769,77 +767,82 @@ export const FileUpload = ({
             </>
           )}
 
-          {/* Missing Documents Table Hidden  */}
+          {/* Missing Documents Table */}
           {getMissingDocuments().length > 0 && (
-            <>
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <td
-                          colSpan={4}
-                          className="px-3 py-2 text-left font-semibold text-xs text-red-700 uppercase tracking-wider"
-                        >
-                          เอกสารแนบที่ขาด
+            <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-1/3">
+                        ชื่อเอกสาร
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider w-32">
+                        สถานะเอกสาร
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider w-40">
+                        เลขที่เอกสาร
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        หมายเหตุ (ไม่บังคับ)
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {getMissingDocuments().map((doc, index) => (
+                      <tr key={doc.value} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center">
+                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-700 text-xs font-semibold mr-3">
+                              {index + 1}
+                            </span>
+                            <span className="text-sm font-medium text-gray-900">{doc.label}</span>
+                          </div>
                         </td>
-                        <td
-                          colSpan={1}
-                          className="px-3 py-2 text-center text-xs text-gray-700 uppercase tracking-wider"
-                        >
-                          ต้องมีเอกสารแนบหรือไม่
-                        </td>
-                        <td
-                          colSpan={2}
-                          className="px-3 py-2 text-center text-xs text-gray-700 uppercase tracking-wider"
-                        >
-                          หมายเหตุ
-                        </td>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {getMissingDocuments().map((doc, index) => (
-                        <tr key={doc.value} className="hover:bg-red-50">
-                          <td
-                            colSpan={4}
-                            className="px-4 py-3 bg-gray-50 text-gray-700 text-xs font-medium"
+                        
+                        <td className="px-4 py-3 text-center">
+                          <select
+                            id={doc.value}
+                            value={documentInfo[doc.value] || "มี"}
+                            onChange={handleChanges}
+                            className="w-full text-sm font-medium px-3 py-2 border border-gray-300 rounded-md bg-white text-center focus:ring-1 focus:ring-gray-300 focus:border-gray-300 focus:outline-none text-gray-900 cursor-pointer hover:border-gray-400 transition-colors"
                           >
-                            <div className="flex items-start">
-                              <span className="mr-2">{index + 1}.</span>
-                              <span>{doc.label}</span>
-                            </div>
-                          </td>
-                          <td
-                            colSpan={1}
-                            className="px-2 py-3 bg-white text-center border-l border-gray-200"
-                          >
-                            <select
-                              id={doc.value}
-                              value={documentInfo[doc.value] || "มี"}
-                              onChange={handleChanges}
-                              className="w-1/2 text-xs font-medium p-2 border border-gray-300 rounded bg-white text-center focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black disabled:bg-gray-100"
-                            >
-                              <option value="มี">มี</option>
-                              <option value="ไม่มี">ไม่มี</option>
-                            </select>
-                          </td>
-                          <td colSpan={2} className="px-4 py-3 bg-white">
+                            <option value="มี">มี</option>
+                            <option value="ไม่มี">ไม่มี</option>
+                          </select>
+                        </td>
+                        
+                        <td className="px-4 py-3">
+                          {doc.no && documentInfo[doc.value] == "มี" ? (
                             <input
                               type="text"
-                              id={`${doc.value}_remark`}
-                              value={documentInfo[`${doc.value}_remark`] || ""}
+                              id={`${doc.value}_no`}
+                              value={documentInfo[`${doc.value}_no`] || ""}
                               onChange={handleChanges}
-                              placeholder=" ไม่บังคับ"
-                              className="w-full text-xs p-2 font-medium border border-gray-300 rounded bg-white focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black disabled:bg-gray-100"
+                              placeholder=""
+                              className="w-full text-sm px-3 py-2 border border-gray-300 rounded-md bg-white focus:ring-1 focus:ring-gray-300 focus:border-gray-300 focus:outline-none text-gray-900 placeholder-gray-400"
                             />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                          ) : (
+                            <span className="text-xs text-gray-400 italic"></span>
+                          )}
+                        </td>
+                        
+                        <td className="px-4 py-3">
+                          <input
+                            type="text"
+                            id={`${doc.value}_remark`}
+                            value={documentInfo[`${doc.value}_remark`] || ""}
+                            onChange={handleChanges}
+                            placeholder=""
+                            className="w-full text-sm px-3 py-2 border border-gray-300 rounded-md bg-white focus:ring-1 focus:ring-gray-300 focus:border-gray-300 focus:outline-none text-gray-900 placeholder-gray-400"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </>
+            </div>
           )}
         </div>
       )}

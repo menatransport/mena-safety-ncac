@@ -11,7 +11,10 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify(data),
     });
-    
+
+    if (!res.ok) {
+      throw new Error(`API responded with status: ${res.status}`);
+    }
 
     return NextResponse.json(await res.json());
   } catch (error) {
@@ -26,7 +29,6 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const data = await request.json();
-    console.log('Received data in PUT /api/document Body:', data);
     const docId = data.document_no_ac;
 
     const res = await fetch(`${process.env.ac_url}/${docId}`, {
@@ -36,11 +38,14 @@ export async function PUT(request: Request) {
       },
       body: JSON.stringify(data),
     });
-    
+
+    if (!res.ok) {
+      throw new Error(`API responded with status: ${res.status}`);
+    }
 
     return NextResponse.json(await res.json());
   } catch (error) {
-    console.error('POST DB API error:', error);
+    console.error('PUT DB API error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -52,7 +57,6 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const docid = searchParams.get('case_id');
-    // const apiUrl = `${process.env.ac_url}${queryString ? `?${queryString}` : ''}`;
     const apiUrl = `${process.env.ac_url}/${docid}`;
 
     const res = await fetch(apiUrl, {

@@ -42,7 +42,7 @@ console.log("useClipboard_nc data:", data);
 ⏰ วันที่แจ้ง: ${formatDT(data.formData.record_date) || 'N/A'}
 🔥 วันที่เกิดเหตุ: ${formatDT(data.formData.incident_date) || 'N/A'}
 
-🔗 https://mena-safety-ncac.vercel.app//nc-form?doc=${data.formData.document_no}
+🔗 https://mena-safety-ncac.vercel.app/nc-form?doc=${data.formData.document_no}
 ====================
 รายละเอียด: ${data.formData.case_details || 'N/A'}
     `;
@@ -64,7 +64,7 @@ export const useClipboard_ac = (data: any) => {
 ⏰ วันที่แจ้ง: ${formatDT(data.formData.record_datetime) || "N/A"}
 🔥 วันที่เกิดเหตุ: ${formatDT(data.formData.incident_datetime) || "N/A"}
 
-🔗 https://mena-safety-ncac.vercel.app//ac-form?doc=${data.formData.document_no_ac}
+🔗 https://mena-safety-ncac.vercel.app/ac-form?doc=${data.formData.document_no_ac}
 =====================
 รายละเอียด: ${data.formData.case_details || "N/A"}
 `;

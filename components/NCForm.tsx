@@ -105,13 +105,14 @@ export const NCFormComponent = () => {
     mastercauses: [],
   });
 
+  const searchParams = useSearchParams();
+
   useEffect(() => {
-    const loadUserInfo = async () => {
+    const initializeForm = async () => {
       const userData = localStorage.getItem("userData");
       if (!userData) {
         alert("ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่");
         router.push("/login");
-
         return;
       }
 
@@ -137,72 +138,111 @@ export const NCFormComponent = () => {
           position_level: parsedUserData.position_level || "",
           position_level_id: parsedUserData.position_level_id || "",
         };
-        console.log('newUserinfo : ', newUserinfo)
         setUserinfo(newUserinfo);
-        if (sites?.length == 0) {
-          await fetchDropdownData();
+
+        const docId = searchParams.get("doc");
+
+        const dropdownPromise = sites?.length === 0 ? fetchDropdownData() : Promise.resolve();
+        
+        if (docId) {
+          document.title = `${docId}`;
+          setIsLoadingFormData(true);
+
+          const documentPromise = fetch(
+            `/api/document/nc?document_no=${encodeURIComponent(docId)}`,
+            {
+              method: "GET",
+              headers: { "Content-Type": "application/json" },
+            }
+          ).then(res => res.json().then(data => ({ res, data })));
+
+          const attachmentPromise = fetch(
+            `/api/attachment?document_no=${encodeURIComponent(docId)}`,
+            {
+              method: "GET",
+              headers: { "Content-Type": "application/json" },
+            }
+          ).then(res => res.ok ? res.json() : null);
+
+          try {
+            const [, documentResult, attachmentData] = await Promise.all([
+              dropdownPromise,
+              documentPromise,
+              attachmentPromise
+            ]);
+
+            const { res, data } = documentResult;
+
+            if (res.ok) {
+              setIsViewMode(data.reporter_name !== newUserinfo.name);
+              setFormData({
+                ...data,
+                products: data.products.map((item: any, index: number) => ({
+                  ...item,
+                  product_id: index + 1,
+                }))
+              });
+
+              await mapTextDataToIds(data);
+
+              if (attachmentData) {
+                processAttachmentData(attachmentData);
+              }
+            } else {
+              throw new Error(
+                data.message || `HTTP ${res.status}: ${res.statusText}`
+              );
+            }
+          } catch (error) {
+            console.error("Error fetching record:", error);
+          } finally {
+            setIsLoadingFormData(false);
+          }
+        } else {
+          document.title = "MENA NCAC - NC Form";
+          await dropdownPromise;
         }
-        getvaluesparams(newUserinfo.name);
       } catch (error) {
         console.error("Error parsing userData from localStorage:", error);
         setUserinfo(null);
       }
     };
 
-    loadUserInfo();
+    initializeForm();
   }, []);
 
-  const searchParams = useSearchParams();
+  const processAttachmentData = (data: any) => {
+    const categorizedFiles: CategoryFiles = {};
 
-  const getvaluesparams = async (name: string) => {
-    const docId = searchParams.get("doc");
+    if (data.files && Array.isArray(data.files)) {
+      data.files.forEach((file: any) => {
+        const fileName = file.fileName || "";
+        const parts = fileName.split("_");
 
-    if (docId) {
-      document.title = `${docId}`;
-      setIsLoadingFormData(true);
+        if (parts.length >= 3) {
+          const category = parts.slice(1, -1).join("_");
 
-      try {
-        const res = await fetch(
-          `/api/document/nc?document_no=${encodeURIComponent(docId)}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-            },
+          if (!categorizedFiles[category]) {
+            categorizedFiles[category] = [];
           }
-        );
-        const data = await res.json();
-        // console.log("Fetched record data:", data);
-        if (res.ok) {
-          if (data.reporter_name == name) {
-            setIsViewMode(false);
-          } else {
-            setIsViewMode(true);
-          }
-
-          setFormData({
-            ...data, products: data.products.map((item: any, index: number) => ({
-              ...item,
-              product_id: index + 1,
-            }))
+          const mockFile = new File([""], fileName, {
+            type: fileName.toLowerCase().includes(".pdf")
+              ? "application/pdf"
+              : "image/jpeg",
           });
 
-          await mapTextDataToIds(data);
-
-          await loadExistingAttachments(docId);
-        } else {
-          throw new Error(
-            data.message || `HTTP ${res.status}: ${res.statusText}`
-          );
+          categorizedFiles[category].push({
+            id: file.key || Math.random().toString(36).substr(2, 9),
+            file: mockFile,
+            url: file.url,
+            updateData: "existing",
+            category: category,
+            uploadDate: new Date(),
+          });
         }
-      } catch (error) {
-        console.error("Error fetching record:", error);
-      } finally {
-        setIsLoadingFormData(false);
-      }
-    } else {
-      document.title = "MENA NCAC - NC Form";
+      });
     }
+    setAttachedFiles(categorizedFiles);
   };
 
   const thisformtype = async (type: string) => {
@@ -253,7 +293,6 @@ export const NCFormComponent = () => {
   const mapTextDataToIds = async (data: any) => {
     const mappedData: any = {};
     const store = getData();
-    console.log("store : ", store);
     if (data.site_name && store.sites) {
       const site = store.sites.find(
         (val: any) => val.site_name_th === data.site_name
@@ -325,68 +364,6 @@ export const NCFormComponent = () => {
     }
     setFormData((prev) => ({ ...prev, ...mappedData }));
   };
-
-  const loadExistingAttachments = async (document_no: string) => {
-    try {
-      const res = await fetch(
-        `/api/attachment?document_no=${encodeURIComponent(document_no)}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-
-        const categorizedFiles: CategoryFiles = {};
-
-        if (data.files && Array.isArray(data.files)) {
-          data.files.forEach((file: any) => {
-            const fileName = file.fileName || "";
-            const parts = fileName.split("_");
-
-            if (parts.length >= 3) {
-              const category = parts.slice(1, -1).join("_");
-
-              if (!categorizedFiles[category]) {
-                categorizedFiles[category] = [];
-              }
-              const mockFile = new File([""], fileName, {
-                type: fileName.toLowerCase().includes(".pdf")
-                  ? "application/pdf"
-                  : "image/jpeg",
-              });
-
-              categorizedFiles[category].push({
-                id: file.key || Math.random().toString(36).substr(2, 9),
-                file: mockFile,
-                url: file.url,
-                updateData: "existing",
-                category: category,
-                uploadDate: new Date(),
-              });
-            }
-          });
-        }
-        setAttachedFiles(categorizedFiles);
-      } else {
-        console.error("Failed to load attachments:", res.statusText);
-      }
-    } catch (error) {
-      console.error("Error loading attachments:", error);
-    }
-  };
-  //
-
-  // const adddropdownData = (value: any) => {
-  //   setDropdownData((prevData) => ({
-  //     ...prevData,
-  //     ...value,
-  //   }));
-  // };
 
   // ========== File Handling Functions ==========
   const handleFilesFromUpload = (files: CategoryFiles) => {
@@ -1000,9 +977,7 @@ export const NCFormComponent = () => {
         reporter_id: userinfo.id,
         docs: [docValue as any]
       };
-
-      console.log("NC Form data to submit:", submitData);
-
+      // console.log("Submitting NC Form Data:", submitData);
       const res = await fetch("/api/document/nc", {
         method: "POST",
         headers: {
@@ -1030,7 +1005,7 @@ export const NCFormComponent = () => {
           priority: responseData.priority,
           casestatus: responseData.casestatus,
         }));
-        console.log('Form Data after submit:', formData);
+
         if (responseData.document_no && Object.keys(attachedFiles).length > 0) {
           await attatchments_post(responseData.document_no);
         }
@@ -1083,7 +1058,7 @@ export const NCFormComponent = () => {
       incident_date: toThaiISO(new Date(filteredFormData.incident_date || "")),
       docs: [docValue as any]
     };
-    console.log("Data to be updated:", data);
+
     //  console.log("NC Form Update <><><><> :", formData);
 
     const res = await fetch("/api/document/nc", {
@@ -1094,7 +1069,7 @@ export const NCFormComponent = () => {
       body: JSON.stringify(data),
     });
     const responseData = await res.json();
-    console.log("API Response on Update:", responseData);
+
     if (res.ok) {
       Swal.fire({
         icon: "success",
@@ -1108,7 +1083,7 @@ export const NCFormComponent = () => {
       ...prev,
       priority: responseData.priority,
     }));
-    console.log("Attached Files on Update:", attachedFiles);
+
     if (responseData.document_no && Object.keys(attachedFiles).length > 0) {
       await attatchments_post(responseData.document_no);
     }
@@ -1201,7 +1176,6 @@ export const NCFormComponent = () => {
 
       if (res.ok) {
         const result = await res.json();
-        console.log("Attachments upload result:", result);
       } else {
         Swal.fire({
           icon: "error",
@@ -1270,7 +1244,7 @@ export const NCFormComponent = () => {
   return (
     <>
       <div className="min-h-screen bg-[#d1ffe1]">
-        <div className="p-6 space-y-6 pb-24 lg:pb-6">
+        <div className="py-4 sm:p-6 space-y-4 md:space-y-6 pb-24 lg:pb-6">
           {/* Button Bar */}
           {formData?.casestatus !== "" && (
             <div>
@@ -1627,7 +1601,7 @@ export const NCFormComponent = () => {
                             maxLength={1000}
                             disabled={isViewMode}
                             className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
-                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold h-60"
                               : ""
                               }`}
                           />
@@ -1933,19 +1907,17 @@ export const NCFormComponent = () => {
                                   </td>
                                   <td className="border border-gray-300 px-3 py-2 text-black">
                                     <input
-                                      type="text"
-                                      inputMode="numeric"
+                                      type="number"
                                       value={item.amount || ""}
                                       onChange={(e) => {
                                         const value = e.target.value;
-                                        if (value === '' || /^\d+$/.test(value)) {
                                           handleProductItemChange(
                                             item.product_id,
                                             "amount",
                                             value
                                           );
                                         }
-                                      }}
+                                      }
                                       className={`w-full text-sm p-1  border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                                         ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                                         : "bg-white"
@@ -1994,7 +1966,7 @@ export const NCFormComponent = () => {
                                 value={formData?.estimated_cost || ""}
                                 onChange={(e) => {
                                   const value = e.target.value;
-                                  if (value === '' || /^\d+$/.test(value)) {
+                                  if (value === '' || /^\d*\.?\d*$/.test(value)) {
                                     handleInputChange(e);
                                   }
                                 }}
@@ -2017,7 +1989,7 @@ export const NCFormComponent = () => {
                                 value={formData?.actual_price || ""}
                                 onChange={(e) => {
                                   const value = e.target.value;
-                                  if (value === '' || /^\d+$/.test(value)) {
+                                  if (value === '' || /^\d*\.?\d*$/.test(value)) {
                                     handleInputChange(e);
                                   }
                                 }}
@@ -2320,7 +2292,7 @@ export const NCFormComponent = () => {
                             value={formInvestigate.insurance_claim || ""}
                             onChange={(e) => {
                               const value = e.target.value;
-                              if (value === '' || /^\d+$/.test(value)) {
+                              if (value === '' || /^\d*\.?\d*$/.test(value)) {
                                 handleInvestigateInputChange(e);
                               }
                             }}
@@ -2343,7 +2315,7 @@ export const NCFormComponent = () => {
                             value={formInvestigate.product_resellable || ""}
                             onChange={(e) => {
                               const value = e.target.value;
-                              if (value === '' || /^\d+$/.test(value)) {
+                              if (value === '' || /^\d*\.?\d*$/.test(value)) {
                                 handleInvestigateInputChange(e);
                               }
                             }}
@@ -2366,7 +2338,7 @@ export const NCFormComponent = () => {
                             value={formInvestigate?.remaining_damage_cost || ""}
                             onChange={(e) => {
                               const value = e.target.value;
-                              if (value === '' || /^\d+$/.test(value)) {
+                              if (value === '' || /^\d*\.?\d*$/.test(value)) {
                                 handleInvestigateInputChange(e);
                               }
                             }}
@@ -2389,7 +2361,7 @@ export const NCFormComponent = () => {
                             value={formInvestigate?.driver_cost || ""}
                             onChange={(e) => {
                               const value = e.target.value;
-                              if (value === '' || /^\d+$/.test(value)) {
+                              if (value === '' || /^\d*\.?\d*$/.test(value)) {
                                 handleInvestigateInputChange(e);
                               }
                             }}
@@ -2412,7 +2384,7 @@ export const NCFormComponent = () => {
                             value={formInvestigate?.company_cost || ""}
                             onChange={(e) => {
                               const value = e.target.value;
-                              if (value === '' || /^\d+$/.test(value)) {
+                              if (value === '' || /^\d*\.?\d*$/.test(value)) {
                                 handleInvestigateInputChange(e);
                               }
                             }}

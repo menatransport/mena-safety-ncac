@@ -86,14 +86,14 @@ export const ACFormComponent = () => {
     provinces: [],
   });
 
+
   useEffect(() => {
-    const loadUserInfo = async () => {
+    const initializeForm = async () => {
       const userData = localStorage.getItem("userData");
       if (!userData) {
         alert("ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่");
         console.warn("No userData found in localStorage");
         router.push("/login");
-
         return;
       }
 
@@ -121,69 +121,107 @@ export const ACFormComponent = () => {
         };
 
         setUserinfo(newUserinfo);
-        if (sites?.length == 0) {
-          await fetchDropdownData();
+
+        const docId = searchParams.get("doc");
+
+        const dropdownPromise = sites?.length === 0 ? fetchDropdownData() : Promise.resolve();
+
+        if (docId) {
+          document.title = `${docId}`;
+          setIsLoadingFormData(true);
+
+          const documentPromise = fetch(
+            `/api/document/ac?case_id=${encodeURIComponent(docId)}`,
+            {
+              method: "GET",
+              headers: { "Content-Type": "application/json" },
+            }
+          ).then(res => res.json().then(data => ({ res, data })));
+
+          const attachmentPromise = fetch(
+            `/api/attachment?document_no=${encodeURIComponent(docId)}`,
+            {
+              method: "GET",
+              headers: { "Content-Type": "application/json" },
+            }
+          ).then(res => res.ok ? res.json() : null);
+
+          try {
+            const [, documentResult, attachmentData] = await Promise.all([
+              dropdownPromise,
+              documentPromise,
+              attachmentPromise
+            ]);
+
+            const { res, data } = documentResult;
+
+            if (res.ok) {
+              setIsViewMode(data.reporter_name !== newUserinfo.name);
+              setFormData(data);
+
+              await mapTextDataToIds(data);
+
+              if (attachmentData) {
+                processAttachmentData(attachmentData);
+              }
+            } else {
+              throw new Error(
+                data.message || `HTTP ${res.status}: ${res.statusText}`
+              );
+            }
+          } catch (error) {
+            console.error("Error fetching AC record:", error);
+          } finally {
+            setIsLoadingFormData(false);
+          }
+        } else {
+          document.title = "MENA NCAC - AC Form";
+          await dropdownPromise;
         }
-        getvaluesparams(newUserinfo.name);
       } catch (error) {
         console.error("Error parsing userData from localStorage:", error);
         setUserinfo(null);
       }
     };
 
-    loadUserInfo();
+    initializeForm();
   }, []);
 
-  const getvaluesparams = async (name: string) => {
-    const docId = searchParams.get("doc");
+  const processAttachmentData = (data: any) => {
+    const categorizedFiles: CategoryFiles = {};
 
-    if (docId) {
-      document.title = `${docId}`;
-      setIsLoadingFormData(true);
+    if (data.files && Array.isArray(data.files)) {
+      data.files.forEach((file: any) => {
+        const fileName = file.fileName || "";
+        const parts = fileName.split("_");
 
-      try {
-        const res = await fetch(
-          `/api/document/ac?case_id=${encodeURIComponent(docId)}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
+        if (parts.length >= 3) {
+          const category = parts.slice(1, -1).join("_");
 
-        const data = await res.json();
-        // console.log("Fetched AC record data:", data);
-        if (res.ok) {
-          if (data.reporter_name == name) {
-            setIsViewMode(false);
-          } else {
-            setIsViewMode(true);
+          if (!categorizedFiles[category]) {
+            categorizedFiles[category] = [];
           }
 
-          setFormData(data);
+          const mockFile = new File([""], fileName, {
+            type: fileName.toLowerCase().includes(".pdf")
+              ? "application/pdf"
+              : "image/jpeg",
+          });
 
-          await mapTextDataToIds(data);
-
-          // โหลดไฟล์แนบ
-          await loadExistingAttachments(docId);
-        } else {
-          throw new Error(
-            data.message || `HTTP ${res.status}: ${res.statusText}`
-          );
+          categorizedFiles[category].push({
+            id: file.key || Math.random().toString(36).substr(2, 9),
+            file: mockFile,
+            url: file.url,
+            updateData: "existing",
+            category: category,
+            uploadDate: new Date(),
+          });
         }
-      } catch (error) {
-        console.error("Error fetching AC record:", error);
-      } finally {
-        setIsLoadingFormData(false);
-      }
-    } else {
-      // ถ้าไม่มี doc parameter ให้ reset title กลับเป็นปกติ
-      document.title = "MENA NCAC - AC Form";
+      });
     }
+    setAttachedFiles(categorizedFiles);
   };
 
-  // ========== Data Mapping Functions ==========
   const mapTextDataToIds = async (data: any) => {
     const mappedData: any = {};
     const store = getData();
@@ -289,62 +327,6 @@ export const ACFormComponent = () => {
     }
 
     setFormData((prev) => ({ ...prev, ...mappedData }));
-  };
-
-  const loadExistingAttachments = async (document_no: string) => {
-    try {
-      const res = await fetch(
-        `/api/attachment?document_no=${encodeURIComponent(document_no)}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-
-        const categorizedFiles: CategoryFiles = {};
-
-        if (data.files && Array.isArray(data.files)) {
-          data.files.forEach((file: any) => {
-            const fileName = file.fileName || "";
-            const parts = fileName.split("_");
-
-            if (parts.length >= 3) {
-              const category = parts.slice(1, -1).join("_");
-              // console.log('Category:', category);
-
-              if (!categorizedFiles[category]) {
-                categorizedFiles[category] = [];
-              }
-
-              const mockFile = new File([""], fileName, {
-                type: fileName.toLowerCase().includes(".pdf")
-                  ? "application/pdf"
-                  : "image/jpeg",
-              });
-
-              categorizedFiles[category].push({
-                id: file.key || Math.random().toString(36).substr(2, 9),
-                file: mockFile,
-                url: file.url,
-                updateData: "existing",
-                category: category,
-                uploadDate: new Date(),
-              });
-            }
-          });
-        }
-        setAttachedFiles(categorizedFiles);
-      } else {
-        console.error("Failed to load attachments:", res.statusText);
-      }
-    } catch (error) {
-      console.error("Error loading attachments:", error);
-    }
   };
 
   const handleFilesFromUpload = (files: CategoryFiles) => {
@@ -953,8 +935,6 @@ export const ACFormComponent = () => {
         docs: [docValue as any]
       };
 
-      console.log("AC Form data to submit:", submitData);
-
       const res = await fetch("/api/document/ac", {
         method: "POST",
         headers: {
@@ -1046,7 +1026,7 @@ export const ACFormComponent = () => {
       actual_vehicle_damage_value: Number(filteredFormData.actual_vehicle_damage_value) || 0,
       docs: [docValue as any] 
     };
-    console.log("AC Form data to update:", data);
+
     const res = await fetch("/api/document/ac", {
       method: "PUT",
       headers: {
@@ -1055,7 +1035,6 @@ export const ACFormComponent = () => {
       body: JSON.stringify(data),
     });
     const responseData = await res.json();
-    console.log("API Response on Update:", responseData);
     if (res.ok) {
       Swal.fire({
         icon: "success",
@@ -1214,7 +1193,7 @@ const statusDesign = (status: string) => {
   return (
     <>
       <div className="min-h-screen bg-[#d1ffe1]">
-        <div className="p-6 space-y-6 pb-24 lg:pb-6">
+        <div className="py-4 sm:p-6 space-y-4 md:space-y-6 pb-24 lg:pb-6">
           {/* Button Bar */}
           {formData.casestatus !== "" && <>
               {/* Mobile: Status + Print ในแถวเดียวกัน */}
@@ -2212,7 +2191,7 @@ const statusDesign = (status: string) => {
 
                   <div>
                     <label className="block text-gray-700 font-medium mb-1 text-sm">
-                      รายละเอียดการบาดเจ็บ:
+                      รายละเอียดเพิ่มเติม:
                     </label>
                     <textarea
                       name="injury_description"
