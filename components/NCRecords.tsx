@@ -42,6 +42,7 @@ interface NCRecord {
   insurance_claim: number;
   product_resellable: number;
   remaining_damage_cost: number;
+  products?: any[];
 }
 
 interface FilterCriteria {
@@ -171,6 +172,7 @@ export const NCRecordsComponent = () => {
           reporter_name: record.reporter_name,
           priority: record.priority,
           status: record.casestatus,
+          products: record.products,
           site_name: record.site_name,
           department_name: record.department_name,
           plateNumber: record.vehicle_truckno,
@@ -190,7 +192,7 @@ export const NCRecordsComponent = () => {
           product_resellable: record.investigation.product_resellable,
           remaining_damage_cost: record.investigation.remaining_damage_cost
         }));
-
+         console.log("filteredRecords NC :", transformedRecords);
         setRecords(transformedRecords);
       } else {
         console.error("Search failed");
@@ -468,6 +470,9 @@ export const NCRecordsComponent = () => {
       'ทะเบียนรถหัว': record.vehicle_head_plate || '',
       'ทะเบียนรถท้าย': record.vehicle_tail_plate || '',
       'สาเหตุของเหตุการณ์': record.incident_cause || '',
+      // 'สินค้า': record.products?.map((p: any) => p.product_name).join(", ") || '',
+      // 'จำนวนสินค้า': record.products?.map((p: any) => p.amount).join(", ") || '',
+      // 'หน่วยสินค้า': record.products?.map((p: any) => p.unit).join(", ") || '',
       'รายละเอียด': record.description || '',
       'สถานที่เกิดเหตุ': record.location || '',
       'มูลค่าความเสียหายประมาณการ': record.estimated_cost != null ? Number(record.estimated_cost).toLocaleString() : '-',
@@ -481,15 +486,25 @@ export const NCRecordsComponent = () => {
 
     }));
 
-    // Dynamic import XLSX for better bundle size (Rule 2.4)
+
+    const productSheet = filteredRecords.flatMap(record => {
+      return record.products?.map((product: any) => ({
+        'เลขที่เอกสาร': record.id,
+        'ชื่อสินค้า': product.product_name || '',
+        'จำนวน': product.amount || '',
+        'หน่วย': product.unit || '',
+        'สถานะรายงาน': record.status,
+      })) || [];
+    });
+
     const XLSX = await import('xlsx');
     
-    // สร้าง workbook และ worksheet
     const ws = XLSX.utils.json_to_sheet(excelData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'NC Records');
+    const wsProducts = XLSX.utils.json_to_sheet(productSheet);
+    XLSX.utils.book_append_sheet(wb, wsProducts, 'Products');
 
-    // ตั้งชื่อไฟล์: NC_วันที่_เวลา
     const now = new Date();
     const dateStr = now.toLocaleDateString('th-TH', {
       year: 'numeric',
