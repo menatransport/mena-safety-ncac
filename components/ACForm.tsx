@@ -156,6 +156,7 @@ export const ACFormComponent = () => {
             const { res, data } = documentResult;
 
             if (res.ok) {
+              console.log('Fetched AC record data:', data);
               setIsViewMode(data.reporter_name !== newUserinfo.name);
               setFormData(data);
 
@@ -790,6 +791,11 @@ export const ACFormComponent = () => {
         elementName: "incident_datetime",
       },
       {
+        field: "fault_party",
+        label: "ลักษณะความรับผิดจากอุบัติเหตุ",
+        elementName: "fault_party",
+      },
+      {
         field: "case_details",
         label: "รายละเอียดเหตุการณ์",
         elementName: "case_details",
@@ -1381,6 +1387,27 @@ const statusDesign = (status: string) => {
                         }
                         disabled={isViewMode}
                         usedFor="datetime"
+                      />
+                    </div>
+                     <div>
+                      <label className="block text-gray-700 font-medium mb-1 text-sm">
+                        ลักษณะความรับผิดจากอุบัติเหตุ: <span className="text-red-500">*</span>
+                      </label>
+                      <SearchableSelect
+                        options={[  
+                          { value: "เป็นฝ่ายถูก", label: "เป็นฝ่ายถูก" },
+                          { value: "เป็นฝ่ายผิด", label: "เป็นฝ่ายผิด" },
+                          { value: "ประมาทร่วม", label: "ประมาทร่วม" },
+                        ]}
+                        value={formData?.fault_party || ""}
+                        onChange={(value) =>
+                          setFormData((prev: Partial<caseReport_AC>) => ({
+                            ...prev,
+                            fault_party: value as any,
+                          }))
+                        }
+                        disabled={isViewMode}
+                        className="w-full"
                       />
                     </div>
                   </div>

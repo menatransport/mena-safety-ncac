@@ -1047,6 +1047,10 @@ const generateACFormHTML = (formData: caseReport_AC, userinfo?: any, attachedFil
               <label class="form-label">วันและเวลา เกิดเหตุ:</label>
               <div class="form-value">${formatDate(formData.incident_datetime)}</div>
             </div>
+             <div class="form-group">
+              <label class="form-label">ลักษณะความรับผิดจากอุบัติเหตุ:</label>
+              <div class="form-value">${formData.fault_party || ' '}</div>
+            </div>
             <div class="form-group">
               <label class="form-label">สาเหตุการเกิด:</label>
               <div class="form-value">${formData.incident_cause || ' '}</div>

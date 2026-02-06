@@ -7,7 +7,7 @@ export async function GET(request: Request) {
     const queryString = searchParams.toString();
     // const apiUrl = `${process.env.ac_url}${queryString ? `?${queryString}` : ''}`;
     const apiUrl = `${process.env.ac_url}${queryString ? `?${queryString}` : ''}`;
-console.log('Fetching from API URL:', apiUrl);
+
     const res = await fetch(apiUrl, {
       method: 'GET',
       headers: {  

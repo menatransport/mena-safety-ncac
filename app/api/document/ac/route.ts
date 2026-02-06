@@ -30,7 +30,7 @@ export async function PUT(request: Request) {
   try {
     const data = await request.json();
     const docId = data.document_no_ac;
-
+    // console.log('Updating data:', data);
     const res = await fetch(`${process.env.ac_url}/${docId}`, {
       method: 'PUT',
       headers: {  

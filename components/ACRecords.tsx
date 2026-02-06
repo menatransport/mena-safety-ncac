@@ -4,21 +4,10 @@ import React, { useState, useEffect, useRef } from "react";
 import { LordIcon } from "./LordIcon";
 import {
   FileSpreadsheet,
-  Eye,
-  Trash2,
-  Edit,
-  Weight,
-  Search,
-  Filter,
-  Calendar,
-  X,
-  ChevronDown,
-  RefreshCw,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { RecordFilter, RecordFilterResult, RecordFilterRef } from "./ui/record-filter";
 import Swal from "sweetalert2";
 import { sendErrorLog } from '@/lib/logError';
@@ -30,6 +19,7 @@ interface ACRecord {
   reporter: string;
   site: string;
   department: string;
+  fault_party: string;
   plateNumber: string;
   driver: string;
   status: string;
@@ -184,6 +174,7 @@ export const ACRecordsComponent = () => {
           reporter: record.reporter_name,
           site: record.site_name,
           department: record.department_name,
+          fault_party: record.fault_party,
           plateNumber: record.vehicle_head_plate,
           driver: record.driver_name,
           driver_role_name: record.driver_role_name,
@@ -489,6 +480,7 @@ export const ACRecordsComponent = () => {
         'วันที่บันทึกเหตุ': reportDate,
         'เวลาที่บันทึกเหตุ': reportTime,
         'วันและเวลา เกิดเหตุ': record.date_event ? formatDate(record.date_event) : '',
+        'ลักษณะความรับผิดจากอุบัติเหตุ': record.fault_party || '',
         'ระดับความรุนแรง': record.priority || '',
         'สถานะ': record.status || '',
         'ลูกค้า': record.customer || '',

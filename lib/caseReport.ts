@@ -59,6 +59,7 @@ export interface caseReport_AC {
     vehicle_tail_plate: string,
     origin_name: string,
     origin_id: number,
+    fault_party: string,
     reporter_id: number,
     reporter_name: string,
     record_datetime: string,

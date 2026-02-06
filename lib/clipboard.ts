@@ -63,6 +63,7 @@ export const useClipboard_ac = (data: any) => {
 🏛️ ฝ่าย: ${data.selectedDepartment?.department_name_th || "N/A"}
 ⏰ วันที่แจ้ง: ${formatDT(data.formData.record_datetime) || "N/A"}
 🔥 วันที่เกิดเหตุ: ${formatDT(data.formData.incident_datetime) || "N/A"}
+🕵️‍♂️ เป็นฝ่าย: ${data.formData.fault_party === 'เป็นฝ่ายถูก' ? 'ถูก' : data.formData.fault_party === 'เป็นฝ่ายผิด' ? 'ผิด' : data.formData.fault_party === 'ประมาทร่วม' ? 'ประมาทร่วม' : 'N/A'}
 
 🔗 https://mena-safety-ncac.vercel.app/ac-form?doc=${data.formData.document_no_ac}
 =====================
