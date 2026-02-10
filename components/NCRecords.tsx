@@ -15,6 +15,7 @@ import {
 import { useRouter } from "next/navigation";
 import { RecordFilter, RecordFilterResult, RecordFilterRef } from "./ui/record-filter";
 import Swal from "sweetalert2";
+import { documentRole } from "@/lib/documentRole";
 
 interface NCRecord {
   id: string;
@@ -398,15 +399,44 @@ export const NCRecordsComponent = () => {
   };
 
   const handleRouter = (id: string) => {
-
-    // const selectedRecord = records.find((record) => record.id === id);
-
-    // localStorage.setItem("editingRecord", JSON.stringify(selectedRecord));
-
+    
     window.open(`/nc-form?doc=${id}`, "_blank");
   };
 
   const handleVoided = (id: string) => {
+
+    const userData = localStorage.getItem("userData");
+    if (!userData) {
+      Swal.fire({
+        title: "ไม่สามารถลบได้",
+        text: "ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่",
+        icon: "error"
+      });
+      return;
+    }
+
+    const parsedUserData = JSON.parse(userData);
+    const currentUserName = `${parsedUserData.firstname || ""} ${parsedUserData.lastname || ""}`.trim();
+    const currentDepartment = parsedUserData.department || "";
+
+    const selectedRecord = records.find((record) => record.id === id);
+    if (!selectedRecord) {
+      Swal.fire({
+        title: "ไม่พบรายการ",
+        text: "ไม่พบรายการที่ต้องการลบ",
+        icon: "error"
+      });
+      return;
+    }
+
+    if (documentRole(selectedRecord.department_name, selectedRecord.reporter_name, currentUserName, currentDepartment)) {
+      Swal.fire({
+        title: "ไม่สามารถลบได้",
+        text: "คุณไม่ใช่เจ้าของรายการนี้",
+        icon: "error"
+      });
+      return;
+    }
 
     Swal.fire({
       title: "คุณแน่ใจที่จะลบ หรือไม่",

@@ -13,6 +13,7 @@ import { LoaderPage } from "./LoaderPage";
 import { Printer } from "lucide-react";
 import { printDocument_ac } from "@/lib/printDocument";
 import { sendErrorLog } from "@/lib/logError";
+import { documentRole } from "@/lib/documentRole";
 
 interface FileWithId {
   id: string;
@@ -156,8 +157,9 @@ export const ACFormComponent = () => {
             const { res, data } = documentResult;
 
             if (res.ok) {
-              console.log('Fetched AC record data:', data);
-              setIsViewMode(data.reporter_name !== newUserinfo.name);
+              // console.log('Fetched AC record data:', data);
+              // console.log('Fetched newUserinfo:', newUserinfo);
+                setIsViewMode(documentRole(data.department_name, data.reporter_name, newUserinfo.name, newUserinfo.department));
               setFormData(data);
 
               await mapTextDataToIds(data);

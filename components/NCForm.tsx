@@ -13,6 +13,7 @@ import { useClipboard_nc } from "@/lib/clipboard";
 import { LoaderPage } from "./LoaderPage";
 import { printDocument_nc } from "@/lib/printDocument";
 import { sendErrorLog } from "@/lib/logError";
+import { documentRole } from "@/lib/documentRole";
 
 interface FileWithId {
   id: string;
@@ -143,7 +144,7 @@ export const NCFormComponent = () => {
         const docId = searchParams.get("doc");
 
         const dropdownPromise = sites?.length === 0 ? fetchDropdownData() : Promise.resolve();
-        
+
         if (docId) {
           document.title = `${docId}`;
           setIsLoadingFormData(true);
@@ -174,7 +175,9 @@ export const NCFormComponent = () => {
             const { res, data } = documentResult;
 
             if (res.ok) {
-              setIsViewMode(data.reporter_name !== newUserinfo.name);
+              // console.log('Fetched NC record data:', data);
+              // console.log('Fetched newUserinfo:', newUserinfo);
+              setIsViewMode(documentRole(data.department_name, data.reporter_name, newUserinfo.name, newUserinfo.department));
               setFormData({
                 ...data,
                 products: data.products.map((item: any, index: number) => ({
@@ -987,9 +990,9 @@ export const NCFormComponent = () => {
       });
 
       const responseData = await res.json();
-  
+
       if (res.ok) {
-     
+
         Swal.fire({
           icon: "success",
           title: "บันทึกข้อมูลสำเร็จ",
@@ -1911,12 +1914,12 @@ export const NCFormComponent = () => {
                                       value={item.amount || ""}
                                       onChange={(e) => {
                                         const value = e.target.value;
-                                          handleProductItemChange(
-                                            item.product_id,
-                                            "amount",
-                                            value
-                                          );
-                                        }
+                                        handleProductItemChange(
+                                          item.product_id,
+                                          "amount",
+                                          value
+                                        );
+                                      }
                                       }
                                       className={`w-full text-sm p-1  border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                                         ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"

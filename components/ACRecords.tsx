@@ -11,6 +11,7 @@ import {
 import { RecordFilter, RecordFilterResult, RecordFilterRef } from "./ui/record-filter";
 import Swal from "sweetalert2";
 import { sendErrorLog } from '@/lib/logError';
+import { documentRole } from "@/lib/documentRole";
 
 interface ACRecord {
   id: string;
@@ -410,6 +411,39 @@ export const ACRecordsComponent = () => {
   };
 
   const handleVoided = (id: string) => {
+
+        const userData = localStorage.getItem("userData");
+        if (!userData) {
+          Swal.fire({
+            title: "ไม่สามารถลบได้",
+            text: "ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่",
+            icon: "error"
+          });
+          return;
+        }
+    
+        const parsedUserData = JSON.parse(userData);
+        const currentUserName = `${parsedUserData.firstname || ""} ${parsedUserData.lastname || ""}`.trim();
+        const currentDepartment = parsedUserData.department || "";
+    
+        const selectedRecord = records.find((record) => record.id === id);
+        if (!selectedRecord) {
+          Swal.fire({
+            title: "ไม่พบรายการ",
+            text: "ไม่พบรายการที่ต้องการลบ",
+            icon: "error"
+          });
+          return;
+        }
+    
+        if (documentRole(selectedRecord.department, selectedRecord.reporter, currentUserName, currentDepartment)) {
+          Swal.fire({
+            title: "ไม่สามารถลบได้",
+            text: "คุณไม่ใช่เจ้าของรายการนี้",
+            icon: "error"
+          });
+          return;
+        }
 
     Swal.fire({
       title: "คุณแน่ใจที่จะลบ หรือไม่",
