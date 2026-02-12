@@ -21,6 +21,14 @@ export default function Login() {
 
   useEffect(() => {
     const storedUserData = localStorage.getItem('userData');
+    const authToken = localStorage.getItem('authToken');
+
+    if (authToken) {
+        setIsLoading(true);
+        sessionStorage.setItem("showWelcome", "true")
+        router.push("/overview");
+    }
+
     if (storedUserData) {
       const userData = JSON.parse(storedUserData);
       if (userData.rememberMe) {
@@ -29,7 +37,7 @@ export default function Login() {
         setRememberMe(true);
       }
     }
-  }, []);
+  }, [router]);
 
   const processLogin = async (body: object): Promise<boolean> => {
 
@@ -293,7 +301,7 @@ export default function Login() {
             {/* Footer */}
             <div className="text-center space-y-2">
               <p className="text-gray-700 text-xs">
-                © 2025 MENA NCAC • V.1.4.0 
+                © 2025 MENA NCAC • V.1.4.1 
               </p>
               <div className="hidden justify-center space-x-4 text-xs">
                 <a href="#" className="text-gray-500 hover:text-emerald-600 transition-colors">นโยบายความเป็นส่วนตัว</a>

@@ -50,7 +50,9 @@ interface FilterCriteria {
   start_date?: string;
   end_date?: string;
   document_no?: string;
+  department_id?: string;
   site_id?: string;
+  client_id?: string;
   driver_id?: string;
   casestatus?: string;
   priority?: string;
@@ -81,9 +83,13 @@ export const NCRecordsComponent = () => {
   const [dropdownData, setDropdownData] = useState<{
     sites: any[];
     drivers: any[];
+    departments: any[];
+    clients: any[];
   }>({
     sites: [],
     drivers: [],
+    departments: [],
+    clients: [],
   });
 
   useEffect(() => {
@@ -96,9 +102,15 @@ export const NCRecordsComponent = () => {
           fetch("/api/list", {
             headers: { "X-Api-Path": "/masterdrivers" },
           }),
+          fetch("/api/list", {
+            headers: { "X-Api-Path": "/departments" },
+          }),
+          fetch("/api/list", {
+            headers: { "X-Api-Path": "/clients" },
+          }),
         ]);
 
-        const [sitesData, driversData] = await Promise.all(
+        const [sitesData, driversData, departmentsData, clientsData] = await Promise.all(
           responses.map((res) => res.json())
         );
 
@@ -114,9 +126,25 @@ export const NCRecordsComponent = () => {
           return nameA.localeCompare(nameB, 'th');
         });
 
+        const sortedDepartments = departmentsData.sort((a: any, b: any) => {
+          const nameA = (a.department_name_th || a.department_name || "").toLowerCase();
+          const nameB = (b.department_name_th || b.department_name || "").toLowerCase();
+          return nameA.localeCompare(nameB, 'th');
+        });
+
+        const filteredDepartments = sortedDepartments.filter((dept: any) => {
+          return dept.department_id == 3 || dept.department_id == 15 || dept.department_id == 16 || dept.department_id == 17 ||  dept.department_id == 19 || dept.department_id == 20 
+        });
+
+        const sortedClients = (clientsData || []).filter((c: any) => c.client_id !== 0).sort((a: any, b: any) => {
+          return (a.client_name || "").localeCompare(b.client_name || "", 'th');
+        });
+
         setDropdownData({
           sites: sortedSites,
           drivers: sortedDrivers,
+          departments: filteredDepartments,
+          clients: sortedClients,
         });
 
 
@@ -128,7 +156,7 @@ export const NCRecordsComponent = () => {
     fetchDropdownData();
   }, []);
 
-  // Handle filter change from RecordFilter component
+
   const handleFilterChange = async (filters: RecordFilterResult) => {
     setFilterCriteria(filters);
     await handleSearchWithFilters(filters);
@@ -144,7 +172,6 @@ export const NCRecordsComponent = () => {
     return `${day}/${month}/${year}, ${hours}:${minutes}`;
   };
 
-  // Search function with filters
   const handleSearchWithFilters = async (filters: RecordFilterResult) => {
     setLoading(true);
     setCurrentPage(1);
@@ -156,7 +183,7 @@ export const NCRecordsComponent = () => {
           params.append(key, value.toString());
         }
       });
-
+      // console.log("Search NC with params:", params.toString());
       const response = await fetch(`/api/record/nc?${params.toString()}`, {
         method: "GET",
         headers: {
@@ -193,7 +220,7 @@ export const NCRecordsComponent = () => {
           product_resellable: record.investigation.product_resellable,
           remaining_damage_cost: record.investigation.remaining_damage_cost
         }));
-        // console.log("filteredRecords NC :", transformedRecords);
+        // console.log("filteredRecords NC :", transformedRecords.length);
         setRecords(transformedRecords);
       } else {
         console.error("Search failed");
@@ -314,6 +341,30 @@ export const NCRecordsComponent = () => {
         .map((d) => d.trim())
         .some((docNo) => record.id.toLowerCase().includes(docNo.toLowerCase()));
 
+    const matchesDepartment =
+      !filterCriteria.department_id ||
+      filterCriteria.department_id
+        .split(",")
+        .map((d) => d.trim())
+        .some((deptId) => {
+          const dept = dropdownData.departments.find(
+            (d) => d.department_id?.toString() === deptId
+          );
+          return dept && record.department_name === (dept.department_name_th || dept.department_name);
+        });
+
+    const matchesClient =
+      !filterCriteria.client_id ||
+      filterCriteria.client_id
+        .split(",")
+        .map((c) => c.trim())
+        .some((clientId) => {
+          const client = dropdownData.clients.find(
+            (c) => c.client_id?.toString() === clientId
+          );
+          return client && record.client_name === client.client_name;
+        });
+
     const matchesPriority =
       !filterCriteria.priority ||
       filterCriteria.priority
@@ -327,6 +378,8 @@ export const NCRecordsComponent = () => {
       matchesSite &&
       matchesDriver &&
       matchesDocumentNo &&
+      matchesDepartment &&
+      matchesClient &&
       matchesPriority
     );
   });

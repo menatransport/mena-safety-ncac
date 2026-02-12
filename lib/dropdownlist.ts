@@ -47,7 +47,7 @@ export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
   fetchDropdownData: async () => {
     const state = get();
     const hasData = state.sites && state.sites.length > 0;
-    console.log('state : ', state.lastUpdated);
+    // console.log('state : ', state.lastUpdated);
     if (hasData && state.lastUpdated) {
       console.log('ข้อมูล dropdown มีอยู่แล้ว ไม่ต้องดึงใหม่');
       return;
@@ -162,7 +162,7 @@ export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
           dropdownObj[key as keyof DropdownlistData] = sortedData;
         }
       });
-
+      // console.log("Fetched dropdown data:", dropdownObj);
       set({
         ...dropdownObj,
         isLoading: false,
@@ -211,7 +211,7 @@ export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
 
 
 export const handleFetchData = async (name: string) => {
-  console.log('Fetching data for:', name);  
+  // console.log('Fetching data for:', name);  
   const res = await fetch(`/api/list`, {
     method: 'GET',
     headers: {
@@ -220,6 +220,6 @@ export const handleFetchData = async (name: string) => {
     }
   });
   const data = await res.json();
-  console.log('data from handleFetchData:', data);
+  // console.log('data from handleFetchData:', data);
   return data;
 }

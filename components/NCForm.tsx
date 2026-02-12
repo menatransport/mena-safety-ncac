@@ -1222,7 +1222,7 @@ export const NCFormComponent = () => {
       case "site":
         return data?.filter((site: any) => site.site_id !== 1) || []
       case "department":
-        return data?.filter((dept: any) => dept.department_id > 11 || dept.department_id === 3) || []
+        return data?.filter((dept: any) => (dept.department_id > 11 || dept.department_id === 3) && (dept.department_id !== 21) ) || []
       default:
         return data || []
     }
@@ -1950,6 +1950,7 @@ export const NCFormComponent = () => {
                                       <option value="แพ็ค">แพ็ค</option>
                                       <option value="พาเลท">พาเลท</option>
                                       <option value="ชิ้น">ชิ้น</option>
+                                      <option value="แกลลอน">แกลลอน</option>
                                     </select>
                                   </td>
                                 </tr>

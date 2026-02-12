@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, forwardRef, useImperativeHandle } from "react";
-import { Search, RotateCcw, Calendar, Filter, ChevronDown } from "lucide-react";
+import React, { useEffect, useState, useCallback, useRef, forwardRef, useImperativeHandle } from "react";
+import { Search, RotateCcw, Filter, ChevronDown, X, SlidersHorizontal } from "lucide-react";
 import { YearMultiSelect } from "@/components/ui/year-multi-select";
 import { MonthMultiSelect } from "@/components/ui/month-multi-select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -11,7 +11,9 @@ export interface RecordFilterResult {
     start_date: string;
     end_date: string;
     document_no?: string;
+    department_id?: string;
     site_id?: string;
+    client_id?: string;
     driver_id?: string;
     casestatus?: string;
     priority?: string;
@@ -20,6 +22,8 @@ export interface RecordFilterResult {
 export interface DropdownData {
     sites: Array<{ site_id: string | number; site_name: string; site_name_th?: string }>;
     drivers: Array<{ driver_id: string | number; first_name: string; last_name: string }>;
+    departments: Array<{ department_id: string | number; department_name: string; department_name_th?: string }>;
+    clients: Array<{ client_id: string | number; client_name: string }>;
 }
 
 export interface RecordFilterRef {
@@ -61,10 +65,7 @@ const getDateRangeFromSelection = (years: number[], months: number[]): { start_d
     const minMonth = sortedMonths[0];
     const maxMonth = sortedMonths[sortedMonths.length - 1];
 
-    // Start date: first day of earliest selected month in earliest year
     const startDate = new Date(minYear, minMonth - 1, 1);
-
-    // End date: last day of latest selected month in latest year
     const endDate = new Date(maxYear, maxMonth, 0);
 
     return {
@@ -72,6 +73,14 @@ const getDateRangeFromSelection = (years: number[], months: number[]): { start_d
         end_date: formatDateToLocal(endDate),
     };
 };
+
+/* ----------------------------- Filter Label Helper ------------------------------ */
+interface ActiveFilter {
+    key: string;
+    label: string;
+    value: string;
+    onClear: () => void;
+}
 
 /* ----------------------------- Component ------------------------------ */
 export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
@@ -87,7 +96,6 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
         ref
     ) {
         const currentYear = new Date().getFullYear();
-        const currentMonth = new Date().getMonth() + 1;
 
         // Date selection states
         const [selectedYears, setSelectedYears] = useState<number[]>([currentYear]);
@@ -95,7 +103,9 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
 
         // Other filter states
         const [documentNo, setDocumentNo] = useState("");
+        const [departmentId, setDepartmentId] = useState("");
         const [siteId, setSiteId] = useState("");
+        const [clientId, setClientId] = useState("");
         const [driverId, setDriverId] = useState("");
         const [caseStatus, setCaseStatus] = useState("");
         const [priority, setPriority] = useState("");
@@ -104,17 +114,22 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
         const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
         const [isInitialized, setIsInitialized] = useState(false);
 
+        // Debounce timer ref for text input
+        const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
         const buildFilterResult = useCallback((): RecordFilterResult => {
             const dateRange = getDateRangeFromSelection(selectedYears, selectedMonths);
             return {
                 ...dateRange,
                 ...(documentNo && { document_no: documentNo }),
+                ...(departmentId && { department_id: departmentId }),
+                ...(clientId && { client_id: clientId }),
                 ...(siteId && { site_id: siteId }),
                 ...(driverId && { driver_id: driverId }),
                 ...(caseStatus && { casestatus: caseStatus }),
                 ...(priority && { priority: priority }),
             };
-        }, [selectedYears, selectedMonths, documentNo, siteId, driverId, caseStatus, priority]);
+        }, [selectedYears, selectedMonths, documentNo, departmentId, siteId, clientId, driverId, caseStatus, priority]);
 
         const handleApply = useCallback(() => {
             onFilter(buildFilterResult());
@@ -124,7 +139,9 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
             setSelectedYears([currentYear]);
             setSelectedMonths([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
             setDocumentNo("");
+            setDepartmentId("");
             setSiteId("");
+            setClientId("");
             setDriverId("");
             setCaseStatus("");
             setPriority("");
@@ -139,7 +156,7 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
             triggerSearch: handleApply,
             resetFilters: handleReset,
         }), [handleApply, handleReset]);
-
+        
         useEffect(() => {
             if (!isInitialized && autoSearch) {
                 handleApply();
@@ -147,49 +164,62 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
             }
         }, [isInitialized, autoSearch, handleApply]);
 
-        // Get month name helper
-        const getMonthName = (month: number): string => {
-            const months = [
-                "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน",
-                "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม",
-                "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
-            ];
-            return months[month - 1] || "";
-        };
+        useEffect(() => {
+            if (!isInitialized) return;
+            handleApply();
+        }, [selectedYears, selectedMonths, departmentId, siteId, clientId, driverId, caseStatus, priority]);
 
-        const activeFilterCount = [documentNo, siteId, driverId, caseStatus, priority].filter(Boolean).length;
+        useEffect(() => {
+            if (!isInitialized) return;
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+            debounceRef.current = setTimeout(() => {
+                handleApply();
+            }, 400);
+            return () => {
+                if (debounceRef.current) clearTimeout(debounceRef.current);
+            };
+
+        }, [documentNo]);
+
 
         return (
-            <div className={`bg-white/95 backdrop-blur-xl rounded-2xl border border-slate-200/60 shadow-premium overflow-hidden ${className}`}>
-                {/* Header Section */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-800 to-slate-700">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white/10 rounded-lg">
-                            <Filter size={18} className="text-white" />
+            <div className={`bg-white/95 backdrop-blur-xl rounded-2xl border border-slate-200/60 shadow-lg overflow-hidden ${className}`}>
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-gradient-to-r from-slate-800 to-slate-700">
+                    <div className="flex items-center gap-2.5">
+                        <div className="p-1.5 bg-white/10 rounded-lg">
+                            <Filter size={16} className="text-white" />
                         </div>
-                        <h3 className="text-md font-semibold text-white tracking-tight">
+                        <h3 className="text-sm font-semibold text-white tracking-tight">
                             ตัวกรองข้อมูล {type}
                         </h3>
+                        {loading && (
+                            <div className="flex items-center gap-1.5 ml-2">
+                                <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                <span className="text-xs text-white/70">กำลังค้นหา...</span>
+                            </div>
+                        )}
                     </div>
-                    <button
-                        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                        className="md:hidden p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
-                    >
-                        <ChevronDown
-                            size={18}
-                            className={`text-white transition-transform duration-200 ${showAdvancedFilters ? 'rotate-180' : ''}`}
-                        />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                            className="md:hidden p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                        >
+                            <ChevronDown
+                                size={16}
+                                className={`text-white transition-transform duration-200 ${showAdvancedFilters ? 'rotate-180' : ''}`}
+                            />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Filters Content */}
-                <div className="p-6 space-y-6">
-                    {/* Date Range Section */}
-                    <div className="flex flex-wrap items-end gap-4">
-                        {/* Year Selection */}
+                <div className="p-4 space-y-4">
+                    {/* Row 1: Date Range + Actions */}
+                    <div className="flex flex-wrap items-end gap-3">
                         <div className="flex-shrink-0">
-                            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                                เลือกปี
+                            <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                                ปี
                             </label>
                             <YearMultiSelect
                                 value={selectedYears}
@@ -199,10 +229,9 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
                             />
                         </div>
 
-                        {/* Month Selection */}
                         <div className="flex-shrink-0">
-                            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                                เลือกเดือน
+                            <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                                เดือน
                             </label>
                             <MonthMultiSelect
                                 value={selectedMonths}
@@ -210,138 +239,169 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
                             />
                         </div>
 
-                        {/* Action Buttons - Inline with date selectors */}
                         <div className="flex-shrink-0 flex items-end gap-2">
                             <button
                                 onClick={handleApply}
                                 disabled={loading}
-                                className="flex items-center justify-center cursor-pointer gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-semibold shadow-lg shadow-emerald-500/25 hover:from-emerald-700 hover:to-teal-700 hover:shadow-xl active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex items-center justify-center cursor-pointer gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-semibold shadow-md shadow-emerald-500/20 hover:from-emerald-700 hover:to-teal-700 hover:shadow-lg active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {loading ? (
-                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                 ) : (
-                                    <Search size={16} />
+                                    <Search size={14} />
                                 )}
-                                {loading ? "กำลังค้นหา..." : "ค้นหา"}
+                                ค้นหา
                             </button>
 
                             <button
                                 onClick={handleReset}
                                 disabled={loading}
-                                className="flex items-center justify-center cursor-pointer gap-1.5 px-4 py-2.5 rounded-xl bg-slate-100 text-slate-600 text-sm font-medium border border-slate-200 hover:bg-slate-200 active:scale-[0.98] transition-all duration-200 disabled:opacity-50"
+                                className="flex items-center justify-center cursor-pointer gap-1 px-3 py-2 rounded-lg bg-slate-100 text-slate-600 text-sm font-medium border border-slate-200 hover:bg-slate-200 active:scale-[0.98] transition-all duration-200 disabled:opacity-50"
                             >
-                                <RotateCcw size={14} />
+                                <RotateCcw size={13} />
                                 รีเซ็ต
                             </button>
                         </div>
                     </div>
 
-                    {/* Advanced Filters Section - Compact Inline Style */}
+                    {/* Row 2: Advanced Filters */}
                     <div className={`${showAdvancedFilters ? 'block' : 'hidden md:block'}`}>
-                        {/* Toggle Header */}
                         <button
                             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                            className="flex items-center cursor-pointer gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 hover:text-emerald-600 transition-colors group"
+                            className="flex items-center cursor-pointer gap-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2.5 hover:text-emerald-600 transition-colors"
                         >
                             <ChevronDown
-                                size={14}
+                                size={12}
                                 className={`transition-transform duration-200 ${showAdvancedFilters ? 'rotate-180' : ''}`}
                             />
                             <span>ตัวกรองเพิ่มเติม</span>
-                            {activeFilterCount > 0 && (
-                                <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-emerald-500 text-white text-xs font-bold">
-                                    {activeFilterCount}
-                                </span>
-                            )}
                         </button>
 
-                        {/* Compact Filter Grid */}
                         {showAdvancedFilters && (
-                            <div className="flex flex-wrap items-center gap-3 p-4 bg-slate-50/80 rounded-xl border border-slate-100">
-                                {/* Document Number - Compact */}
-                                <div className="flex items-center gap-2 min-w-[180px]">
-                                    <span className="text-xs text-slate-500 whitespace-nowrap">เลขที่:</span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 p-4 bg-slate-50/80 rounded-xl border border-slate-100">
+                                {/* Document Number */}
+                                <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                                        เลขที่เอกสาร
+                                    </label>
                                     <input
-                                        className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 transition-all hover:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 transition-all hover:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                                         type="text"
                                         value={documentNo}
                                         onChange={(e) => setDocumentNo(e.target.value)}
-                                        placeholder="เลขที่เอกสาร..."
+                                        placeholder="พิมพ์เลขที่เอกสาร..."
                                     />
                                 </div>
 
-                                {/* Site Selection - Compact */}
-                                <div className="flex items-center gap-2 min-w-[200px] flex-1 max-w-[280px]">
-                                    <span className="text-xs text-slate-500 whitespace-nowrap">สำนักงาน:</span>
-                                    <div className="flex-1">
-                                        <SearchableSelect
-                                            options={
-                                                dropdownData.sites?.map((site) => ({
-                                                    value: site.site_id?.toString() || "",
-                                                    label: site.site_name_th || site.site_name || "ไม่ระบุชื่อ",
-                                                })) || []
-                                            }
-                                            value={siteId}
-                                            onChange={(value) => setSiteId(value.toString())}
-                                            placeholder="เลือก..."
-                                        />
-                                    </div>
+                                {/* Department */}
+                                <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                                        ฝ่าย
+                                    </label>
+                                    <SearchableSelect
+                                        options={
+                                            dropdownData.departments?.map((department) => ({
+                                                value: department.department_id?.toString() || "",
+                                                label: department.department_name_th || department.department_name || "ไม่ระบุชื่อ",
+                                            })) || []
+                                        }
+                                        value={departmentId}
+                                        onChange={(value) => setDepartmentId(value.toString())}
+                                        placeholder="เลือกฝ่าย..."
+                                    />
                                 </div>
 
-                                {/* Driver Selection - Compact */}
-                                <div className="flex items-center gap-2 min-w-[200px] flex-1 max-w-[280px]">
-                                    <span className="text-xs text-slate-500 whitespace-nowrap">พนักงาน:</span>
-                                    <div className="flex-1">
-                                        <SearchableSelect
-                                            options={
-                                                dropdownData.drivers?.map((driver) => ({
-                                                    value: driver.driver_id?.toString() || "",
-                                                    label: `${driver.first_name || ""} ${driver.last_name || ""}`.trim() || "ไม่ระบุชื่อ",
-                                                })) || []
-                                            }
-                                            value={driverId}
-                                            onChange={(value) => setDriverId(value.toString())}
-                                            placeholder="เลือก..."
-                                        />
-                                    </div>
+                                {/* Site */}
+                                <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                                        สำนักงาน / ศูนย์ปฏิบัติการ
+                                    </label>
+                                    <SearchableSelect
+                                        options={
+                                            dropdownData.sites?.map((site) => ({
+                                                value: site.site_id?.toString() || "",
+                                                label: site.site_name_th || site.site_name || "ไม่ระบุชื่อ",
+                                            })) || []
+                                        }
+                                        value={siteId}
+                                        onChange={(value) => setSiteId(value.toString())}
+                                        placeholder="เลือกศูนย์..."
+                                    />
                                 </div>
 
-                                {/* Status - Compact */}
-                                <div className="flex items-center gap-2 min-w-[150px]">
-                                    <span className="text-xs text-slate-500 whitespace-nowrap">สถานะ:</span>
-                                    <div className="flex-1">
-                                        <SearchableSelect
-                                            options={[
-                                                { value: "Pending", label: "Pending" },
-                                                { value: "Completed Investigate", label: "Completed" },
-                                                { value: "Voided", label: "Voided" },
-                                            ]}
-                                            value={caseStatus}
-                                            onChange={(value) => setCaseStatus(value.toString())}
-                                            placeholder="เลือก..."
-                                        />
-                                    </div>
+                                {/* Client */}
+                                <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                                        ลูกค้า
+                                    </label>
+                                    <SearchableSelect
+                                        options={
+                                            dropdownData.clients?.map((client) => ({
+                                                value: client.client_id?.toString() || "",
+                                                label: client.client_name || "ไม่ระบุชื่อ",
+                                            })) || []
+                                        }
+                                        value={clientId}
+                                        onChange={(value) => setClientId(value.toString())}
+                                        placeholder="เลือกลูกค้า..."
+                                    />
                                 </div>
 
-                                {/* Priority - Compact */}
-                                <div className="flex items-center gap-2 min-w-[140px]">
-                                    <span className="text-xs text-slate-500 whitespace-nowrap">ระดับ:</span>
-                                    <div className="flex-1">
-                                        <SearchableSelect
-                                            options={[
-                                                { value: "Minor", label: "🟡 Minor" },
-                                                { value: "Major", label: "🟠 Major" },
-                                                { value: "Crisis", label: "🔴 Crisis" },
-                                            ]}
-                                            value={priority}
-                                            onChange={(value) => setPriority(value.toString())}
-                                            placeholder="เลือก..."
-                                        />
-                                    </div>
+                                {/* Driver */}
+                                <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                                        พนักงานขับรถ
+                                    </label>
+                                    <SearchableSelect
+                                        options={
+                                            dropdownData.drivers?.map((driver) => ({
+                                                value: driver.driver_id?.toString() || "",
+                                                label: `${driver.first_name || ""} ${driver.last_name || ""}`.trim() || "ไม่ระบุชื่อ",
+                                            })) || []
+                                        }
+                                        value={driverId}
+                                        onChange={(value) => setDriverId(value.toString())}
+                                        placeholder="เลือกพนักงาน..."
+                                    />
+                                </div>
+
+                                {/* Status */}
+                                <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                                        สถานะ
+                                    </label>
+                                    <SearchableSelect
+                                        options={[
+                                            { value: "Pending", label: "🟡 Pending" },
+                                            { value: "Completed Investigate", label: "🟢 Completed" },
+                                            { value: "Voided", label: "🔴 Voided" },
+                                        ]}
+                                        value={caseStatus}
+                                        onChange={(value) => setCaseStatus(value.toString())}
+                                        placeholder="เลือกสถานะ..."
+                                    />
+                                </div>
+
+                                {/* Priority */}
+                                <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                                        ระดับความรุนแรง
+                                    </label>
+                                    <SearchableSelect
+                                        options={[
+                                            { value: "Minor", label: "🟡 Minor" },
+                                            { value: "Major", label: "🟠 Major" },
+                                            { value: "Crisis", label: "🔴 Crisis" },
+                                        ]}
+                                        value={priority}
+                                        onChange={(value) => setPriority(value.toString())}
+                                        placeholder="เลือกระดับ..."
+                                    />
                                 </div>
                             </div>
                         )}
                     </div>
+
                 </div>
             </div>
         );

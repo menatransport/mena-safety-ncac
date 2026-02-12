@@ -125,23 +125,15 @@ const DOCUMENT_CATEGORIES = [
   {
     value: "damage_payment",
     label: "หลักฐานการชำระค่าเสียหาย",
-    department: "💼บัญชี",
+    department: "💼การเงิน",
     case: "all",
     no: true,
     icon: FileText,
   },
   {
-    value: "account_attachment_sell",
-    label: "เอกสารแนบทางบัญชี > ขายสินค้า",
-    department: "💼บัญชี",
-    case: "all",
-    no: false,
-    icon: FileText,
-  },
-  {
     value: "account_attachment_insurance",
     label: "เอกสารแนบทางบัญชี > ประกัน",
-    department: "💼บัญชี",
+    department: "💼การเงิน",
     case: "all",
     no: false,
     icon: FileText,
@@ -149,7 +141,7 @@ const DOCUMENT_CATEGORIES = [
   {
     value: "account_attachment_pjs_pay",
     label: "เอกสารแนบทางบัญชี > พจส. จ่าย",
-    department: "💼บัญชี",
+    department: "💼การเงิน",
     case: "all",
     no: false,
     icon: FileText,
@@ -157,7 +149,7 @@ const DOCUMENT_CATEGORIES = [
   {
     value: "account_attachment_company_pay",
     label: "เอกสารแนบทางบัญชี > บริษัทจ่ายลูกค้า",
-    department: "💼บัญชี",
+    department: "💼การเงิน",
     case: "all",
     no: false,
     icon: FileText,
@@ -180,7 +172,7 @@ const DEPARTMENTS = [
     color: " text-red-800",
   },
   { value: "ℹ️Compliance", label: "ℹ️Compliance", color: " text-blue-800" },
-  { value: "💼บัญชี", label: "💼ฝ่ายบัญชี", color: " text-yellow-800" },
+  { value: "💼การเงิน", label: "💼ฝ่ายการเงิน", color: " text-yellow-800" },
 ];
 
 export const FileUpload = ({

@@ -54,7 +54,9 @@ interface FilterCriteria {
   start_date?: string;
   end_date?: string;
   document_no?: string;
+  department_id?: string;
   site_id?: string;
+  client_id?: string;
   driver_id?: string;
   casestatus?: string;
   priority?: string;
@@ -84,9 +86,13 @@ export const ACRecordsComponent = () => {
   const [dropdownData, setDropdownData] = useState<{
     sites: any[];
     drivers: any[];
+    departments: any[];
+    clients: any[];
   }>({
     sites: [],
     drivers: [],
+    departments: [],
+    clients: [],
   });
 
   useEffect(() => {
@@ -99,9 +105,15 @@ export const ACRecordsComponent = () => {
           fetch("/api/list", {
             headers: { "X-Api-Path": "/masterdrivers" },
           }),
+          fetch("/api/list", {
+            headers: { "X-Api-Path": "/departments" },
+          }),
+          fetch("/api/list", {
+            headers: { "X-Api-Path": "/clients" },
+          }),
         ]);
 
-        const [sitesData, driversData] = await Promise.all(
+        const [sitesData, driversData, departmentsData, clientsData] = await Promise.all(
           responses.map((res) => res.json())
         );
 
@@ -117,9 +129,25 @@ export const ACRecordsComponent = () => {
           return nameA.localeCompare(nameB, 'th');
         });
 
+        const sortedDepartments = departmentsData.sort((a: any, b: any) => {
+          const nameA = (a.department_name_th || a.department_name || "").toLowerCase();
+          const nameB = (b.department_name_th || b.department_name || "").toLowerCase();
+          return nameA.localeCompare(nameB, 'th');
+        });
+
+        const filteredDepartments = sortedDepartments.filter((dept: any) => {
+          return dept.department_id == 3 || dept.department_id == 15 || dept.department_id == 16 || dept.department_id == 17 ||  dept.department_id == 19 || dept.department_id == 20 
+        });
+
+        const sortedClients = (clientsData || []).filter((c: any) => c.client_id !== 0).sort((a: any, b: any) => {
+          return (a.client_name || "").localeCompare(b.client_name || "", 'th');
+        });
+
         setDropdownData({
           sites: sortedSites,
           drivers: sortedDrivers,
+          departments: filteredDepartments,
+          clients: sortedClients,
         });
 
       } catch (error) {
@@ -130,7 +158,6 @@ export const ACRecordsComponent = () => {
 
     fetchDropdownData();
   }, []);
-
 
   const handleFilterChange = async (filters: RecordFilterResult) => {
     setFilterCriteria(filters);
@@ -321,6 +348,30 @@ export const ACRecordsComponent = () => {
         .map((d) => d.trim())
         .some((docNo) => record.id.toLowerCase().includes(docNo.toLowerCase()));
 
+    const matchesDepartment =
+      !filterCriteria.department_id ||
+      filterCriteria.department_id
+        .split(",")
+        .map((d) => d.trim())
+        .some((deptId) => {
+          const dept = dropdownData.departments.find(
+            (d) => d.department_id?.toString() === deptId
+          );
+          return dept && record.department === (dept.department_name_th || dept.department_name);
+        });
+
+    const matchesClient =
+      !filterCriteria.client_id ||
+      filterCriteria.client_id
+        .split(",")
+        .map((c) => c.trim())
+        .some((clientId) => {
+          const client = dropdownData.clients.find(
+            (c) => c.client_id?.toString() === clientId
+          );
+          return client && record.customer === client.client_name;
+        });
+
     const matchesPriority =
       !filterCriteria.priority ||
       filterCriteria.priority
@@ -334,6 +385,8 @@ export const ACRecordsComponent = () => {
       matchesSite &&
       matchesDriver &&
       matchesDocumentNo &&
+      matchesDepartment &&
+      matchesClient &&
       matchesPriority
     );
   });

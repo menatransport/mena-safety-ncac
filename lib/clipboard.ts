@@ -30,20 +30,21 @@ const formatDT = (dateTimeString?: string) => {
   };
 
 export const useClipboard_nc = (data: any) => {
-console.log("useClipboard_nc data:", data);
+// console.log("useClipboard_nc data:", data);
     const content = `🚨 รายงาน NC 
 ระดับ ${priorityIcon(
         data.formData.priority)} 
-====================
+===================
 📄 เลขที่เอกสาร: ${data.formData.document_no || 'N/A'}
 👤 ผู้รายงาน: ${data.formData.reporter_name || 'N/A'}
 🏢 ศูนย์ปฏิบัติการ: ${data.selectedSite?.site_name_th || 'N/A'}
 🏛️ ฝ่าย: ${data.selectedDepartment?.department_name_th || 'N/A'}
 ⏰ วันที่แจ้ง: ${formatDT(data.formData.record_date) || 'N/A'}
 🔥 วันที่เกิดเหตุ: ${formatDT(data.formData.incident_date) || 'N/A'}
+🚚 พนักงาน: ${data.formData.driver_name || 'N/A'}
 
 🔗 https://mena-safety-ncac.vercel.app/nc-form?doc=${data.formData.document_no}
-====================
+===================
 รายละเอียด: ${data.formData.case_details || 'N/A'}
     `;
     
@@ -56,17 +57,18 @@ export const useClipboard_ac = (data: any) => {
 ระดับ ${priorityIcon(
     data.formData.priority
           )}
-=====================
+====================
 📄 เลขที่เอกสาร: ${data.formData.document_no_ac || "N/A"}
 👤 ผู้รายงาน: ${data.userinfo?.name || "N/A"}
 🏢 ศูนย์ปฏิบัติการ: ${data.selectedSite?.site_name_th || "N/A"}
 🏛️ ฝ่าย: ${data.selectedDepartment?.department_name_th || "N/A"}
 ⏰ วันที่แจ้ง: ${formatDT(data.formData.record_datetime) || "N/A"}
 🔥 วันที่เกิดเหตุ: ${formatDT(data.formData.incident_datetime) || "N/A"}
+🚚 พนักงาน: ${data.formData.driver_name || 'N/A'}
 🕵️‍♂️ เป็นฝ่าย: ${data.formData.fault_party === 'เป็นฝ่ายถูก' ? 'ถูก' : data.formData.fault_party === 'เป็นฝ่ายผิด' ? 'ผิด' : data.formData.fault_party === 'ประมาทร่วม' ? 'ประมาทร่วม' : 'N/A'}
 
 🔗 https://mena-safety-ncac.vercel.app/ac-form?doc=${data.formData.document_no_ac}
-=====================
+====================
 รายละเอียด: ${data.formData.case_details || "N/A"}
 `;
 
