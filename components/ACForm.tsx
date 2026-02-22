@@ -1174,7 +1174,7 @@ const filteredForm = (title: string, data: any[] | undefined): any[] => {
     case "site":
       return data?.filter((site: any) => site.site_id !== 1) || []
     case "department":
-      return data?.filter((dept: any) => dept.department_name_en === "Compliance") || []
+      return data?.filter((dept: any) => dept.department_name_en === "Safety Standards [Compliance]") || []
     default:
       return data || []
   }
