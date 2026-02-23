@@ -1400,6 +1400,7 @@ const statusDesign = (status: string) => {
                           { value: "เป็นฝ่ายถูก", label: "เป็นฝ่ายถูก" },
                           { value: "เป็นฝ่ายผิด", label: "เป็นฝ่ายผิด" },
                           { value: "ประมาทร่วม", label: "ประมาทร่วม" },
+                          { value: "รอสรุปผลคดี", label: "รอสรุปผลคดี" },
                         ]}
                         value={formData?.fault_party || ""}
                         onChange={(value) =>
