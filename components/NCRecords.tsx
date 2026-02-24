@@ -482,7 +482,7 @@ export const NCRecordsComponent = () => {
       return;
     }
 
-    if (documentRole(selectedRecord.department_name, selectedRecord.reporter_name, currentUserName, currentDepartment)) {
+    if (documentRole(selectedRecord.department_name, selectedRecord.reporter_name, currentUserName, currentDepartment, selectedRecord.site_name)) {
       Swal.fire({
         title: "ไม่สามารถลบได้",
         text: "คุณไม่ใช่เจ้าของรายการนี้",

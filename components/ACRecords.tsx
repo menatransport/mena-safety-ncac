@@ -489,7 +489,7 @@ export const ACRecordsComponent = () => {
           return;
         }
     
-        if (documentRole(selectedRecord.department, selectedRecord.reporter, currentUserName, currentDepartment)) {
+        if (documentRole(selectedRecord.department, selectedRecord.reporter, currentUserName, currentDepartment, selectedRecord.site)) {
           Swal.fire({
             title: "ไม่สามารถลบได้",
             text: "คุณไม่ใช่เจ้าของรายการนี้",

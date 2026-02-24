@@ -159,7 +159,7 @@ export const ACFormComponent = () => {
             if (res.ok) {
               // console.log('Fetched AC record data:', data);
               // console.log('Fetched newUserinfo:', newUserinfo);
-                setIsViewMode(documentRole(data.department_name, data.reporter_name, newUserinfo.name, newUserinfo.department));
+                setIsViewMode(documentRole(data.department_name, data.reporter_name, newUserinfo.name, newUserinfo.department, data.site_name));
               setFormData(data);
 
               await mapTextDataToIds(data);

@@ -177,7 +177,7 @@ export const NCFormComponent = () => {
             if (res.ok) {
               // console.log('Fetched NC record data:', data);
               // console.log('Fetched newUserinfo:', newUserinfo);
-              setIsViewMode(documentRole(data.department_name, data.reporter_name, newUserinfo.name, newUserinfo.department));
+              setIsViewMode(documentRole(data.department_name, data.reporter_name, newUserinfo.name, newUserinfo.department, data.site_name));
               setFormData({
                 ...data,
                 products: data.products.map((item: any, index: number) => ({
@@ -253,38 +253,40 @@ export const NCFormComponent = () => {
       setIsAnimating(true);
       setTimeout(async () => {
         if (type === "investigate") {
+          
           setThisform("investigate");
-          if (formData.casestatus !== "Pending") {
-            try {
-              const res = await fetch(
-                `/api/investigate/nc?document_no=${formData.document_no}`,
-                {
-                  method: "GET",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                }
-              );
 
-              if (res.ok) {
-                const data = await res.json();
-                setFormInvestigate(data);
-                setCorrectiveActions(
-                  data.corrective_actions.map((action: any, index: number) => ({
-                    ...action,
-                    action_id: index + 1,
-                  })) as any
-                );
-              } else {
-                console.error(
-                  "Failed to fetch investigate data:",
-                  res.statusText
-                );
+          try {
+            const res = await fetch(
+              `/api/investigate/nc?document_no=${formData.document_no}`,
+              {
+                method: "GET",
+                headers: {
+                  "Content-Type": "application/json",
+                },
               }
-            } catch (error) {
-              console.error("Error fetching investigate data:", error);
+            );
+
+            if (res.ok) {
+              const data = await res.json();
+              // console.log("Fetched investigate data:", data);
+              setFormInvestigate(data);
+              setCorrectiveActions(
+                data.corrective_actions.map((action: any, index: number) => ({
+                  ...action,
+                  action_id: index + 1,
+                })) as any
+              );
+            } else {
+              console.error(
+                "Failed to fetch investigate data:",
+                res.statusText
+              );
             }
+          } catch (error) {
+            console.error("Error fetching investigate data:", error);
           }
+
         } else {
           setThisform("initial");
         }
@@ -441,6 +443,17 @@ export const NCFormComponent = () => {
       )}px`;
     }
 
+    const detailsTextarea = document.querySelector(
+      'textarea[name="case_details"]'
+    ) as HTMLTextAreaElement;
+    if (detailsTextarea) {
+      detailsTextarea.style.height = "auto";
+      detailsTextarea.style.height = `${Math.max(
+        100,
+        detailsTextarea.scrollHeight
+      )}px`;
+    }
+
     const correctiveTextareas = document.querySelectorAll(
       "textarea[data-action-id]"
     ) as NodeListOf<HTMLTextAreaElement>;
@@ -453,7 +466,7 @@ export const NCFormComponent = () => {
         )}px`;
       }
     });
-  }, [formInvestigate.root_cause_analysis, corrective_actions]);
+  }, [formInvestigate.root_cause_analysis, corrective_actions, formData.case_details, thisform]);
 
   useEffect(() => {
     if (isViewMode && formData.site_id && masterdrivers && locations && clients && mastercauses) {
@@ -1093,14 +1106,13 @@ export const NCFormComponent = () => {
     // }
   };
 
-  const handleUpdateInvestigate = async () => {
+  const handleSubmitInvestigate = async () => {
     if (!formData.document_no)
       return alert("ไม่พบเลขที่เอกสารนี้ โปรดลองใหม่อีกครั้ง");
     const data = {
       ...formInvestigate,
       corrective_actions: corrective_actions,
     };
-    // console.log("Data to be updated (Investigate):", data);
     const res = await fetch("/api/investigate/nc", {
       method: "POST",
       headers: {
@@ -1110,7 +1122,6 @@ export const NCFormComponent = () => {
       body: JSON.stringify(data),
     });
     const responseData = await res.json();
-    // console.log("API Response on Investigate Update:", responseData);
     if (res.ok) {
       Swal.fire({
         icon: "success",
@@ -1119,8 +1130,12 @@ export const NCFormComponent = () => {
         confirmButtonText: "ตกลง",
         allowOutsideClick: false,
       });
+      setFormData((prev) => ({
+        ...prev,
+        casestatus: "Completed Investigate",
+      }));
     } else {
-      sendErrorLog("NCForm/handleUpdateInvestigate", `Investigate update failed: ${responseData.message || 'Unknown error'}`);
+      sendErrorLog("NCForm/handleSubmitInvestigate", `Investigate update failed: ${responseData.message || 'Unknown error'}`);
       Swal.fire({
         icon: "error",
         title: "การบันทึกไม่สำเร็จลองใหม่อีกครั้ง",
@@ -1130,6 +1145,44 @@ export const NCFormComponent = () => {
       });
     }
   };
+
+  const handleUpdateInvestigate = async () => {
+    if (!formData.document_no)
+      return alert("ไม่พบเลขที่เอกสารนี้ โปรดลองใหม่อีกครั้ง");
+    const data = {
+      ...formInvestigate,
+      corrective_actions: corrective_actions,
+    };
+    // console.log("Updating Investigate Data:", data);
+    const res = await fetch("/api/investigate/nc", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        document_no: formData.document_no,
+      },
+      body: JSON.stringify(data),
+    });
+    const responseData = await res.json();
+    if (res.ok) {
+      Swal.fire({
+        icon: "success",
+        title: "อัปเดตข้อมูลการสอบสวนสำเร็จ",
+        draggable: true,
+        confirmButtonText: "ตกลง",
+        allowOutsideClick: false,
+      });
+    }
+    else {
+      sendErrorLog("NCForm/handleUpdateInvestigate", `Investigate update failed: ${responseData.message || 'Unknown error'}`);
+      Swal.fire({
+        icon: "error",
+        title: "การอัปเดตไม่สำเร็จลองใหม่อีกครั้ง",
+        draggable: true,
+        confirmButtonText: "ตกลง",
+        allowOutsideClick: false,
+      });
+    }
+  }
 
   // ========== File Management Functions ==========
   const attatchments_post = async (document_no: string) => {
@@ -1222,7 +1275,7 @@ export const NCFormComponent = () => {
       case "site":
         return data?.filter((site: any) => site.site_id !== 1) || []
       case "department":
-        return data?.filter((dept: any) => (dept.department_id > 11 || dept.department_id === 3) && (dept.department_id !== 21) ) || []
+        return data?.filter((dept: any) => (dept.department_id > 11 || dept.department_id === 3) && (dept.department_id !== 21)) || []
       default:
         return data || []
     }
@@ -2243,7 +2296,7 @@ export const NCFormComponent = () => {
                         >
                           มูลค่าความเสียหายประมาณการ: {""}
                           <span className="font-bold text-blue-600">
-                            {formData?.estimated_cost} บาท
+                            {formData?.estimated_cost ? Number(formData.estimated_cost).toLocaleString() : formData?.estimated_cost} บาท
                           </span>
                         </label>
                         <label
@@ -2252,7 +2305,7 @@ export const NCFormComponent = () => {
                         >
                           มูลค่าความเสียหายจริง: {""}
                           <span className="font-bold text-blue-600">
-                            {formData?.actual_price} บาท
+                            {formData?.actual_price ? Number(formData.actual_price).toLocaleString() : formData?.actual_price} บาท
                           </span>
                         </label>
                       </div>
@@ -2441,9 +2494,9 @@ export const NCFormComponent = () => {
                       <button
                         type="button"
                         className="py-2 px-4 cursor-pointer rounded-lg text-sm inline-block bg-gray-600 hover:bg-gray-700 focus:text-gray-600 focus:bg-gray-200 text-white font-semibold leading-loose transition duration-200"
-                        onClick={handleUpdateInvestigate}
+                        onClick={formData?.casestatus === "Pending" ? handleSubmitInvestigate : handleUpdateInvestigate}
                       >
-                        บันทึกข้อมูลสอบสวน
+                        {formData?.casestatus === "Pending" ? "บันทึกข้อมูลสอบสวน" : "อัปเดตข้อมูลสอบสวน"}
                       </button>
                     )}
                 </div>
