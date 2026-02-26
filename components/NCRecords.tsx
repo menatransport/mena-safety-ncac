@@ -569,6 +569,7 @@ export const NCRecordsComponent = () => {
         'แผนก': record.department_name || '',
         'พนักงานขับรถ': record.driver_name || '',
         'ตำแหน่งพนักงานขับรถ': record.driver_role_name || '',
+        'เบอร์รถ': record.plateNumber || '',
         'ทะเบียนรถหัว': record.vehicle_head_plate || '',
         'ทะเบียนรถท้าย': record.vehicle_tail_plate || '',
         'สาเหตุของเหตุการณ์': record.incident_cause || '',
