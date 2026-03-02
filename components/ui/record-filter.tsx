@@ -38,6 +38,8 @@ interface RecordFilterProps {
     dropdownData: DropdownData;
     className?: string;
     autoSearch?: boolean; // auto search on mount, default true
+    onLoadDrivers?: () => void;
+    onLoadClients?: () => void;
 }
 
 /* ----------------------------- Helper Functions ------------------------------ */
@@ -92,6 +94,8 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
             dropdownData,
             className = "",
             autoSearch = true,
+            onLoadDrivers,
+            onLoadClients,
         },
         ref
     ) {
@@ -343,6 +347,7 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
                                         }
                                         value={clientId}
                                         onChange={(value) => setClientId(value.toString())}
+                                        onOpen={onLoadClients}
                                         placeholder="เลือกลูกค้า..."
                                     />
                                 </div>
@@ -361,6 +366,7 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
                                         }
                                         value={driverId}
                                         onChange={(value) => setDriverId(value.toString())}
+                                        onOpen={onLoadDrivers}
                                         placeholder="เลือกพนักงาน..."
                                     />
                                 </div>

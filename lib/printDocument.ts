@@ -512,6 +512,7 @@ export const printDocument_nc = (data: PrintDocumentData) => {
 };
 
 const generateNCFormHTML = (formData: NCFormData, investigateData?: InvestigateData, userinfo?: any, attachedFiles?: { [key: string]: any[] }): string => {
+  // console.log('Generating investigateData:', investigateData);
   return `
     <!DOCTYPE html>
     <html lang="th">

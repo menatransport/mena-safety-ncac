@@ -41,6 +41,7 @@ export const NCFormComponent = () => {
     mastercauses,
     isLoading: isDropdownLoading,
     fetchDropdownData,
+    fetchSingleDropdown,
     getData,
   } = useDropdownStore();
 
@@ -169,7 +170,9 @@ export const NCFormComponent = () => {
             const [, documentResult, attachmentData] = await Promise.all([
               dropdownPromise,
               documentPromise,
-              attachmentPromise
+              attachmentPromise,
+              fetchSingleDropdown('vehicles'),
+              fetchSingleDropdown('masterdrivers'),
             ]);
 
             const { res, data } = documentResult;
@@ -253,7 +256,7 @@ export const NCFormComponent = () => {
       setIsAnimating(true);
       setTimeout(async () => {
         if (type === "investigate") {
-          
+
           setThisform("investigate");
 
           try {
@@ -785,11 +788,6 @@ export const NCFormComponent = () => {
     }
   }
 
-  const handleRemoveItem = (type: string, itemId?: string | number) => {
-    // ฟีเจอร์นี้จะถูกพัฒนาในอนาคต
-    alert("ฟีเจอร์ลบรายการจะพัฒนาในเร็วๆ นี้");
-  };
-
   // ========== Form Input Handlers ==========
   const handleInputChange = (
     e: React.ChangeEvent<
@@ -963,6 +961,14 @@ export const NCFormComponent = () => {
       }
     });
 
+    // ตรวจสอบว่ามีการแนบรูปเหตุการณ์อย่างน้อย 1 รูป
+    if (!attachedFiles["event_img"] || attachedFiles["event_img"].length === 0) {
+      missingFields.push("รูปเหตุการณ์ (อย่างน้อย 1 รูป)");
+      if (!firstMissingField) {
+        firstMissingField = "event_img";
+      }
+    }
+
     return { missingFields, firstMissingField };
   };
 
@@ -974,7 +980,8 @@ export const NCFormComponent = () => {
       const missingFieldsList = validation.missingFields.join("\n• ");
       Swal.fire({
         icon: "warning",
-        title: 'กรุณากรอกข้อมูลที่มีเครื่องหมาย " * " ให้ครบถ้วน',
+        title: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+        html: `<div style="text-align: left;">กรุณากรอกข้อมูลในฟิลด์ดังต่อไปนี้:<br><br>• ${missingFieldsList.replace(/\n/g, '<br>')}</div>`,
         confirmButtonText: "ตกลง",
         confirmButtonColor: "#d33",
       });
@@ -1045,9 +1052,11 @@ export const NCFormComponent = () => {
   const handleUpdate = async () => {
     const validation = validateRequiredFields();
     if (validation.missingFields.length > 0) {
+      const missingFieldsList = validation.missingFields.join("\n• ");
       Swal.fire({
         icon: "warning",
-        title: 'กรุณากรอกข้อมูลที่มีเครื่องหมาย " * " ให้ครบถ้วน',
+        title: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+        html: `<div style="text-align: left;">กรุณากรอกข้อมูลในฟิลด์ดังต่อไปนี้:<br><br>• ${missingFieldsList.replace(/\n/g, '<br>')}</div>`,
         confirmButtonText: "ตกลง",
         confirmButtonColor: "#d33",
       });
@@ -1113,6 +1122,7 @@ export const NCFormComponent = () => {
       ...formInvestigate,
       corrective_actions: corrective_actions,
     };
+    // console.log("Submitting Investigate Data:", data);
     const res = await fetch("/api/investigate/nc", {
       method: "POST",
       headers: {
@@ -1125,7 +1135,7 @@ export const NCFormComponent = () => {
     if (res.ok) {
       Swal.fire({
         icon: "success",
-        title: "บันทึกข้อมูลการสอบสวนสำเร็จ",
+        title: "บันทึกข้อมูลสำเร็จ",
         draggable: true,
         confirmButtonText: "ตกลง",
         allowOutsideClick: false,
@@ -1135,7 +1145,7 @@ export const NCFormComponent = () => {
         casestatus: "Completed Investigate",
       }));
     } else {
-      sendErrorLog("NCForm/handleSubmitInvestigate", `Investigate update failed: ${responseData.message || 'Unknown error'}`);
+      sendErrorLog("NCForm/handleSubmitInvestigate", `Investigate update failed: ${responseData.message || 'Unknown error'} แนบ : ${JSON.stringify(data)}`);
       Swal.fire({
         icon: "error",
         title: "การบันทึกไม่สำเร็จลองใหม่อีกครั้ง",
@@ -1166,7 +1176,7 @@ export const NCFormComponent = () => {
     if (res.ok) {
       Swal.fire({
         icon: "success",
-        title: "อัปเดตข้อมูลการสอบสวนสำเร็จ",
+        title: "อัปเดตข้อมูลสำเร็จ",
         draggable: true,
         confirmButtonText: "ตกลง",
         allowOutsideClick: false,
@@ -1788,6 +1798,7 @@ export const NCFormComponent = () => {
                             onChange={(value) =>
                               handleHeadPlateChange(Number(value))
                             }
+                            onOpen={() => fetchSingleDropdown('vehicles')}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -1816,6 +1827,7 @@ export const NCFormComponent = () => {
                             onChange={(value) =>
                               handleVehicleCodeChange(String(value))
                             }
+                            onOpen={() => fetchSingleDropdown('vehicles')}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -1842,6 +1854,7 @@ export const NCFormComponent = () => {
                                 vehicle_id_tail: Number(value),
                               }))
                             }
+                            onOpen={() => fetchSingleDropdown('vehicles')}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -1889,6 +1902,7 @@ export const NCFormComponent = () => {
                                 driver_id: String(value),
                               }))
                             }
+                            onOpen={() => fetchSingleDropdown('masterdrivers')}
                             // onAdd={() => handleAddItem("masterdrivers")}
                             showAddRemove={false}
                             className="w-full"
@@ -2070,7 +2084,7 @@ export const NCFormComponent = () => {
                   <>
                     <div className="border-t border-gray-400 md:col-span-3"></div>
                     <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 mb-3 text-sm md:col-span-3">
-                      <h3>แนบเอกสาร</h3>
+                      <h3>แนบเอกสาร {formData?.casestatus === "" && <span className="text-red-500 text-[12px]">(ต้องแนบรูปเหตุการณ์อย่างน้อย 1 รูป ก่อนบันทึก)</span>}</h3>
                       <p className="font-semibold text-xs text-gray-600">
                         Document Attachments
                       </p>
@@ -2118,14 +2132,12 @@ export const NCFormComponent = () => {
                         <div>
                           <label className="block text-gray-700 font-medium mb-1 text-sm">
                             การวิเคราะห์สาเหตุของปัญหา:{" "}
-                            <span className="text-red-500">*</span>
                           </label>
                           <textarea
                             name="root_cause_analysis"
                             value={formInvestigate.root_cause_analysis || ""}
                             onChange={(e) => {
                               handleInvestigateInputChange(e);
-                              // Auto resize on change
                               e.target.style.height = "auto";
                               e.target.style.height = `${Math.max(
                                 100,
@@ -2343,15 +2355,12 @@ export const NCFormComponent = () => {
                             ประกันรับเคลม (บาท):
                           </label>
                           <input
-                            type="text"
-                            inputMode="numeric"
+                            type="number"
                             name="insurance_claim"
-                            value={formInvestigate.insurance_claim || ""}
+                            value={formInvestigate.insurance_claim ?? ""}
                             onChange={(e) => {
-                              const value = e.target.value;
-                              if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                                handleInvestigateInputChange(e);
-                              }
+                              const val = e.target.value;
+                              setFormInvestigate(prev => ({ ...prev, insurance_claim: val === '' ? null as any : Number(val) }));
                             }}
                             disabled={isViewMode}
                             className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
@@ -2366,15 +2375,12 @@ export const NCFormComponent = () => {
                             ขายสินค้าได้ (บาท):
                           </label>
                           <input
-                            type="text"
-                            inputMode="numeric"
+                            type="number"
                             name="product_resellable"
-                            value={formInvestigate.product_resellable || ""}
+                            value={formInvestigate.product_resellable ?? ""}
                             onChange={(e) => {
-                              const value = e.target.value;
-                              if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                                handleInvestigateInputChange(e);
-                              }
+                              const val = e.target.value;
+                              setFormInvestigate(prev => ({ ...prev, product_resellable: val === '' ? null as any : Number(val) }));
                             }}
                             disabled={isViewMode}
                             className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
@@ -2389,15 +2395,12 @@ export const NCFormComponent = () => {
                             ค่าความเสียหายคงเหลือ (บาท):
                           </label>
                           <input
-                            type="text"
-                            inputMode="numeric"
+                            type="number"
                             name="remaining_damage_cost"
-                            value={formInvestigate?.remaining_damage_cost || ""}
+                            value={formInvestigate.remaining_damage_cost ?? ""}
                             onChange={(e) => {
-                              const value = e.target.value;
-                              if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                                handleInvestigateInputChange(e);
-                              }
+                              const val = e.target.value;
+                              setFormInvestigate(prev => ({ ...prev, remaining_damage_cost: val === '' ? null as any : Number(val) }));
                             }}
                             disabled={isViewMode}
                             className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
@@ -2412,15 +2415,13 @@ export const NCFormComponent = () => {
                             คนขับรับผิดชอบค่าใช้จ่าย (บาท):
                           </label>
                           <input
-                            type="text"
-                            inputMode="numeric"
+                            type="number"
                             name="driver_cost"
-                            value={formInvestigate?.driver_cost || ""}
+                            value={formInvestigate.driver_cost ?? ""}
                             onChange={(e) => {
-                              const value = e.target.value;
-                              if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                                handleInvestigateInputChange(e);
-                              }
+                              const val = e.target.value;
+                              // console.log("Driver Cost input value:", val);
+                              setFormInvestigate(prev => ({ ...prev, driver_cost: val === '' ? null as any : Number(val) }));
                             }}
                             disabled={isViewMode}
                             className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
@@ -2435,15 +2436,12 @@ export const NCFormComponent = () => {
                             บริษัทรับผิดชอบค่าใช้จ่าย (บาท):
                           </label>
                           <input
-                            type="text"
-                            inputMode="numeric"
+                            type="number"
                             name="company_cost"
-                            value={formInvestigate?.company_cost || ""}
+                            value={formInvestigate.company_cost ?? ""}
                             onChange={(e) => {
-                              const value = e.target.value;
-                              if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                                handleInvestigateInputChange(e);
-                              }
+                              const val = e.target.value;
+                              setFormInvestigate(prev => ({ ...prev, company_cost: val === '' ? null as any : Number(val) }));
                             }}
                             disabled={isViewMode}
                             className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
@@ -2494,9 +2492,9 @@ export const NCFormComponent = () => {
                       <button
                         type="button"
                         className="py-2 px-4 cursor-pointer rounded-lg text-sm inline-block bg-gray-600 hover:bg-gray-700 focus:text-gray-600 focus:bg-gray-200 text-white font-semibold leading-loose transition duration-200"
-                        onClick={formData?.casestatus === "Pending" ? handleSubmitInvestigate : handleUpdateInvestigate}
+                        onClick={formInvestigate?.investigate_id ? handleUpdateInvestigate : handleSubmitInvestigate}
                       >
-                        {formData?.casestatus === "Pending" ? "บันทึกข้อมูลสอบสวน" : "อัปเดตข้อมูลสอบสวน"}
+                        {formInvestigate?.investigate_id ? "อัปเดตข้อมูล" : "บันทึกข้อมูล"}
                       </button>
                     )}
                 </div>

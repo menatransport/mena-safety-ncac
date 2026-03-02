@@ -130,6 +130,7 @@ export interface investigate_NC {
   product_resellable: number,
   remaining_damage_cost: number,
   driver_cost: number,
+  investigate_id: number,
   company_cost: number,
   corrective_actions: [
     {

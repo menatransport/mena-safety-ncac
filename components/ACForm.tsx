@@ -42,6 +42,7 @@ export const ACFormComponent = () => {
     subdistricts,
     isLoading: isDropdownLoading,
     fetchDropdownData,
+    fetchSingleDropdown,
     getData,
   } = useDropdownStore();
 
@@ -151,7 +152,12 @@ export const ACFormComponent = () => {
             const [, documentResult, attachmentData] = await Promise.all([
               dropdownPromise,
               documentPromise,
-              attachmentPromise
+              attachmentPromise,
+              fetchSingleDropdown('vehicles'),
+              fetchSingleDropdown('masterdrivers'),
+              fetchSingleDropdown('provinces'),
+              fetchSingleDropdown('districts'),
+              fetchSingleDropdown('subdistricts'),
             ]);
 
             const { res, data } = documentResult;
@@ -388,6 +394,22 @@ export const ACFormComponent = () => {
       }));
     }
   }, [masterdrivers, locations, vehicles, clients, formData.site_id]);
+
+   useEffect(() => {
+
+    const detailsTextarea = document.querySelector(
+      'textarea[name="case_details"]'
+    ) as HTMLTextAreaElement;
+    if (detailsTextarea) {
+      detailsTextarea.style.height = "auto";
+      detailsTextarea.style.height = `${Math.max(
+        100,
+        detailsTextarea.scrollHeight
+      )}px`;
+    }
+
+  }, [formData.case_details]);
+
   // ========== View Mode Data Filtering ==========
   useEffect(() => {
     if (isViewMode && formData.site_id && masterdrivers && locations && clients) {
@@ -482,12 +504,6 @@ export const ACFormComponent = () => {
       }));
     }
   };
-
-  function toThaiISO(date: Date) {
-    const timezoneOffset = -7 * 60 * 60 * 1000; // -7 ชั่วโมง
-    const utcDate = new Date(date.getTime() - timezoneOffset);
-    return utcDate
-  }
 
   // ========== Province/District Handling Functions ==========
   const handleProvinceChange = (provinceId: number) => {
@@ -900,6 +916,14 @@ export const ACFormComponent = () => {
       }
     }
 
+    // ตรวจสอบว่ามีการแนบรูปเหตุการณ์อย่างน้อย 1 รูป
+    if (!attachedFiles["event_img"] || attachedFiles["event_img"].length === 0) {
+      missingFields.push("รูปเหตุการณ์ (อย่างน้อย 1 รูป)");
+      if (!firstMissingField) {
+        firstMissingField = "event_img";
+      }
+    }
+
     return { missingFields, firstMissingField };
   };
 
@@ -912,8 +936,8 @@ export const ACFormComponent = () => {
       const missingFieldsList = validation.missingFields.join("\n• ");
       Swal.fire({
         icon: "warning",
-        title: 'กรุณากรอกข้อมูลที่มีเครื่องหมาย " * " ให้ครบถ้วน',
-        // html: `<div style="text-align: left;">กรุณากรอกข้อมูลในฟิลด์ดังต่อไปนี้:<br><br>• ${missingFieldsList.replace(/\n/g, '<br>')}</div>`,
+        title: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+        html: `<div style="text-align: left;">กรุณากรอกข้อมูลในฟิลด์ดังต่อไปนี้:<br><br>• ${missingFieldsList.replace(/\n/g, '<br>')}</div>`,
         confirmButtonText: "ตกลง",
         confirmButtonColor: "#d33",
       });
@@ -994,11 +1018,11 @@ export const ACFormComponent = () => {
   const handleUpdate = async () => {
     const validation = validateRequiredFields();
     if (validation.missingFields.length > 0) {
-      // const missingFieldsList = validation.missingFields.join("\n• ");
+      const missingFieldsList = validation.missingFields.join("\n• ");
       Swal.fire({
         icon: "warning",
-        title: 'กรุณากรอกข้อมูลที่มีเครื่องหมาย " * " ให้ครบถ้วน',
-        // html: `<div style="text-align: left;">กรุณากรอกข้อมูลในฟิลด์ดังต่อไปนี้:<br><br>• ${missingFieldsList.replace(/\n/g, '<br>')}</div>`,
+        title: 'กรุณากรอกข้อมูลให้ครบถ้วน',
+        html: `<div style="text-align: left;">กรุณากรอกข้อมูลในฟิลด์ดังต่อไปนี้:<br><br>• ${missingFieldsList.replace(/\n/g, '<br>')}</div>`,
         confirmButtonText: "ตกลง",
         confirmButtonColor: "#d33",
       });
@@ -1539,6 +1563,7 @@ const statusDesign = (status: string) => {
                         onChange={(value) =>
                           handleProvinceChange(Number(value))
                         }
+                        onOpen={() => fetchSingleDropdown('provinces')}
                         disabled={isViewMode}
                         className="w-full"
                       />
@@ -1559,6 +1584,7 @@ const statusDesign = (status: string) => {
                         onChange={(value) =>
                           handleDistrictChange(Number(value))
                         }
+                        onOpen={() => fetchSingleDropdown('districts')}
                         disabled={isViewMode}
                         className="w-full"
                       />
@@ -1582,6 +1608,7 @@ const statusDesign = (status: string) => {
                             sub_district_id: Number(value),
                           }))
                         }
+                        onOpen={() => fetchSingleDropdown('subdistricts')}
                         disabled={isViewMode}
                         className="w-full"
                       />
@@ -1633,6 +1660,7 @@ const statusDesign = (status: string) => {
                         onChange={(value) =>
                           handleHeadPlateChange(Number(value))
                         }
+                        onOpen={() => fetchSingleDropdown('vehicles')}
                         showAddRemove={true}
                         className="w-full"
                         disabled={isViewMode}
@@ -1660,6 +1688,7 @@ const statusDesign = (status: string) => {
                         onChange={(value) =>
                           handleVehicleCodeChange(String(value))
                         }
+                        onOpen={() => fetchSingleDropdown('vehicles')}
                         showAddRemove={true}
                         className="w-full"
                         disabled={isViewMode}
@@ -1686,6 +1715,7 @@ const statusDesign = (status: string) => {
                             vehicle_id_tail: Number(value),
                           }))
                         }
+                        onOpen={() => fetchSingleDropdown('vehicles')}
                         showAddRemove={true}
                         className="w-full"
                         disabled={isViewMode}
@@ -1731,6 +1761,7 @@ const statusDesign = (status: string) => {
                             driver_id: String(value),
                           }))
                         }
+                        onOpen={() => fetchSingleDropdown('masterdrivers')}
                         // onAdd={() => handleAddItem("masterdrivers")}
                         disabled={isViewMode}
                         className="w-full"
@@ -2388,7 +2419,7 @@ const statusDesign = (status: string) => {
                 <div className="border-t border-gray-400 md:col-span-3"></div>
                 {/*แนบเอกสาร */}
                 <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 mb-3 text-sm md:col-span-3">
-                  <h3>แนบเอกสาร</h3>
+                  <h3>แนบเอกสาร {formData?.casestatus === "" && <span className="text-red-500 text-[12px]">(ต้องแนบรูปเหตุการณ์อย่างน้อย 1 รูป ก่อนบันทึก)</span>}</h3>
                   <p className="font-semibold text-xs text-gray-600">
                     Document Attachments
                   </p>

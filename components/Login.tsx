@@ -301,7 +301,7 @@ export default function Login() {
             {/* Footer */}
             <div className="text-center space-y-2">
               <p className="text-gray-700 text-xs">
-                © 2025 MENA NCAC • V.1.4.1 
+                © 2025 MENA NCAC • V.1.4.2 
               </p>
               <div className="hidden justify-center space-x-4 text-xs">
                 <a href="#" className="text-gray-500 hover:text-emerald-600 transition-colors">นโยบายความเป็นส่วนตัว</a>

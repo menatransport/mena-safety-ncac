@@ -14,6 +14,7 @@ interface SearchableSelectProps {
   value?: string | number;
   onChange: (value: string | number) => void;
   onClick?: (value: string | number) => void;
+  onOpen?: () => void;
   onAdd?: () => void;
   onRemove?: (itemValue: string | number) => void;
   onAddFilter?: (itemValue: string | number) => void;
@@ -30,6 +31,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   value,
   onChange,
   onClick,
+  onOpen,
   onAdd,
   onRemove,
   onAddFilter,
@@ -154,9 +156,11 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
   const handleToggle = () => {
     if (!disabled) {
-      setIsOpen(!isOpen);
-      if (!isOpen) {
+      const willOpen = !isOpen;
+      setIsOpen(willOpen);
+      if (willOpen) {
         setSearchTerm("");
+        onOpen?.();
       }
     }
   };

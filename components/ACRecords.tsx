@@ -103,29 +103,17 @@ export const ACRecordsComponent = () => {
             headers: { "X-Api-Path": "/sites" },
           }),
           fetch("/api/list", {
-            headers: { "X-Api-Path": "/masterdrivers" },
-          }),
-          fetch("/api/list", {
             headers: { "X-Api-Path": "/departments" },
-          }),
-          fetch("/api/list", {
-            headers: { "X-Api-Path": "/clients" },
           }),
         ]);
 
-        const [sitesData, driversData, departmentsData, clientsData] = await Promise.all(
+        const [sitesData, departmentsData] = await Promise.all(
           responses.map((res) => res.json())
         );
 
         const sortedSites = sitesData.sort((a: any, b: any) => {
           const nameA = (a.site_name_th || a.site_name || "").toLowerCase();
           const nameB = (b.site_name_th || b.site_name || "").toLowerCase();
-          return nameA.localeCompare(nameB, 'th');
-        });
-
-        const sortedDrivers = driversData.sort((a: any, b: any) => {
-          const nameA = `${a.first_name || ""} ${a.last_name || ""}`.trim().toLowerCase();
-          const nameB = `${b.first_name || ""} ${b.last_name || ""}`.trim().toLowerCase();
           return nameA.localeCompare(nameB, 'th');
         });
 
@@ -139,16 +127,11 @@ export const ACRecordsComponent = () => {
           return dept.department_id == 3 || dept.department_id == 15 || dept.department_id == 16 || dept.department_id == 17 ||  dept.department_id == 19 || dept.department_id == 20 
         });
 
-        const sortedClients = (clientsData || []).filter((c: any) => c.client_id !== 0).sort((a: any, b: any) => {
-          return (a.client_name || "").localeCompare(b.client_name || "", 'th');
-        });
-
-        setDropdownData({
+        setDropdownData((prev) => ({
+          ...prev,
           sites: sortedSites,
-          drivers: sortedDrivers,
           departments: filteredDepartments,
-          clients: sortedClients,
-        });
+        }));
 
       } catch (error) {
         console.error("Error fetching AC dropdown data:", error);
@@ -158,6 +141,36 @@ export const ACRecordsComponent = () => {
 
     fetchDropdownData();
   }, []);
+
+  const loadDrivers = async () => {
+    if (dropdownData.drivers.length > 0) return;
+    try {
+      const res = await fetch("/api/list", { headers: { "X-Api-Path": "/masterdrivers" } });
+      const data = await res.json();
+      const sorted = data.sort((a: any, b: any) => {
+        const nameA = `${a.first_name || ""} ${a.last_name || ""}`.trim().toLowerCase();
+        const nameB = `${b.first_name || ""} ${b.last_name || ""}`.trim().toLowerCase();
+        return nameA.localeCompare(nameB, 'th');
+      });
+      setDropdownData((prev) => ({ ...prev, drivers: sorted }));
+    } catch (error) {
+      console.error("Error fetching drivers:", error);
+    }
+  };
+
+  const loadClients = async () => {
+    if (dropdownData.clients.length > 0) return;
+    try {
+      const res = await fetch("/api/list", { headers: { "X-Api-Path": "/clients" } });
+      const data = await res.json();
+      const sorted = (data || []).filter((c: any) => c.client_id !== 0).sort((a: any, b: any) => {
+        return (a.client_name || "").localeCompare(b.client_name || "", 'th');
+      });
+      setDropdownData((prev) => ({ ...prev, clients: sorted }));
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+    }
+  };
 
   const handleFilterChange = async (filters: RecordFilterResult) => {
     setFilterCriteria(filters);
@@ -636,6 +649,8 @@ export const ACRecordsComponent = () => {
           onFilter={handleFilterChange}
           loading={loading}
           dropdownData={dropdownData}
+          onLoadDrivers={loadDrivers}
+          onLoadClients={loadClients}
           className="mb-6 z-[10] relative"
         />
 

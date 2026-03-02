@@ -20,6 +20,7 @@ interface DropdownlistStore extends DropdownlistData {
   lastUpdated?: string;
   error?: string;
   fetchDropdownData: () => Promise<void>;
+  fetchSingleDropdown: (key: keyof DropdownlistData) => Promise<any[]>;
   clearData: () => void;
   setData: (data: Partial<DropdownlistData>) => void;
   getData: () => DropdownlistData;
@@ -59,18 +60,17 @@ export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
       "/sites",
       "/departments",
       "/clients",
-      "/vehicles",
+      // "/vehicles",
       "/locations",
       "/driver_roles",
-      "/masterdrivers",
+      // "/masterdrivers",
       "/mastercauses",
-      "/positions",
-      "/provinces",
-      "/districts",
-      "/sub-districts"
+      // "/positions",
+      // "/provinces",
+      // "/districts",
+      // "/sub-districts"
     ];
     try {
-      const authToken = localStorage.getItem('authToken');
       async function parallelBatches(list: string[], batchSize: number) {
         const result = [];
 
@@ -172,6 +172,62 @@ export const useDropdownStore = create<DropdownlistStore>((set, get) => ({
 
     } catch (error) {
       console.error("Error fetching dropdown data:", error);
+    }
+  },
+
+  fetchSingleDropdown: async (key: keyof DropdownlistData) => {
+    const state = get();
+    const existing = state[key];
+    if (existing && Array.isArray(existing) && existing.length > 0) {
+      return existing;
+    }
+
+    const apiPath = key === 'subdistricts' ? '/sub-districts' : `/${key}`;
+    try {
+      const res = await fetch('/api/list', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Path': apiPath,
+        },
+      });
+      let data = await res.json();
+
+      if (Array.isArray(data)) {
+        switch (key) {
+          case 'vehicles':
+            data = data.sort((a: any, b: any) => (a.vehicle_number_plate || '').localeCompare(b.vehicle_number_plate || ''));
+            break;
+          case 'masterdrivers':
+            data = data.sort((a: any, b: any) => {
+              const nameA = `${a.first_name || ''} ${a.last_name || ''}`.trim();
+              const nameB = `${b.first_name || ''} ${b.last_name || ''}`.trim();
+              return nameA.localeCompare(nameB);
+            });
+            break;
+          case 'provinces':
+            data = data.sort((a: any, b: any) => (a.province_name_th || '').localeCompare(b.province_name_th || ''));
+            break;
+          case 'districts':
+            data = data.sort((a: any, b: any) => (a.district_name_th || '').localeCompare(b.district_name_th || ''));
+            break;
+          case 'subdistricts':
+            data = data.sort((a: any, b: any) => (a.sub_district_name_th || '').localeCompare(b.sub_district_name_th || ''));
+            break;
+          case 'clients':
+            data = data.filter((item: any) => item.client_id !== 0);
+            data = data.sort((a: any, b: any) => (a.client_name || '').localeCompare(b.client_name || ''));
+            break;
+          default:
+            break;
+        }
+      }
+
+      set({ [key]: data });
+      return data;
+    } catch (error) {
+      console.error(`Error fetching ${key}:`, error);
+      return [];
     }
   },
 
