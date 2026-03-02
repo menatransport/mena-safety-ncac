@@ -392,6 +392,15 @@ export const ACFormComponent = () => {
         clients: clients || [],
         vehicles: vehicles || [],
       }));
+    } else {
+      const num = (formData.site_id === 3 || formData.site_id === 4 || formData.site_id === 6) ? 3 : 2;
+      setFilteredData((prev) => ({
+        ...prev,
+        masterdrivers: masterdrivers?.filter((d: any) => d.site_id === num) || [],
+        locations: locations?.filter((l: any) => l.site_id === num) || [],
+        clients: clients?.filter((c: any) => c.site_id === num) || [],
+        vehicles: vehicles || [],
+      }));
     }
   }, [masterdrivers, locations, vehicles, clients, formData.site_id]);
 
