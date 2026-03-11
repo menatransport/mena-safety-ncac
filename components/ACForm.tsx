@@ -745,14 +745,14 @@ export const ACFormComponent = () => {
     let obj = {};
     switch (type) {
       case "locations":
-        obj = { location_name: itemName, site_id: formData.site_id };
+        obj = { location_name: itemName, site_id: formData.site_id === 6 ? 3 : formData.site_id };
         break;
       case "masterdrivers":
         let diffname = itemName.split(" ")
-        obj = { first_name: diffname[0], last_name: diffname[1], site_id: formData.site_id, driver_role_id: formData.driver_role_id };
+        obj = { first_name: diffname[0], last_name: diffname[1], site_id: formData.site_id === 6 ? 3 : formData.site_id, driver_role_id: formData.driver_role_id };
         break;
       case "clients":
-        obj = { client_name: itemName, site_id: formData.site_id };
+        obj = { client_name: itemName, site_id: formData.site_id === 6 ? 3 : formData.site_id };
         break;
     }
     return obj;
