@@ -11,8 +11,14 @@ import {
   DashboardView,
   TransportView
 } from '@/components/ui/dashboard';
+import { Calculator, FileText } from 'lucide-react';
 
 const MONTH_NAMES = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'] as const;
+
+const menu = [
+  { value: 'dashboard', name: 'เบื้องต้น', icon: FileText },
+  { value: 'finance', name: 'การเงิน', icon: Calculator },
+];
 
 export const DashboardComponent = () => {
   const [selectedMonth, setSelectedMonth] = useState('all');
@@ -572,6 +578,7 @@ export const DashboardComponent = () => {
         <ViewSelector
           activeView={activeView}
           setActiveView={setActiveView}
+          menu={menu}
         />
 
         {/* Dashboard View */}

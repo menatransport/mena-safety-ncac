@@ -6,7 +6,7 @@ import { SearchableSelect } from "./ui/searchable-select";
 import { FileUpload } from "./FileUpload";
 import { caseReport_NC, investigate_NC } from "@/lib/caseReport";
 import { useDropdownStore } from "@/lib/dropdownlist";
-import { CirclePlus, CircleMinus, Printer } from "lucide-react";
+import { CirclePlus, CircleMinus, Printer, Paperclip, X, Eye } from "lucide-react";
 import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import { useClipboard_nc } from "@/lib/clipboard";
@@ -92,6 +92,10 @@ export const NCFormComponent = () => {
     },
   ]);
 
+  const [actionFiles, setActionFiles] = useState<{ [actionId: number]: File[] }>({});
+  const [actionExistingFiles, setActionExistingFiles] = useState<{ [actionId: number]: { key: string; fileName: string; url: string }[] }>({});
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [masterrootcauses, setMasterrootcauses] = useState<any[]>([]);
 
   const [filteredData, setFilteredData] = useState<{
     masterdrivers?: any[];
@@ -269,17 +273,42 @@ export const NCFormComponent = () => {
                 },
               }
             );
+            const api = "/master-root-causes"
+            const res_root = await fetch(
+              `/api/list`,
+              {
+              method: "GET",
+                headers: {
+                  "Content-Type": "application/json",
+                  "X-Api-Path": api,
+                },
+              });
 
-            if (res.ok) {
+            if (res.ok && res_root.ok) {
               const data = await res.json();
+              const rootData = await res_root.json();
               // console.log("Fetched investigate data:", data);
+              // console.log("Fetched root causes data:", rootData);
+              setMasterrootcauses(rootData);
               setFormInvestigate(data);
-              setCorrectiveActions(
-                data.corrective_actions.map((action: any, index: number) => ({
-                  ...action,
-                  action_id: index + 1,
-                })) as any
-              );
+              if (data.corrective_actions && data.corrective_actions.length > 0) {
+                setCorrectiveActions(
+                  data.corrective_actions.map((action: any, index: number) => ({
+                    ...action,
+                    action_id: index + 1,
+                  })) as any
+                );
+              } else {
+                setCorrectiveActions([
+                  {
+                    action_id: 1,
+                    corrective_action: "",
+                    pic_contract: "",
+                    plan_date: null,
+                    action_completed_date: null,
+                  },
+                ] as any);
+              }
             } else {
               console.error(
                 "Failed to fetch investigate data:",
@@ -288,6 +317,11 @@ export const NCFormComponent = () => {
             }
           } catch (error) {
             console.error("Error fetching investigate data:", error);
+          }
+
+          // Load existing action files from S3
+          if (formData.document_no) {
+            loadActionFiles(formData.document_no);
           }
 
         } else {
@@ -719,6 +753,40 @@ export const NCFormComponent = () => {
     }
   };
 
+  const handleAddItem_investigate = () => {
+    const itemName = prompt(`เพิ่มรายการใหม่สำหรับ root cause:`);
+    if (itemName && itemName.trim()) {
+      const api = "/master-root-causes"
+      fetch(`/api/list`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-path": api
+        },
+        body: JSON.stringify({ root_cause: itemName }),
+      })
+        .then((res) => {
+          if (res.ok) {
+            Swal.fire({
+              icon: "success",
+              title: "เพิ่มรายการ" + itemName + "สำเร็จ",
+              showConfirmButton: true,
+            });
+            return res.json();
+          } else {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+          }
+        })
+        .then((data) => {
+          setMasterrootcauses((prev) => [...prev, data]);
+        })
+        .catch((error) => {
+          console.error(`Error adding root cause:`, error);
+          alert(`เพิ่มรายการ "${itemName}" ไม่สำเร็จ ลองใหม่อีกครั้ง`);
+        });
+    }
+  }
+
   // ========== Add/Remove Item Functions ==========
   const handleAddItem = async (type: string) => {
     if (formData.site_id === undefined || formData.site_id === null) return alert("กรุณาเลือก ศูนย์ปฏิบัติการ ก่อนเพิ่มรายการ");
@@ -748,6 +816,8 @@ export const NCFormComponent = () => {
       }
     }
   };
+
+  
 
   const finditems = (type: string, itemName: string) => {
     let obj = {};
@@ -886,6 +956,12 @@ export const NCFormComponent = () => {
 
   const removeCorrectiveAction = () => {
     if (corrective_actions && corrective_actions.length > 1) {
+      const removedId = corrective_actions[corrective_actions.length - 1].action_id;
+      setActionFiles((prev) => {
+        const next = { ...prev };
+        delete next[removedId];
+        return next;
+      });
       setCorrectiveActions(corrective_actions.slice(0, -1) as any);
     }
   };
@@ -896,6 +972,79 @@ export const NCFormComponent = () => {
     return utcDate
   }
 
+
+  // ========== Action File Functions ==========
+  const handleActionFileChange = (actionId: number, files: FileList | null) => {
+    if (!files) return;
+    setActionFiles((prev) => ({
+      ...prev,
+      [actionId]: [...(prev[actionId] || []), ...Array.from(files)],
+    }));
+  };
+
+  const removeActionNewFile = (actionId: number, fileIndex: number) => {
+    setActionFiles((prev) => ({
+      ...prev,
+      [actionId]: (prev[actionId] || []).filter((_, i) => i !== fileIndex),
+    }));
+  };
+
+  const removeActionExistingFile = async (actionId: number, key: string) => {
+    try {
+      await fetch("/api/attachment", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key }),
+      });
+      setActionExistingFiles((prev) => ({
+        ...prev,
+        [actionId]: (prev[actionId] || []).filter((f) => f.key !== key),
+      }));
+    } catch (err) {
+      console.error("Delete action file error:", err);
+    }
+  };
+
+  const uploadActionFiles = async (document_no: string) => {
+    for (const [actionId, files] of Object.entries(actionFiles)) {
+      if (!files || files.length === 0) continue;
+      const uploadFormData = new FormData();
+      files.forEach((file) => {
+        const ext = file.name.split(".").pop();
+        const rand = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+        const newName = `${document_no}_action_${actionId}_${rand}.${ext}`;
+        const renamedFile = new File([file], newName, { type: file.type });
+        uploadFormData.append("files", renamedFile);
+      });
+      uploadFormData.append("document_no", document_no);
+      try {
+        await fetch("/api/attachment", { method: "POST", body: uploadFormData });
+      } catch (err) {
+        console.error("Upload action files error:", err);
+      }
+    }
+    setActionFiles({});
+  };
+
+  const loadActionFiles = async (document_no: string) => {
+    try {
+      const res = await fetch(`/api/attachment?document_no=${encodeURIComponent(document_no)}`);
+      if (!res.ok) return;
+      const { files } = await res.json();
+      const grouped: { [actionId: number]: { key: string; fileName: string; url: string }[] } = {};
+      (files || []).forEach((file: any) => {
+        const match = file.fileName?.match(/_action_(\d+)_/);
+        if (match) {
+          const id = Number(match[1]);
+          if (!grouped[id]) grouped[id] = [];
+          grouped[id].push({ key: file.key, fileName: file.fileName, url: file.url });
+        }
+      });
+      setActionExistingFiles(grouped);
+    } catch (err) {
+      console.error("Load action files error:", err);
+    }
+  };
 
   const handleCorrectiveActionChange = (
     id: number,
@@ -923,6 +1072,11 @@ export const NCFormComponent = () => {
         field: "incident_cause_id",
         label: "สาเหตุการเกิดเหตุ",
         elementName: "incident_cause_id",
+      },
+      {
+        field: "breakdown_status",
+        label: "สถานะ breakdown",
+        elementName: "breakdown_status",
       },
       {
         field: "case_details",
@@ -1095,7 +1249,7 @@ export const NCFormComponent = () => {
       docs: [docValue as any]
     };
 
-    //  console.log("NC Form Update <><><><> :", formData);
+     console.log("NC Form Update <><><><> :", formData);
 
     const res = await fetch("/api/document/nc", {
       method: "PUT",
@@ -1155,6 +1309,10 @@ export const NCFormComponent = () => {
         ...prev,
         casestatus: "Completed Investigate",
       }));
+      // Upload action files to S3
+      if (formData.document_no) {
+        await uploadActionFiles(formData.document_no);
+      }
     } else {
       sendErrorLog("NCForm/handleSubmitInvestigate", `Investigate update failed: ${responseData.message || 'Unknown error'} แนบ : ${JSON.stringify(data)}`);
       Swal.fire({
@@ -1192,6 +1350,10 @@ export const NCFormComponent = () => {
         confirmButtonText: "ตกลง",
         allowOutsideClick: false,
       });
+      // Upload action files to S3
+      if (formData.document_no) {
+        await uploadActionFiles(formData.document_no);
+      }
     }
     else {
       sendErrorLog("NCForm/handleUpdateInvestigate", `Investigate update failed: ${responseData.message || 'Unknown error'}`);
@@ -1660,6 +1822,27 @@ export const NCFormComponent = () => {
                             }
                             onAdd={() => handleAddItem("mastercauses")}
                             showAddRemove={true}
+                            className="w-full"
+                            disabled={isViewMode}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-gray-700 font-medium mb-1 text-sm">
+                            สถานะ breakdown : <span className="text-red-500">*</span>
+                          </label>
+                          <SearchableSelect
+                            options={["มี breakdown", "ไม่มี breakdown"].map((status) => ({
+                              value: status,
+                              label: status,
+                            }))}
+                            value={formData?.breakdown_status || ""}
+                            onChange={(value) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                breakdown_status: String(value),
+                              }))
+                            }
                             className="w-full"
                             disabled={isViewMode}
                           />
@@ -2142,6 +2325,28 @@ export const NCFormComponent = () => {
                       <div className="grid grid-cols-1 gap-6">
                         <div>
                           <label className="block text-gray-700 font-medium mb-1 text-sm">
+                            สาเหตุหลัก (root cause): 
+                          </label>
+                          <SearchableSelect
+                            options={(masterrootcauses || []).map((cause: any) => ({
+                              value: cause.root_cause,
+                              label: cause.root_cause,
+                            }))}
+                            value={formInvestigate?.root_cause || ""}
+                            onChange={(value) =>
+                              setFormInvestigate((prev) => ({
+                                ...prev,
+                                root_cause: String(value),
+                              }))
+                            }
+                            onAdd={() => handleAddItem_investigate()}
+                            showAddRemove={true}
+                            className="w-full"
+                            disabled={isViewMode}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-gray-700 font-medium mb-1 text-sm">
                             การวิเคราะห์สาเหตุของปัญหา:{" "}
                           </label>
                           <textarea
@@ -2207,6 +2412,9 @@ export const NCFormComponent = () => {
                               </th>
                               <th className="border border-gray-300 px-3 py-2 text-left font-medium text-gray-700 w-36">
                                 ดำเนินการเสร็จ
+                              </th>
+                              <th className="border border-gray-300 px-3 py-2 text-left font-medium text-gray-700 w-36">
+                                แนบไฟล์หรือรูป
                               </th>
                             </tr>
                           </thead>
@@ -2294,6 +2502,80 @@ export const NCFormComponent = () => {
                                     disabled={isViewMode}
                                     usedFor="date"
                                   />
+                                </td>
+                                <td className="border border-gray-300 px-3 py-2 text-black">
+                                  <div className="flex flex-col gap-1 min-w-[100px]">
+                                    {/* Existing files from S3 */}
+                                    {(actionExistingFiles[action.action_id] || []).map((file) => (
+                                      <div key={file.key} className="flex items-center gap-1 text-xs bg-gray-50 p-1 rounded">
+                                        {/\.(jpg|jpeg|png|gif|webp)$/i.test(file.fileName) ? (
+                                          <img
+                                            src={file.url}
+                                            alt={file.fileName}
+                                            className="w-8 h-8 object-cover rounded cursor-pointer border hover:opacity-80"
+                                            onClick={() => setPreviewUrl(file.url)}
+                                          />
+                                        ) : (
+                                          <a
+                                            href={file.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 underline truncate max-w-[80px] text-xs"
+                                          >
+                                            {file.fileName}
+                                          </a>
+                                        )}
+                                        {!isViewMode && (
+                                          <button
+                                            type="button"
+                                            onClick={() => removeActionExistingFile(action.action_id, file.key)}
+                                            className="text-red-400 hover:text-red-600 ml-auto"
+                                          >
+                                            <X className="w-3 h-3" />
+                                          </button>
+                                        )}
+                                      </div>
+                                    ))}
+                                    {/* New files (pending upload) */}
+                                    {(actionFiles[action.action_id] || []).map((file, fIdx) => (
+                                      <div key={fIdx} className="flex items-center gap-1 text-xs bg-blue-50 p-1 rounded">
+                                        {file.type.startsWith("image/") ? (
+                                          <img
+                                            src={URL.createObjectURL(file)}
+                                            alt={file.name}
+                                            className="w-8 h-8 object-cover rounded cursor-pointer border hover:opacity-80"
+                                            onClick={() => setPreviewUrl(URL.createObjectURL(file))}
+                                          />
+                                        ) : (
+                                          <span className="truncate max-w-[80px] text-xs">{file.name}</span>
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={() => removeActionNewFile(action.action_id, fIdx)}
+                                          className="text-red-400 hover:text-red-600 ml-auto"
+                                        >
+                                          <X className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    ))}
+                                    {/* Upload button */}
+                                    {!isViewMode && (
+                                      <label className="flex items-center gap-1 cursor-pointer text-xs text-gray-500 hover:text-blue-600 mt-1">
+                                        <Paperclip className="w-3.5 h-3.5" />
+                                        <span>แนบไฟล์</span>
+                                        <input
+                                          type="file"
+                                          multiple
+                                          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                                          className="hidden"
+                                          onChange={(e) => {
+                                            handleActionFileChange(action.action_id, e.target.files);
+                                            e.target.value = "";
+                                          }}
+                                        />
+                                      </label>
+                                    )}
+                                  </div>
                                 </td>
                               </tr>
                             ))}
@@ -2514,6 +2796,29 @@ export const NCFormComponent = () => {
           </div>
         </div>
       </div>
+
+      {/* Preview Modal */}
+      {previewUrl && (
+        <div
+          className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4"
+          onClick={() => setPreviewUrl(null)}
+        >
+          <div className="relative max-w-3xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="absolute -top-3 -right-3 bg-white rounded-full p-1 shadow-lg hover:bg-gray-100 z-10"
+              onClick={() => setPreviewUrl(null)}
+            >
+              <X className="w-5 h-5 text-gray-700" />
+            </button>
+            <img
+              src={previewUrl}
+              alt="Preview"
+              className="max-w-full max-h-[85vh] rounded-lg shadow-xl object-contain"
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 };

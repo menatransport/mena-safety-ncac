@@ -1,19 +1,14 @@
-import { FileText, Calculator } from 'lucide-react';
 
 interface ViewSelectorProps {
   activeView: string;
   setActiveView: (value: string) => void;
+  menu?: { value: string; name: string; icon: React.ComponentType<{ size: number }> }[];
 }
 
-const menu = [
-  { value: 'dashboard', name: 'เบื้องต้น', icon: FileText },
-  { value: 'finance', name: 'การเงิน', icon: Calculator },
-];
-
-export const ViewSelector = ({ activeView, setActiveView }: ViewSelectorProps) => {
+export const ViewSelector = ({ activeView, setActiveView, menu }: ViewSelectorProps) => {
   return (
-    <div className="relative flex flex-wrap rounded-lg bg-gray-200 p-1 w-full md:w-1/2 lg:w-1/3 text-sm shadow-sm">
-      {menu.map((item) => {
+    <div className="relative flex flex-wrap rounded-lg bg-indigo-200/10 p-1 w-full text-sm shadow-sm">
+      {menu?.map((item) => {
         const IconComponent = item.icon;
         return (
           <label key={item.value} className="flex-1 text-center cursor-pointer">

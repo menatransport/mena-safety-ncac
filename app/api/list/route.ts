@@ -11,7 +11,7 @@ export async function GET(request: Request) {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
     });
-
+    
  
     return NextResponse.json(await res.json());
   } catch (error) {
@@ -31,9 +31,6 @@ export async function POST(request: Request) {
     if (!header) {
       return NextResponse.json({ error: "Missing X-Api-Path header" }, { status: 400 });
     }
-
-    console.log("header:", header);
-    console.log("body:", body);
     
     const res = await fetch('https://api-ncac.onrender.com' + header, {
       method: 'POST',

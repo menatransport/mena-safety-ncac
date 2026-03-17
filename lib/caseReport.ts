@@ -25,6 +25,7 @@ export interface caseReport_NC {
   incident_date: string,
   case_location: string,
   incident_cause: string,
+  breakdown_status: string,
   description: string,
   destination: string,
   case_details: string,
@@ -124,7 +125,8 @@ export interface caseReport_AC {
 }
 
 export interface investigate_NC {
- root_cause_analysis: string,
+  root_cause: string|number,
+  root_cause_analysis: string,
   claim_type: string,
   insurance_claim: number,
   product_resellable: number,
