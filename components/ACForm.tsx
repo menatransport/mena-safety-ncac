@@ -14,6 +14,8 @@ import { Printer } from "lucide-react";
 import { printDocument_ac } from "@/lib/printDocument";
 import { sendErrorLog } from "@/lib/logError";
 import { documentRole } from "@/lib/documentRole";
+import { useUiTheme } from "@/lib/useUiTheme";
+import { CaseStatusBadge } from "./CaseStatusBadge";
 
 interface FileWithId {
   id: string;
@@ -67,6 +69,7 @@ export const ACFormComponent = () => {
   const [attachedFiles, setAttachedFiles] = useState<CategoryFiles>({});
   const [userinfo, setUserinfo] = useState<any>(null);
   const [docValue, setDocValue] = useState<any[]>([]);
+  const { theme } = useUiTheme();
 
   const searchParams = useSearchParams();
 
@@ -87,7 +90,6 @@ export const ACFormComponent = () => {
     subdistricts: [],
     provinces: [],
   });
-
 
   useEffect(() => {
     const initializeForm = async () => {
@@ -165,7 +167,7 @@ export const ACFormComponent = () => {
             if (res.ok) {
               // console.log('Fetched AC record data:', data);
               // console.log('Fetched newUserinfo:', newUserinfo);
-                setIsViewMode(documentRole(data.department_name, data.reporter_name, newUserinfo.name, newUserinfo.department, data.site_name));
+              setIsViewMode(documentRole(data.department_name, data.reporter_name, newUserinfo.name, newUserinfo.department, data.site_name));
               setFormData(data);
 
               await mapTextDataToIds(data);
@@ -404,7 +406,7 @@ export const ACFormComponent = () => {
     }
   }, [masterdrivers, locations, vehicles, clients, formData.site_id]);
 
-   useEffect(() => {
+  useEffect(() => {
 
     const detailsTextarea = document.querySelector(
       'textarea[name="case_details"]'
@@ -412,7 +414,7 @@ export const ACFormComponent = () => {
     if (detailsTextarea) {
       detailsTextarea.style.height = "auto";
       detailsTextarea.style.height = `${Math.max(
-        100,
+        detailsTextarea.scrollHeight,
         detailsTextarea.scrollHeight
       )}px`;
     }
@@ -627,7 +629,7 @@ export const ACFormComponent = () => {
     }
   };
 
- // ========== Print Document Function ==========
+  // ========== Print Document Function ==========
   const handlePrintDocument = () => {
     if (!formData.document_no_ac) {
       Swal.fire({
@@ -682,7 +684,7 @@ export const ACFormComponent = () => {
         client_name: selectedClient?.client_name || formData.client_name,
         origin_name: selectedOrigin?.location_name || formData.origin_name,
         driver_role_name: selectedDriverRole?.role_name || formData.driver_role_name,
-        driver_name: selectedDriver 
+        driver_name: selectedDriver
           ? `${selectedDriver.first_name} ${selectedDriver.last_name}`
           : formData.driver_name,
         vehicle_head_plate: selectedVehicleHead?.vehicle_number_plate || formData.vehicle_head_plate,
@@ -1038,7 +1040,7 @@ export const ACFormComponent = () => {
       return;
     }
 
-     const {
+    const {
       priority,
       reporter_name,
       record_datetime,
@@ -1056,7 +1058,8 @@ export const ACFormComponent = () => {
       ...filteredFormData
     } = formData;
 
-    const data = { ...filteredFormData,
+    const data = {
+      ...filteredFormData,
       incident_datetime: filteredFormData.incident_datetime,
       fatalities: Number(filteredFormData.fatalities) || 0,
       injured_hospitalized: Number(filteredFormData.injured_hospitalized) || 0,
@@ -1065,7 +1068,7 @@ export const ACFormComponent = () => {
       estimated_vehicle_damage_value: Number(filteredFormData.estimated_vehicle_damage_value) || 0,
       actual_goods_damage_value: Number(filteredFormData.actual_goods_damage_value) || 0,
       actual_vehicle_damage_value: Number(filteredFormData.actual_vehicle_damage_value) || 0,
-      docs: [docValue as any] 
+      docs: [docValue as any]
     };
 
     const res = await fetch("/api/document/ac", {
@@ -1162,7 +1165,7 @@ export const ACFormComponent = () => {
               casestatus: 'Completed Investigate',
             }));
           }
-        } 
+        }
       } else {
         Swal.fire({
           icon: "error",
@@ -1202,105 +1205,51 @@ export const ACFormComponent = () => {
     return <LoaderPage />;
   }
 
-const filteredForm = (title: string, data: any[] | undefined): any[] => {
-  switch (title) {
-    case "site":
-      return data?.filter((site: any) => site.site_id !== 1) || []
-    case "department":
-      return data?.filter((dept: any) => dept.department_name_en === "Safety Standards [Compliance]") || []
-    default:
-      return data || []
-  }
-};
-
-  // ========= Status Design ==========
-
-const statusDesign = (status: string) => {
-    switch (status) {
-      case "Pending":
-        return "bg-white border-yellow-500 text-yellow-700";
-      case "Completed Investigate":
-        return "bg-white border-green-500 text-green-700";
-      case "Voided":
-        return "bg-white border-red-500 text-red-700";
+  const filteredForm = (title: string, data: any[] | undefined): any[] => {
+    switch (title) {
+      case "site":
+        return data?.filter((site: any) => site.site_id !== 1) || []
+      case "department":
+        return data?.filter((dept: any) => dept.department_name_en === "Safety Standards [Compliance]") || []
       default:
-        return "hidden";
-  }
-}
+        return data || []
+    }
+  };
+
+
 
 
 
 
   return (
     <>
-      <div className="min-h-screen bg-[#d1ffe1]">
+      <div className={`min-h-screen ${theme === "Dark" ? "bg-gradient-to-br from-slate-800 via-slate-700 to-[#3d5578]" : "bg-[#d1ffe1]"}`}>
         <div className="py-4 sm:p-6 space-y-4 md:space-y-6 pb-24 lg:pb-6">
           {/* Button Bar */}
           {formData.casestatus !== "" && <>
-              {/* Mobile: Status + Print ในแถวเดียวกัน */}
-              <div className="flex md:hidden items-start justify-between gap-3 mb-4 mt-2">
-                {/* Mobile Status */}
-                <div className={`
-                  flex-1
-                  ${statusDesign(formData.casestatus || "")} 
-                  border-l-4 p-2 shadow-md rounded-r-md bg-white
-                `} role="alert">
-                  <p className="font-bold text-sm">
-                    สถานะ: {formData.casestatus === "Completed Investigate" ? "Completed" : formData.casestatus}
-                  </p>
-                  <p className="font-bold text-xs opacity-80 mt-1">
-                    ระดับ: {formData.priority}
-                  </p>
-                  <p className="font-bold text-xs opacity-60 mt-1">
-                    ผู้รายงาน: {formData.reporter_name}
-                  </p>
-                </div>
-                {/* Mobile Print Button */}
-                {/* <button
-                  type="button"
-                  onClick={handlePrintDocument}
-                  title="Print Document"
-                  className="bg-gray-500 hover:bg-gray-700 hover:scale-105 cursor-pointer text-white border border-white font-semibold p-3 rounded-lg shadow-md hover:shadow-lg transition duration-300 flex flex-col items-center justify-center"
-                >
-                  <Printer className="w-6 h-6" />
-                </button> */}
-              </div>
+            {/* Status — collapsible side panel (auto-hide w/ motion) */}
+            <CaseStatusBadge
+              status={formData.casestatus || ""}
+              priority={formData.priority}
+              reporter={formData.reporter_name}
+            />
 
-              {/* Desktop: Fixed Status (Left) */}
-              <div className={`
-                hidden md:block
-                fixed top-auto left-auto mt-5 z-50
-                min-w-[220px] max-w-[280px]
-                ${statusDesign(formData.casestatus || "")} 
-                border-l-4 p-3 shadow-lg rounded-r-md bg-white
-              `} role="alert">
-                <p className="font-bold text-base">
-                  สถานะ: {formData.casestatus === "Completed Investigate" ? "Completed" : formData.casestatus}
-                </p>
-                <p className="font-bold text-xs opacity-80 mt-1">
-                  ระดับ: {formData.priority}
-                </p>
-                <p className="font-bold text-xs opacity-60 mt-1">
-                  ผู้รายงาน: {formData.reporter_name}
-                </p>
-              </div>
-
-              {/* Desktop: Fixed Print Button (Right) */}
-              <div className="
+            {/* Desktop: Fixed Print Button (Right) */}
+            <div className="
                 hidden md:flex md:flex-col md:items-center
                 fixed top-auto right-0 m-5 z-50 
               ">
-                <button
-                  type="button"
-                  onClick={handlePrintDocument}
-                  title="Print Document"
-                  className="bg-gray-500 hover:bg-gray-700 hover:scale-105 cursor-pointer text-white border border-white font-semibold p-3 rounded-lg shadow-lg hover:shadow-xl transition duration-300 flex flex-col items-center justify-center"
-                >
-                  <Printer className="w-8 h-8" />
-                </button>
-                <span className="mt-1 text-sm font-medium text-gray-700">Print</span>
-              </div>
-            </>
+              <button
+                type="button"
+                onClick={handlePrintDocument}
+                title="Print Document"
+                className="bg-gray-500 hover:bg-gray-700 hover:scale-105 cursor-pointer text-white border border-white font-semibold p-3 rounded-lg shadow-lg hover:shadow-xl transition duration-300 flex flex-col items-center justify-center"
+              >
+                <Printer className="w-8 h-8" />
+              </button>
+              <span className="mt-1 text-sm font-medium text-gray-700">Print</span>
+            </div>
+          </>
           }
 
           {/* Form Container */}
@@ -1372,7 +1321,7 @@ const statusDesign = (status: string) => {
                         ฝ่าย: <span className="text-red-500">*</span>
                       </label>
                       <SearchableSelect
-                        options={filteredForm("department",departments).map((dept: any) => ({
+                        options={filteredForm("department", departments).map((dept: any) => ({
                           value: dept.department_id,
                           label: dept.department_name_th,
                         }))}
@@ -1394,10 +1343,10 @@ const statusDesign = (status: string) => {
                       </label>
                       <DateTimePicker24h
                         value={
-                            formData?.record_datetime
-                              ? new Date(formData.record_datetime)
-                              : undefined
-                          }
+                          formData?.record_datetime
+                            ? new Date(formData.record_datetime)
+                            : undefined
+                        }
                         disabled={true}
                         usedFor="datetime"
                       />
@@ -1409,11 +1358,11 @@ const statusDesign = (status: string) => {
                         <span className="text-red-500">*</span>
                       </label>
                       <DateTimePicker24h
-                          value={
-                            formData?.incident_datetime
-                              ? new Date(formData.incident_datetime)
-                              : undefined
-                          }
+                        value={
+                          formData?.incident_datetime
+                            ? new Date(formData.incident_datetime)
+                            : undefined
+                        }
                         onChange={(value) =>
                           setFormData((prev) => ({
                             ...prev,
@@ -1424,12 +1373,12 @@ const statusDesign = (status: string) => {
                         usedFor="datetime"
                       />
                     </div>
-                     <div>
+                    <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
                         ลักษณะความรับผิดจากอุบัติเหตุ: <span className="text-red-500">*</span>
                       </label>
                       <SearchableSelect
-                        options={[  
+                        options={[
                           { value: "เป็นฝ่ายถูก", label: "เป็นฝ่ายถูก" },
                           { value: "เป็นฝ่ายผิด", label: "เป็นฝ่ายผิด" },
                           { value: "ประมาทร่วม", label: "ประมาทร่วม" },
@@ -1458,11 +1407,11 @@ const statusDesign = (status: string) => {
                         value={formData?.case_details || ""}
                         onChange={handleInputChange}
                         rows={4}
-                        maxLength={1000}
+                        maxLength={4000}
                         disabled={isViewMode}
                         className={`w-full text-sm p-3 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
+                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                          : ""
                           }`}
                       />
                     </div>
@@ -1536,8 +1485,8 @@ const statusDesign = (status: string) => {
                         onChange={handleInputChange}
                         disabled={isViewMode}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
+                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                          : ""
                           }`}
                       />
                     </div>
@@ -1553,8 +1502,8 @@ const statusDesign = (status: string) => {
                         onChange={handleInputChange}
                         disabled={isViewMode}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
+                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                          : ""
                           }`}
                       />
                     </div>
@@ -1634,8 +1583,8 @@ const statusDesign = (status: string) => {
                         onChange={handleInputChange}
                         disabled={isViewMode}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
+                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                          : ""
                           }`}
                       />
                     </div>
@@ -1706,7 +1655,7 @@ const statusDesign = (status: string) => {
 
                     <div>
                       <label className="block text-gray-700 font-medium mb-1 text-sm">
-                        ทะเบียนรถหาง: 
+                        ทะเบียนรถหาง:
                       </label>
                       <SearchableSelect
                         options={(vehicles || [])
@@ -1805,8 +1754,8 @@ const statusDesign = (status: string) => {
                                 handleRadioChange("alcohol_test", "yes")
                               }
                               className={`mr-2 h-4 w-4 text-blue-600 ${isViewMode
-                                  ? "cursor-not-allowed bg-blue-400 text-blue-600 font-bold"
-                                  : ""
+                                ? "cursor-not-allowed bg-blue-400 text-blue-600 font-bold"
+                                : ""
                                 }`}
                             />
                             <span className="text-sm">ตรวจ</span>
@@ -1821,8 +1770,8 @@ const statusDesign = (status: string) => {
                                 handleRadioChange("alcohol_test", "no")
                               }
                               className={`mr-2 h-4 w-4 text-blue-600 ${isViewMode
-                                  ? "cursor-not-allowed bg-blue-400 text-blue-600 font-bold"
-                                  : ""
+                                ? "cursor-not-allowed bg-blue-400 text-blue-600 font-bold"
+                                : ""
                                 }`}
                             />
                             <span className="text-sm">ไม่ตรวจ</span>
@@ -1849,8 +1798,8 @@ const statusDesign = (status: string) => {
                             }}
                             disabled={isViewMode}
                             className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
-                                ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                : ""
+                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                              : ""
                               }`}
                           />
                         </div>
@@ -1873,8 +1822,8 @@ const statusDesign = (status: string) => {
                                 handleRadioChange("drug_test", "yes")
                               }
                               className={`mr-2 h-4 w-4 text-blue-600 ${isViewMode
-                                  ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                  : ""
+                                ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                : ""
                                 }`}
                             />
                             <span className="text-sm">ตรวจ</span>
@@ -1889,8 +1838,8 @@ const statusDesign = (status: string) => {
                                 handleRadioChange("drug_test", "no")
                               }
                               className={`mr-2 h-4 w-4 text-blue-600 ${isViewMode
-                                  ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                  : ""
+                                ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                : ""
                                 }`}
                             />
                             <span className="text-sm">ไม่ตรวจ</span>
@@ -1910,8 +1859,8 @@ const statusDesign = (status: string) => {
                             onChange={handleInputChange}
                             disabled={isViewMode}
                             className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
-                                ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                : ""
+                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                              : ""
                               }`}
                           />
                         </div>
@@ -1948,8 +1897,8 @@ const statusDesign = (status: string) => {
                                 handleRadioChange("product_damage", "yes")
                               }
                               className={`mr-2 h-4 w-4 text-blue-600 ${isViewMode
-                                  ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                  : ""
+                                ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                : ""
                                 }`}
                             />
                             <span className="text-sm">เสียหาย</span>
@@ -1964,8 +1913,8 @@ const statusDesign = (status: string) => {
                                 handleRadioChange("product_damage", "no")
                               }
                               className={`mr-2 h-4 w-4 text-blue-600  ${isViewMode
-                                  ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                  : ""
+                                ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                : ""
                                 }`}
                             />
                             <span className="text-sm">ไม่เสียหาย</span>
@@ -1990,8 +1939,8 @@ const statusDesign = (status: string) => {
                                 handleRadioChange("truck_damage", "yes")
                               }
                               className={`mr-2 h-4 w-4 text-blue-600 ${isViewMode
-                                  ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                  : ""
+                                ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                : ""
                                 }`}
                             />
                             <span className="text-sm">เสียหาย</span>
@@ -2006,8 +1955,8 @@ const statusDesign = (status: string) => {
                                 handleRadioChange("truck_damage", "no")
                               }
                               className={`mr-2 h-4 w-4 text-blue-600  ${isViewMode
-                                  ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                  : ""
+                                ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                : ""
                                 }`}
                             />
                             <span className="text-sm">ไม่เสียหาย</span>
@@ -2033,8 +1982,8 @@ const statusDesign = (status: string) => {
                             disabled={isViewMode}
                             rows={3}
                             className={`w-full text-sm p-3 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
-                                ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                : ""
+                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                              : ""
                               }`}
                           />
                         </div>
@@ -2055,8 +2004,8 @@ const statusDesign = (status: string) => {
                           disabled={isViewMode}
                           rows={3}
                           className={`w-full text-sm p-3 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
-                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                              : ""
+                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                            : ""
                             }`}
                         />
                       </div>
@@ -2097,8 +2046,8 @@ const statusDesign = (status: string) => {
                           disabled={isViewMode}
                           value={formData?.estimated_goods_damage_value || ""}
                           className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${isViewMode
-                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                              : ""
+                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                            : ""
                             }`}
                         />
                       </div>
@@ -2121,8 +2070,8 @@ const statusDesign = (status: string) => {
                         disabled={isViewMode}
                         value={formData?.estimated_vehicle_damage_value || ""}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
+                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                          : ""
                           }`}
                       />
                     </div>
@@ -2145,8 +2094,8 @@ const statusDesign = (status: string) => {
                         disabled={isViewMode}
                         value={formData?.actual_goods_damage_value || ""}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
+                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                          : ""
                           }`}
                       />
                     </div>
@@ -2169,8 +2118,8 @@ const statusDesign = (status: string) => {
                         disabled={isViewMode}
                         value={formData?.actual_vehicle_damage_value || ""}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
+                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                          : ""
                           }`}
                       />
                     </div>
@@ -2206,8 +2155,8 @@ const statusDesign = (status: string) => {
                         }}
                         disabled={isViewMode}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
+                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                          : ""
                           }`}
                       />
                     </div>
@@ -2229,8 +2178,8 @@ const statusDesign = (status: string) => {
                         }}
                         disabled={isViewMode}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
+                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                          : ""
                           }`}
                       />
                     </div>
@@ -2252,8 +2201,8 @@ const statusDesign = (status: string) => {
                         }}
                         disabled={isViewMode}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
+                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                          : ""
                           }`}
                       />
                     </div>
@@ -2270,8 +2219,8 @@ const statusDesign = (status: string) => {
                       value={formData?.injury_description || ""}
                       rows={4}
                       className={`w-full text-sm p-3 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
-                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                          : ""
+                        ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                        : ""
                         }`}
                     />
                   </div>
@@ -2298,8 +2247,8 @@ const statusDesign = (status: string) => {
                         disabled={isViewMode}
                         value={formData?.other_party_full_name || ""}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
+                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                          : ""
                           }`}
                       />
                     </div>
@@ -2315,8 +2264,8 @@ const statusDesign = (status: string) => {
                         disabled={isViewMode}
                         value={formData?.other_party_vehicle_plate || ""}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
+                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                          : ""
                           }`}
                       />
                     </div>
@@ -2332,8 +2281,8 @@ const statusDesign = (status: string) => {
                         disabled={isViewMode}
                         value={formData?.other_party_company_name || ""}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
+                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                          : ""
                           }`}
                       />
                     </div>
@@ -2349,8 +2298,8 @@ const statusDesign = (status: string) => {
                         disabled={isViewMode}
                         value={formData?.other_party_phone || ""}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
+                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                          : ""
                           }`}
                       />
                     </div>
@@ -2366,8 +2315,8 @@ const statusDesign = (status: string) => {
                         disabled={isViewMode}
                         value={formData?.other_party_insurance_name || ""}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
+                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                          : ""
                           }`}
                       />
                     </div>
@@ -2383,8 +2332,8 @@ const statusDesign = (status: string) => {
                         disabled={isViewMode}
                         value={formData?.other_party_claim_no || ""}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
+                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                          : ""
                           }`}
                       />
                     </div>
@@ -2400,8 +2349,8 @@ const statusDesign = (status: string) => {
                         disabled={isViewMode}
                         value={formData?.claim_officer_full_name || ""}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
+                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                          : ""
                           }`}
                       />
                     </div>
@@ -2417,8 +2366,8 @@ const statusDesign = (status: string) => {
                         disabled={isViewMode}
                         value={formData?.claim_officer_phone || ""}
                         className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black  ${isViewMode
-                            ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                            : ""
+                          ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                          : ""
                           }`}
                       />
                     </div>

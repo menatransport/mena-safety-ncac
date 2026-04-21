@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import { RecordFilter, RecordFilterResult, RecordFilterRef } from "./ui/record-filter";
 import Swal from "sweetalert2";
 import { documentRole } from "@/lib/documentRole";
+import { useUiTheme } from "@/lib/useUiTheme";
 
 interface NCRecord {
   id: string;
@@ -71,6 +72,7 @@ export const NCRecordsComponent = () => {
   const recordsPerPage = 10;
   const router = useRouter();
   const filterRef = useRef<RecordFilterRef>(null);
+  const { theme } = useUiTheme();
 
   // Sort state
   const [sortConfig, setSortConfig] = useState<SortConfig>({
@@ -91,7 +93,7 @@ export const NCRecordsComponent = () => {
     departments: [],
     clients: [],
   });
-
+  
   useEffect(() => {
     const fetchDropdownData = async () => {
       try {
@@ -643,10 +645,10 @@ export const NCRecordsComponent = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#d1ffe1] p-6">
+    <div className={`min-h-screen ${theme === "Dark" ? "bg-gradient-to-br from-slate-800 via-slate-700 to-[#3d5578]" : "bg-[#d1ffe1]"} py-6`}>
       <div className="max-w-7xl mx-auto m-4">
         {/* Filter Section - Using new RecordFilter component */}
-        <RecordFilter
+        <RecordFilter 
           ref={filterRef}
           type="NC"
           onFilter={handleFilterChange}
@@ -660,7 +662,7 @@ export const NCRecordsComponent = () => {
         {/* Records Table */}
         {/* Data Table */}
         <div className="bg-white backdrop-blur-md rounded-2xl shadow-xl border border-white/30 overflow-hidden relative">
-          <div className="p-4 bg-gray-500 border-b border-gray-200">
+          <div className="p-4 bg-slate-700 border-b border-gray-200">
             <h2 className="text-xl text-white font-semibold">
               ข้อมูล NC Records
             </h2>

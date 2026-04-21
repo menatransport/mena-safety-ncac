@@ -3,7 +3,8 @@ import { ResponsivePie } from '@nivo/pie';
 import { ResponsiveCalendar } from '@nivo/calendar';
 import { ResponsiveBar } from '@nivo/bar';
 import { dashboardColors } from './ColorPalette';
-import { useEffect } from 'react';
+import { useMemo } from 'react';
+import { useUiTheme } from '@/lib/useUiTheme';
 
 interface CalendarData {
   day: string;
@@ -67,6 +68,67 @@ export const DashboardView = ({
   selectedMonth, 
   selectedYear 
 }: DashboardViewProps) => {
+  const { theme } = useUiTheme();
+  const isDark = theme === 'Dark';
+
+  const panelClass = isDark
+    ? 'bg-slate-900/55 border border-slate-700/80'
+    : 'bg-white border border-gray-100';
+
+  const chartTheme = useMemo(
+    () => ({
+      text: {
+        fill: isDark ? '#e2e8f0' : '#374151',
+        fontSize: 11,
+      },
+      axis: {
+        domain: {
+          line: {
+            stroke: isDark ? '#475569' : '#d1d5db',
+            strokeWidth: 1,
+          },
+        },
+        ticks: {
+          line: {
+            stroke: isDark ? '#475569' : '#d1d5db',
+            strokeWidth: 1,
+          },
+          text: {
+            fill: isDark ? '#cbd5e1' : '#4b5563',
+          },
+        },
+        legend: {
+          text: {
+            fill: isDark ? '#e2e8f0' : '#1f2937',
+          },
+        },
+      },
+      grid: {
+        line: {
+          stroke: isDark ? '#334155' : '#e5e7eb',
+          strokeWidth: 1,
+        },
+      },
+      legends: {
+        text: {
+          fill: isDark ? '#cbd5e1' : '#4b5563',
+        },
+      },
+      tooltip: {
+        container: {
+          background: isDark ? '#0f172a' : '#ffffff',
+          color: isDark ? '#e2e8f0' : '#1f2937',
+          fontSize: 12,
+          borderRadius: 8,
+          boxShadow: isDark
+            ? '0 8px 28px rgba(2, 6, 23, 0.5)'
+            : '0 8px 28px rgba(15, 23, 42, 0.15)',
+          border: `1px solid ${isDark ? '#334155' : '#e5e7eb'}`,
+        },
+      },
+    }),
+    [isDark]
+  );
 
   return (
     <>
@@ -153,26 +215,27 @@ export const DashboardView = ({
     </div>
 
     {/* CALENDAR CHART */}
-     <div className="bg-white rounded-xl md:rounded-2xl shadow-lg p-3 md:p-6 border border-gray-100">
+     <div className={`rounded-xl md:rounded-2xl shadow-lg p-3 md:p-6 ${panelClass}`}>
         <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
           <Calendar className="w-4 h-4 md:w-6 md:h-6" style={{ color: dashboardColors.green[600] }} />
-          <h2 className="text-base md:text-xl font-bold" style={{ color: dashboardColors.gray[800] }}>ปฏิทินเหตุการณ์</h2>
+          <h2 className="text-base md:text-xl font-bold" style={{ color: isDark ? '#f1f5f9' : dashboardColors.gray[800] }}>ปฏิทินเหตุการณ์</h2>
         </div>
         <div className="h-[200px] md:h-[250px] overflow-x-auto">
         {data.calendarData.length > 0 ? (
           <div className="min-w-[600px] md:min-w-[800px] h-full">
             <ResponsiveCalendar
+              theme={chartTheme as any}
               data={data.calendarData}
               from={selectedMonth === 'all' ? `${selectedYear}-01-01` : `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`}
               to={selectedMonth === 'all' ? `${selectedYear}-12-31` : new Date(selectedYear, parseInt(selectedMonth), 0).toISOString().split('T')[0]}
-              emptyColor={dashboardColors.gray[100]}
+              emptyColor={isDark ? '#1e293b' : dashboardColors.gray[100]}
               colors={[dashboardColors.green[200], dashboardColors.green[500], dashboardColors.green[900]]}
               margin={{ top: 20, right: 10, bottom: 20, left: 10 }}
               yearSpacing={40}
               monthSpacing={8}
-              monthBorderColor="#ffffff"
+              monthBorderColor={isDark ? '#334155' : '#ffffff'}
               dayBorderWidth={2}
-              dayBorderColor="#ffffff"
+              dayBorderColor={isDark ? '#334155' : '#ffffff'}
               direction="horizontal"
               legends={[
                 {
@@ -189,7 +252,7 @@ export const DashboardView = ({
             />
           </div>
         ) : (
-          <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+          <div className={`flex items-center justify-center h-full text-sm ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>
             ไม่มีข้อมูล
           </div>
         )}
@@ -201,14 +264,15 @@ export const DashboardView = ({
 
       {/* NC Pie Chart */}
       {(selectedCaseType === 'all' || selectedCaseType === 'nc') && (
-        <div className="bg-white rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6 border border-gray-100">
+        <div className={`rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6 ${panelClass}`}>
           <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6">
             <PieChart className="w-5 h-5 md:w-6 md:h-6" style={{ color: dashboardColors.green[600] }} />
-            <h2 className="text-base md:text-xl font-bold" style={{ color: dashboardColors.gray[800] }}>สัดส่วนความรุนแรง NC</h2>
+            <h2 className="text-base md:text-xl font-bold" style={{ color: isDark ? '#f1f5f9' : dashboardColors.gray[800] }}>สัดส่วนความรุนแรง NC</h2>
           </div>
           <div className="h-[280px] md:h-[400px]">
             {data.ncPieData.length > 0 ? (
               <ResponsivePie
+                theme={chartTheme as any}
                 data={data.ncPieData}
                 margin={{ top: 20, right: 20, bottom: 60, left: 20 }}
                 innerRadius={0.5}
@@ -218,7 +282,7 @@ export const DashboardView = ({
                 borderWidth={1}
                 borderColor={{ from: 'color', modifiers: [['darker', 0.2]] }}
                 arcLinkLabelsSkipAngle={15}
-                arcLinkLabelsTextColor="#333333"
+                arcLinkLabelsTextColor={isDark ? '#e2e8f0' : '#333333'}
                 arcLinkLabelsThickness={1}
                 arcLinkLabelsColor={{ from: 'color' }}
                 arcLabelsSkipAngle={15}
@@ -236,7 +300,7 @@ export const DashboardView = ({
                     itemsSpacing: 4,
                     itemWidth: 80,
                     itemHeight: 18,
-                    itemTextColor: '#666',
+                    itemTextColor: isDark ? '#cbd5e1' : '#666',
                     itemDirection: 'left-to-right',
                     itemOpacity: 1,
                     symbolSize: 14,
@@ -245,7 +309,7 @@ export const DashboardView = ({
                 ]}
               />
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+              <div className={`flex items-center justify-center h-full text-sm ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>
                 ไม่มีข้อมูล NC
               </div>
             )}
@@ -255,14 +319,15 @@ export const DashboardView = ({
 
       {/* AC Pie Chart */}
       {(selectedCaseType === 'all' || selectedCaseType === 'ac') && (
-        <div className="bg-white rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6 border border-gray-100">
+        <div className={`rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6 ${panelClass}`}>
           <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6">
             <PieChart className="w-5 h-5 md:w-6 md:h-6" style={{ color: dashboardColors.green[600] }} />
-            <h2 className="text-base md:text-xl font-bold" style={{ color: dashboardColors.gray[800] }}>สัดส่วนความรุนแรง AC</h2>
+            <h2 className="text-base md:text-xl font-bold" style={{ color: isDark ? '#f1f5f9' : dashboardColors.gray[800] }}>สัดส่วนความรุนแรง AC</h2>
           </div>
           <div className="h-[280px] md:h-[400px]">
             {data.acPieData.length > 0 ? (
               <ResponsivePie
+                theme={chartTheme as any}
                 data={data.acPieData}
                 margin={{ top: 20, right: 20, bottom: 60, left: 20 }}
                 innerRadius={0.5}
@@ -272,7 +337,7 @@ export const DashboardView = ({
                 borderWidth={1}
                 borderColor={{ from: 'color', modifiers: [['darker', 0.2]] }}
                 arcLinkLabelsSkipAngle={15}
-                arcLinkLabelsTextColor="#333333"
+                arcLinkLabelsTextColor={isDark ? '#e2e8f0' : '#333333'}
                 arcLinkLabelsThickness={1}
                 arcLinkLabelsColor={{ from: 'color' }}
                 arcLabelsSkipAngle={15}
@@ -290,7 +355,7 @@ export const DashboardView = ({
                     itemsSpacing: 4,
                     itemWidth: 80,
                     itemHeight: 18,
-                    itemTextColor: '#666',
+                    itemTextColor: isDark ? '#cbd5e1' : '#666',
                     itemDirection: 'left-to-right',
                     itemOpacity: 1,
                     symbolSize: 14,
@@ -299,7 +364,7 @@ export const DashboardView = ({
                 ]}
               />
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+              <div className={`flex items-center justify-center h-full text-sm ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>
                 ไม่มีข้อมูล AC
               </div>
             )}
@@ -309,10 +374,10 @@ export const DashboardView = ({
     </div>
 
     {/* STACKED เคสรายเดือน (Major/Minor/Crisis) */}
-      <div className="bg-white rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6 border border-gray-100">
+      <div className={`rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6 ${panelClass}`}>
             <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6">
               <BarChart3 className="w-5 h-5 md:w-6 md:h-6" style={{ color: dashboardColors.green[600] }} />
-              <h2 className="text-sm md:text-xl font-bold" style={{ color: dashboardColors.gray[800] }}>
+          <h2 className="text-sm md:text-xl font-bold" style={{ color: isDark ? '#f1f5f9' : dashboardColors.gray[800] }}>
                 <span className="hidden md:inline">จำนวนเหตุการณ์รายเดือน</span>
                 <span className="md:hidden">เหตุการณ์/เดือน</span>
                 {selectedCaseType === 'nc' && ' - NC'}
@@ -323,6 +388,7 @@ export const DashboardView = ({
               {data.stackedBarData.length > 0 ? (
                 <div className="min-w-[400px] md:min-w-0 h-full">
                 <ResponsiveBar
+                  theme={chartTheme as any}
                   data={data.stackedBarData as any[]}
                   keys={['Minor', 'Major', 'Crisis']}
                   indexBy="date"
@@ -354,7 +420,7 @@ export const DashboardView = ({
                   enableLabel={false}
                   labelSkipWidth={12}
                   labelSkipHeight={12}
-                  labelTextColor="#000000"
+                  labelTextColor={isDark ? '#e2e8f0' : '#000000'}
                   layers={[
                     'grid',
                     'axes',
@@ -437,7 +503,7 @@ export const DashboardView = ({
                                 textAnchor="middle"
                                 dominantBaseline="auto"
                                 style={{
-                                  fill: '#000000',
+                                  fill: isDark ? '#e2e8f0' : '#000000',
                                   fontSize: '12px',
                                   fontWeight: 'bold'
                                 }}
@@ -472,7 +538,7 @@ export const DashboardView = ({
                 />
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                <div className={`flex items-center justify-center h-full text-sm ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>
                   ไม่มีข้อมูล
                 </div>
               )}
@@ -480,10 +546,10 @@ export const DashboardView = ({
     </div>
  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
     {/* TOP CAUSES  */}  
-       {(selectedCaseType === 'all' || selectedCaseType === 'nc') && ( <div className="bg-white rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6 border border-gray-100">
+       {(selectedCaseType === 'all' || selectedCaseType === 'nc') && ( <div className={`rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6 ${panelClass}`}>
       <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6">
         <AlertTriangle className="w-5 h-5 md:w-6 md:h-6" style={{ color: dashboardColors.red[600] }} />
-        <h2 className="text-base md:text-xl font-bold" style={{ color: dashboardColors.gray[800] }}>
+        <h2 className="text-base md:text-xl font-bold" style={{ color: isDark ? '#f1f5f9' : dashboardColors.gray[800] }}>
           <span className="hidden md:inline">สาเหตุที่เกิดขึ้นบ่อยที่สุด NC (Top 5)</span>
           <span className="md:hidden">สาเหตุ Top 5</span>
           {selectedCaseType === 'nc' && ' - NC'}
@@ -503,12 +569,12 @@ export const DashboardView = ({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1.5 md:mb-2 gap-2">
-                  <span className="font-semibold text-gray-800 text-sm md:text-base truncate">{cause.cause}</span>
-                  <span className="text-xs md:text-sm text-gray-600 whitespace-nowrap">
+                  <span className={`font-semibold text-sm md:text-base truncate ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>{cause.cause}</span>
+                  <span className={`text-xs md:text-sm whitespace-nowrap ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
                     {cause.count} <span className="hidden sm:inline">เหตุการณ์</span> ({cause.percentage.toFixed(0)}%)
                   </span>
                 </div>
-                <div className="w-full rounded-full h-2 md:h-3 overflow-hidden" style={{ backgroundColor: dashboardColors.gray[200] }}>
+                <div className="w-full rounded-full h-2 md:h-3 overflow-hidden" style={{ backgroundColor: isDark ? '#334155' : dashboardColors.gray[200] }}>
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{
@@ -524,7 +590,7 @@ export const DashboardView = ({
             </div>
           ))
         ) : (
-          <div className="text-center text-gray-400 py-6 md:py-8 text-sm">
+          <div className={`text-center py-6 md:py-8 text-sm ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>
             ไม่มีข้อมูลสาเหตุ
           </div>
         )}

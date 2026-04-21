@@ -26,7 +26,7 @@ export default function Login() {
     if (authToken) {
         setIsLoading(true);
         sessionStorage.setItem("showWelcome", "true")
-        router.push("/overview");
+        router.push("/home");
     }
 
     if (storedUserData) {
@@ -61,7 +61,7 @@ export default function Login() {
   
         setTimeout(() => {
           sessionStorage.setItem("showWelcome", "true")
-          router.push("/overview");
+          router.push("/home");
         }, 3000)
 
         return true;
@@ -125,7 +125,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-green-100 to-emerald-300 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-[#3d5578] flex items-center justify-center p-6">
       {isLoading && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
           <Loading />
@@ -141,7 +141,7 @@ export default function Login() {
             <img src="/mena.png" alt="Logo" className="w-40 h-25" />
           </div>
           <h1
-            className={`text-2xl font-bold text-gray-800 mb-1 transform transition-all duration-700 ease-out delay-200 ${isVisible
+            className={`text-2xl font-bold text-white mb-1 transform transition-all duration-700 ease-out delay-200 ${isVisible
               ? "translate-y-0 opacity-100"
               : "translate-y-4 opacity-0"
               }`}
@@ -149,7 +149,7 @@ export default function Login() {
             ระบบจัดการเอกสาร NC/AC
           </h1>
           <p
-            className={`text-gray-800 text-sm transform transition-all duration-700 ease-out delay-300 ${isVisible
+            className={`text-white text-sm transform transition-all duration-700 ease-out delay-300 ${isVisible
               ? "translate-y-0 opacity-100"
               : "translate-y-4 opacity-0"
               }`}
@@ -301,7 +301,7 @@ export default function Login() {
             {/* Footer */}
             <div className="text-center space-y-2">
               <p className="text-gray-700 text-xs">
-                © 2025 MENA NCAC • V.1.4.2 
+                © 2026 MENA NCAC • V.1.5 
               </p>
               <div className="hidden justify-center space-x-4 text-xs">
                 <a href="#" className="text-gray-500 hover:text-emerald-600 transition-colors">นโยบายความเป็นส่วนตัว</a>

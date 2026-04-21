@@ -2,6 +2,8 @@ import { ResponsivePie } from '@nivo/pie';
 import { ResponsiveBar } from '@nivo/bar';
 import { DollarSign, TrendingUp, AlertTriangle, Building2 } from 'lucide-react';
 import { dashboardColors } from './ColorPalette';
+import { useMemo } from 'react';
+import { useUiTheme } from '@/lib/useUiTheme';
 
 interface FinanceData {
   centerCosts: CenterCostData[];
@@ -38,6 +40,63 @@ interface FinanceViewProps {
 }
 
 export const FinanceView = ({ data }: FinanceViewProps) => {
+  const { theme } = useUiTheme();
+  const isDark = theme === 'Dark';
+
+  const panelClass = isDark
+    ? 'bg-slate-900/55 border border-slate-700/80'
+    : 'bg-white border border-gray-100';
+
+  const chartTheme = useMemo(
+    () => ({
+      text: {
+        fill: isDark ? '#e2e8f0' : '#374151',
+        fontSize: 11,
+      },
+      axis: {
+        domain: {
+          line: {
+            stroke: isDark ? '#475569' : '#d1d5db',
+            strokeWidth: 1,
+          },
+        },
+        ticks: {
+          line: {
+            stroke: isDark ? '#475569' : '#d1d5db',
+            strokeWidth: 1,
+          },
+          text: {
+            fill: isDark ? '#cbd5e1' : '#4b5563',
+          },
+        },
+      },
+      grid: {
+        line: {
+          stroke: isDark ? '#334155' : '#e5e7eb',
+          strokeWidth: 1,
+        },
+      },
+      legends: {
+        text: {
+          fill: isDark ? '#cbd5e1' : '#4b5563',
+        },
+      },
+      tooltip: {
+        container: {
+          background: isDark ? '#0f172a' : '#ffffff',
+          color: isDark ? '#e2e8f0' : '#1f2937',
+          fontSize: 12,
+          borderRadius: 8,
+          boxShadow: isDark
+            ? '0 8px 28px rgba(2, 6, 23, 0.5)'
+            : '0 8px 28px rgba(15, 23, 42, 0.15)',
+          border: `1px solid ${isDark ? '#334155' : '#e5e7eb'}`,
+        },
+      },
+    }),
+    [isDark]
+  );
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('th-TH', {
       style: 'currency',
@@ -64,10 +123,10 @@ export const FinanceView = ({ data }: FinanceViewProps) => {
       {/* Main Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Pie Chart - ค่าเสียหายตามศูนย์ปฏิบัติการ */}
-        <div className="bg-white rounded-xl shadow-lg p-4 md:p-6">
+        <div className={`rounded-xl shadow-lg p-4 md:p-6 ${panelClass}`}>
           <div className="flex items-center gap-2 mb-3 md:mb-4">
             <Building2 className="w-4 h-4 md:w-5 md:h-5" style={{ color: dashboardColors.green[600] }} />
-            <h3 className="text-sm md:text-lg font-semibold" style={{ color: dashboardColors.gray[800] }}>
+            <h3 className="text-sm md:text-lg font-semibold" style={{ color: isDark ? '#f1f5f9' : dashboardColors.gray[800] }}>
               <span className="hidden md:inline">ค่าเสียหายจริงตามศูนย์ปฏิบัติการ</span>
               <span className="md:hidden">ค่าเสียหาย/ศูนย์</span>
             </h3>
@@ -75,6 +134,7 @@ export const FinanceView = ({ data }: FinanceViewProps) => {
           <div className="h-64 md:h-80">
             {data.centerCosts.length > 0 ? (
               <ResponsivePie
+                theme={chartTheme as any}
                 data={data.centerCosts}
                 margin={{ top: 10, right: 80, bottom: 10, left: 10 }}
                 innerRadius={0.5}
@@ -84,7 +144,7 @@ export const FinanceView = ({ data }: FinanceViewProps) => {
                 borderWidth={1}
                 borderColor={{ from: 'color', modifiers: [['darker', 0.2]] }}
                 arcLinkLabelsSkipAngle={15}
-                arcLinkLabelsTextColor="#333333"
+                arcLinkLabelsTextColor={isDark ? '#e2e8f0' : '#333333'}
                 arcLinkLabelsThickness={1}
                 arcLinkLabelsColor={{ from: 'color' }}
                 arcLabelsSkipAngle={15}
@@ -101,7 +161,7 @@ export const FinanceView = ({ data }: FinanceViewProps) => {
                     itemsSpacing: 4,
                     itemWidth: 70,
                     itemHeight: 16,
-                    itemTextColor: '#666',
+                    itemTextColor: isDark ? '#cbd5e1' : '#666',
                     itemDirection: 'left-to-right',
                     itemOpacity: 1,
                     symbolSize: 12,
@@ -110,7 +170,7 @@ export const FinanceView = ({ data }: FinanceViewProps) => {
                 ]}
               />
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-400">
+              <div className={`flex items-center justify-center h-full ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>
                 ไม่มีข้อมูล
               </div>
             )}
@@ -121,10 +181,10 @@ export const FinanceView = ({ data }: FinanceViewProps) => {
               <div key={center.id} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
    
-                  <span className="text-gray-700">{center.label}</span>
+                  <span className={isDark ? 'text-slate-200' : 'text-gray-700'}>{center.label}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-semibold" style={{ color: dashboardColors.gray[800] }}>{formatCurrency(center.value)}</span>
+                  <span className="font-semibold" style={{ color: isDark ? '#f8fafc' : dashboardColors.gray[800] }}>{formatCurrency(center.value)}</span>
                   <span className="font-medium" style={{ color: dashboardColors.green[600] }}>{center.percentage.toFixed(1)}%</span>
                 </div>
               </div>
@@ -133,10 +193,10 @@ export const FinanceView = ({ data }: FinanceViewProps) => {
         </div>
         
          {/* Monthly Trend */}
-      <div className="bg-white rounded-xl shadow-lg p-4 md:p-6">
+      <div className={`rounded-xl shadow-lg p-4 md:p-6 ${panelClass}`}>
         <div className="flex items-center gap-2 mb-3 md:mb-4">
           <TrendingUp className="w-4 h-4 md:w-5 md:h-5" style={{ color: dashboardColors.green[600] }} />
-          <h3 className="text-sm md:text-lg font-semibold" style={{ color: dashboardColors.gray[800] }}>
+          <h3 className="text-sm md:text-lg font-semibold" style={{ color: isDark ? '#f1f5f9' : dashboardColors.gray[800] }}>
             <span className="hidden md:inline">แนวโน้มค่าเสียหายรายเดือน</span>
             <span className="md:hidden">แนวโน้ม/เดือน</span>
           </h3>
@@ -145,6 +205,7 @@ export const FinanceView = ({ data }: FinanceViewProps) => {
           {data.monthlyCosts.length > 0 ? (
             <div className="min-w-[400px] md:min-w-0 h-full">
             <ResponsiveBar
+              theme={chartTheme as any}
               data={data.monthlyCosts}
               keys={['NC', 'AC']}
               indexBy="month"
@@ -175,14 +236,17 @@ export const FinanceView = ({ data }: FinanceViewProps) => {
               }}
               enableLabel={false}
               tooltip={({ id, value, indexValue, color }) => (
-                <div className="bg-white px-3 py-2 shadow-lg rounded border text-xs" style={{ borderColor: dashboardColors.gray[200] }}>
+                <div
+                  className={`px-3 py-2 shadow-lg rounded border text-xs ${isDark ? 'bg-slate-900' : 'bg-white'}`}
+                  style={{ borderColor: isDark ? '#334155' : dashboardColors.gray[200] }}
+                >
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-2.5 h-2.5 rounded" style={{ backgroundColor: color }} />
-                    <span className="font-semibold" style={{ color: dashboardColors.gray[800] }}>{indexValue}</span>
+                    <span className="font-semibold" style={{ color: isDark ? '#f8fafc' : dashboardColors.gray[800] }}>{indexValue}</span>
                   </div>
                   <div>
-                    <span style={{ color: dashboardColors.gray[600] }}>{id}: </span>
-                    <span className="font-bold" style={{ color: dashboardColors.gray[800] }}>{formatCurrency(value)}</span>
+                    <span style={{ color: isDark ? '#94a3b8' : dashboardColors.gray[600] }}>{id}: </span>
+                    <span className="font-bold" style={{ color: isDark ? '#f8fafc' : dashboardColors.gray[800] }}>{formatCurrency(value)}</span>
                   </div>
                 </div>
               )}
@@ -208,7 +272,7 @@ export const FinanceView = ({ data }: FinanceViewProps) => {
                           y={bar.y - 8}
                           textAnchor="middle"
                           style={{
-                            fill: '#374151',
+                            fill: isDark ? '#e2e8f0' : '#374151',
                             fontSize: '11px',
                             fontWeight: 600
                           }}
@@ -249,7 +313,7 @@ export const FinanceView = ({ data }: FinanceViewProps) => {
             />
             </div>
           ) : (
-            <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+            <div className={`flex items-center justify-center h-full text-sm ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>
               ไม่มีข้อมูล
             </div>
           )}

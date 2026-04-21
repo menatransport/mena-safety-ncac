@@ -14,6 +14,8 @@ import { LoaderPage } from "./LoaderPage";
 import { printDocument_nc } from "@/lib/printDocument";
 import { sendErrorLog } from "@/lib/logError";
 import { documentRole } from "@/lib/documentRole";
+import { useUiTheme } from "@/lib/useUiTheme";
+import { CaseStatusBadge } from "./CaseStatusBadge";
 
 interface FileWithId {
   id: string;
@@ -58,6 +60,8 @@ export const NCFormComponent = () => {
   const [thisform, setThisform] = useState<string>("initial"); // initial or investigate
   const [isAnimating, setIsAnimating] = useState(false);
   const [docValue, setDocValue] = useState<any[]>([]);
+  const { theme } = useUiTheme();
+
   const [formData, setFormData] = useState<Partial<caseReport_NC>>({
     reporter_name: userinfo?.name || "",
     casestatus: "",
@@ -497,7 +501,7 @@ export const NCFormComponent = () => {
     if (detailsTextarea) {
       detailsTextarea.style.height = "auto";
       detailsTextarea.style.height = `${Math.max(
-        100,
+        detailsTextarea.scrollHeight,
         detailsTextarea.scrollHeight
       )}px`;
     }
@@ -1249,7 +1253,7 @@ export const NCFormComponent = () => {
       docs: [docValue as any]
     };
 
-     console.log("NC Form Update <><><><> :", formData);
+    //  console.log("NC Form Update <><><><> :", formData);
 
     const res = await fetch("/api/document/nc", {
       method: "PUT",
@@ -1464,76 +1468,22 @@ export const NCFormComponent = () => {
     }
   };
 
-  // ========= Status Design ==========
 
-  const statusDesign = (status: string) => {
-    switch (status) {
-      case "Pending":
-        return "bg-white border-yellow-500 text-yellow-700";
-      case "Completed Investigate":
-        return "bg-white border-green-500 text-green-700";
-      case "Voided":
-        return "bg-white border-red-500 text-red-700";
-      default:
-        return "hidden";
-    }
-  }
 
 
   return (
     <>
-      <div className="min-h-screen bg-[#d1ffe1]">
-        <div className="py-4 sm:p-6 space-y-4 md:space-y-6 pb-24 lg:pb-6">
+      <div className={`min-h-screen w-full overflow-x-hidden ${theme === "Dark" ? "bg-gradient-to-br from-slate-800 via-slate-700 to-[#3d5578]" : "bg-[#d1ffe1]"} py-6`}>
+        <div className="px-2 py-4 sm:p-6 space-y-4 md:space-y-6 pb-24 lg:pb-6">
           {/* Button Bar */}
           {formData?.casestatus !== "" && (
             <div>
-              {/* Mobile: Status + Print ในแถวเดียวกัน */}
-              <div className="flex md:hidden items-start justify-between gap-3 mb-4 mt-2">
-                {/* Mobile Status */}
-                <div className={`
-                  flex-1
-                  ${statusDesign(formData.casestatus || "")} 
-                  border-l-4 p-2 shadow-md rounded-r-md bg-white
-                `} role="alert">
-                  <p className="font-bold text-sm">
-                    สถานะ: {formData.casestatus === "Completed Investigate" ? "Completed" : formData.casestatus}
-                  </p>
-                  <p className="font-bold text-xs opacity-80 mt-1">
-                    ระดับ: {formData.priority}
-                  </p>
-                  <p className="font-bold text-xs opacity-60 mt-1">
-                    ผู้รายงาน: {formData.reporter_name}
-                  </p>
-                </div>
-                {/* Mobile Print Button */}
-                {/* <button
-                  type="button"
-                  onClick={handlePrintDocument}
-                  title="Print Document"
-                  className="bg-indigo-500 hover:bg-gray-700 h-20 hover:scale-105 cursor-pointer text-white border border-white font-semibold p-3 rounded-lg shadow-md hover:shadow-lg transition duration-300 flex flex-col items-center justify-center"
-                >
-                  <Printer className="w-6 h-6" />
-                </button> */}
-              </div>
-
-              {/* Desktop: Fixed Status (Left) */}
-              <div className={`
-                hidden md:block
-                fixed top-auto left-auto mt-5 z-50
-                min-w-[220px] max-w-[280px]
-                ${statusDesign(formData.casestatus || "")} 
-                border-l-4 p-3 shadow-lg rounded-r-md bg-white
-              `} role="alert">
-                <p className="font-bold text-base">
-                  สถานะ: {formData.casestatus === "Completed Investigate" ? "Completed" : formData.casestatus}
-                </p>
-                <p className="font-bold text-xs opacity-80 mt-1">
-                  ระดับ: {formData.priority}
-                </p>
-                <p className="font-bold text-xs opacity-60 mt-1">
-                  ผู้รายงาน: {formData.reporter_name}
-                </p>
-              </div>
+              {/* Status — collapsible side panel (auto-hide w/ motion) */}
+              <CaseStatusBadge
+                status={formData.casestatus || ""}
+                priority={formData.priority}
+                reporter={formData.reporter_name}
+              />
 
               {/* Desktop: Fixed Print Button (Right) */}
               <div className="
@@ -1670,10 +1620,10 @@ export const NCFormComponent = () => {
             </div>
           )}
 
-          <div className="flex items-center justify-center">
+          <div className="flex items-center justify-center w-full">
             <div
               id="printable-area"
-              className="md:w-4xl sm:w-full md:m-4 space-y-6 bg-white p-4 md:p-8 rounded-xl shadow-sm border border-gray-500"
+              className="w-full max-w-full md:max-w-4xl md:m-4 space-y-6 bg-white p-3 sm:p-4 md:p-8 rounded-xl shadow-sm border border-gray-500 overflow-hidden"
             >
               <div className="text-center border-b border-gray-400 pb-4 mb-4">
                 <h2 className="text-xl font-bold text-gray-800">
@@ -1858,7 +1808,7 @@ export const NCFormComponent = () => {
                             value={formData?.case_details}
                             onChange={handleInputChange}
                             rows={3}
-                            maxLength={1000}
+                            maxLength={4000}
                             disabled={isViewMode}
                             className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                               ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold h-60"

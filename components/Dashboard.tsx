@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from 'react';
 import Swal from 'sweetalert2';
 import { caseReport_NC, caseReport_AC } from '@/lib/caseReport';
 import { sendErrorLog } from '@/lib/logError';
+import { useUiTheme } from '@/lib/useUiTheme';
 import {
   FilterSection,
   ViewSelector,
@@ -30,21 +31,7 @@ export const DashboardComponent = () => {
   const [loading, setLoading] = useState(false);
   const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
   const [activeView, setActiveView] = useState('dashboard');
-
-
-  useEffect(() => {
-    const showWelcome = sessionStorage.getItem("showWelcome")
-    if (showWelcome === "true") {
-      Swal.fire({
-        icon: 'success',
-        title: 'ยินดีต้อนรับเข้าสู่ระบบ',
-        text: '',
-        draggable: true
-      })
-
-      sessionStorage.removeItem("showWelcome")
-    }
-  }, []);
+  const { theme } = useUiTheme();
 
   useEffect(() => {
     fetchData();
@@ -554,7 +541,7 @@ export const DashboardComponent = () => {
   }, [activeView, ncData, acData, selectedCaseType, selectedCenter]);
 
   return (
-    <div className="min-h-screen p-4 md:p-6 lg:p-10 bg-gradient-to-br from-[#d1ffe1] to-indigo-100">
+    <div className={`min-h-screen ${theme === "Dark" ? "bg-gradient-to-br from-slate-800 via-slate-700 to-[#3d5578]" : "bg-[#d1ffe1]"} p-4 md:p-6 lg:p-10`}>
       <div className="space-y-4 md:space-y-6">
 
 

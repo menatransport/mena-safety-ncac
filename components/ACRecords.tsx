@@ -12,6 +12,7 @@ import { RecordFilter, RecordFilterResult, RecordFilterRef } from "./ui/record-f
 import Swal from "sweetalert2";
 import { sendErrorLog } from '@/lib/logError';
 import { documentRole } from "@/lib/documentRole";
+import { useUiTheme } from "@/lib/useUiTheme";
 
 interface ACRecord {
   id: string;
@@ -74,6 +75,7 @@ export const ACRecordsComponent = () => {
   const [loading, setLoading] = useState(false);
   const recordsPerPage = 10;
   const filterRef = useRef<RecordFilterRef>(null);
+  const { theme } = useUiTheme();
 
   // Sort state
   const [sortConfig, setSortConfig] = useState<SortConfig>({
@@ -124,7 +126,7 @@ export const ACRecordsComponent = () => {
         });
 
         const filteredDepartments = sortedDepartments.filter((dept: any) => {
-          return dept.department_id == 3 || dept.department_id == 15 || dept.department_id == 16 || dept.department_id == 17 ||  dept.department_id == 19 || dept.department_id == 20 
+          return dept.department_id == 3 || dept.department_id == 15 || dept.department_id == 16 || dept.department_id == 17 || dept.department_id == 19 || dept.department_id == 20
         });
 
         setDropdownData((prev) => ({
@@ -478,38 +480,38 @@ export const ACRecordsComponent = () => {
 
   const handleVoided = (id: string) => {
 
-        const userData = localStorage.getItem("userData");
-        if (!userData) {
-          Swal.fire({
-            title: "ไม่สามารถลบได้",
-            text: "ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่",
-            icon: "error"
-          });
-          return;
-        }
-    
-        const parsedUserData = JSON.parse(userData);
-        const currentUserName = `${parsedUserData.firstname || ""} ${parsedUserData.lastname || ""}`.trim();
-        const currentDepartment = parsedUserData.department || "";
-    
-        const selectedRecord = records.find((record) => record.id === id);
-        if (!selectedRecord) {
-          Swal.fire({
-            title: "ไม่พบรายการ",
-            text: "ไม่พบรายการที่ต้องการลบ",
-            icon: "error"
-          });
-          return;
-        }
-    
-        if (documentRole(selectedRecord.department, selectedRecord.reporter, currentUserName, currentDepartment, selectedRecord.site)) {
-          Swal.fire({
-            title: "ไม่สามารถลบได้",
-            text: "คุณไม่ใช่เจ้าของรายการนี้",
-            icon: "error"
-          });
-          return;
-        }
+    const userData = localStorage.getItem("userData");
+    if (!userData) {
+      Swal.fire({
+        title: "ไม่สามารถลบได้",
+        text: "ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่",
+        icon: "error"
+      });
+      return;
+    }
+
+    const parsedUserData = JSON.parse(userData);
+    const currentUserName = `${parsedUserData.firstname || ""} ${parsedUserData.lastname || ""}`.trim();
+    const currentDepartment = parsedUserData.department || "";
+
+    const selectedRecord = records.find((record) => record.id === id);
+    if (!selectedRecord) {
+      Swal.fire({
+        title: "ไม่พบรายการ",
+        text: "ไม่พบรายการที่ต้องการลบ",
+        icon: "error"
+      });
+      return;
+    }
+
+    if (documentRole(selectedRecord.department, selectedRecord.reporter, currentUserName, currentDepartment, selectedRecord.site)) {
+      Swal.fire({
+        title: "ไม่สามารถลบได้",
+        text: "คุณไม่ใช่เจ้าของรายการนี้",
+        icon: "error"
+      });
+      return;
+    }
 
     Swal.fire({
       title: "คุณแน่ใจที่จะลบ หรือไม่",
@@ -641,7 +643,7 @@ export const ACRecordsComponent = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#d1ffe1] p-6">
+    <div className={`min-h-screen ${theme === "Dark" ? "bg-gradient-to-br from-slate-800 via-slate-700 to-[#3d5578]" : "bg-[#d1ffe1]"} py-6`}>
       <div className="max-w-7xl mx-auto m-4">
         <RecordFilter
           ref={filterRef}
@@ -657,7 +659,7 @@ export const ACRecordsComponent = () => {
         {/* Records Table */}
         {/* Data Table */}
         <div className="bg-white backdrop-blur-md rounded-2xl shadow-xl border border-white/30 overflow-hidden relative">
-          <div className="p-4 bg-gray-500 border-b border-gray-200">
+          <div className="p-4 bg-slate-700 border-b border-gray-200">
             <h2 className="text-xl text-white font-semibold">
               ข้อมูล AC Records
             </h2>

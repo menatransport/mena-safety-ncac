@@ -6,11 +6,12 @@ interface LordIconProps {
   trigger: string;
   colors?: string;
   stroke?: string;
+  delay?: number;
   style?: React.CSSProperties;
   className?: string;
 }
 
-export const LordIcon: React.FC<LordIconProps> = ({ src, trigger, colors, stroke, style, className }) => {
+export const LordIcon: React.FC<LordIconProps> = ({ src, trigger, colors, stroke, delay, style, className }) => {
   const iconRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -28,6 +29,7 @@ export const LordIcon: React.FC<LordIconProps> = ({ src, trigger, colors, stroke
       lordIcon.setAttribute('src', src);
       lordIcon.setAttribute('trigger', trigger);
       if (colors) lordIcon.setAttribute('colors', colors);
+      if (delay !== undefined) lordIcon.setAttribute('delay', String(delay));
       
       // Apply styles
       if (style) {

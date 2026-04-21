@@ -1,4 +1,7 @@
+'use client'
+
 import { Search, Calendar, Building2, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { useUiTheme } from '@/lib/useUiTheme';
 
 interface FilterSectionProps {
   selectedMonth: string;
@@ -61,21 +64,37 @@ export const FilterSection = ({
   setIsCollapsed,
   onSearch
 }: FilterSectionProps) => {
+  const { theme } = useUiTheme();
+  const isDark = theme === 'Dark';
+
+  const panelClass = isDark
+    ? 'bg-slate-900/55 border-slate-700/80'
+    : 'bg-white border-gray-100';
+
+  const headerHoverClass = isDark ? 'hover:bg-slate-800/70' : 'hover:bg-gray-50';
+  const titleClass = isDark ? 'text-slate-100' : 'text-gray-700';
+  const iconClass = isDark ? 'text-slate-300' : 'text-gray-500';
+  const chevronButtonClass = isDark ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-gray-100 text-gray-600';
+  const labelClass = isDark ? 'text-slate-200' : 'text-gray-700';
+  const selectClass = isDark
+    ? 'border-slate-600 bg-slate-800 text-slate-100 focus:ring-emerald-500'
+    : 'border-gray-300 bg-white text-gray-900 focus:ring-green-500';
+
   return (
-    <div className="bg-white rounded-xl md:rounded-2xl shadow-lg border border-gray-100">
+    <div className={`rounded-xl md:rounded-2xl shadow-lg border ${panelClass}`}>
       <div 
-        className="flex items-center justify-between p-4 md:p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+        className={`flex items-center justify-between p-4 md:p-6 cursor-pointer transition-colors ${headerHoverClass}`}
         onClick={() => setIsCollapsed(!isCollapsed)}
       >
         <div className="flex items-center gap-2 md:gap-4">
-          <Search className="w-4 h-4 md:w-5 md:h-5 text-gray-500" />
-          <h2 className="text-base md:text-lg font-semibold text-gray-700">ตัวกรองข้อมูล</h2>
+          <Search className={`w-4 h-4 md:w-5 md:h-5 ${iconClass}`} />
+          <h2 className={`text-base md:text-lg font-semibold ${titleClass}`}>ตัวกรองข้อมูล</h2>
         </div>
-        <button className="p-1.5 md:p-2 hover:bg-gray-100 rounded-lg transition-colors">
+        <button className={`p-1.5 md:p-2 rounded-lg transition-colors ${chevronButtonClass}`}>
           {isCollapsed ? (
-            <ChevronDown className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
+            <ChevronDown className={`w-4 h-4 md:w-5 md:h-5 ${isDark ? 'text-slate-300' : 'text-gray-600'}`} />
           ) : (
-            <ChevronUp className="w-4 h-4 md:w-5 md:h-5 text-gray-600" />
+            <ChevronUp className={`w-4 h-4 md:w-5 md:h-5 ${isDark ? 'text-slate-300' : 'text-gray-600'}`} />
           )}
         </button>
       </div>
@@ -85,7 +104,7 @@ export const FilterSection = ({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             {/* Month Select */}
             <div className="space-y-1.5 md:space-y-2">
-              <label className="text-xs md:text-sm font-medium text-gray-700 flex items-center gap-1.5 md:gap-2">
+              <label className={`text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-2 ${labelClass}`}>
                 <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4" />
                 <span className="hidden sm:inline">เดือน</span>
                 <span className="sm:hidden">เดือน</span>
@@ -93,7 +112,7 @@ export const FilterSection = ({
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="w-full px-3 py-2 md:px-4 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                className={`w-full px-3 py-2 md:px-4 text-sm md:text-base border rounded-lg focus:ring-2 focus:border-transparent ${selectClass}`}
               >
                 {MONTHS.map(month => (
                   <option key={month.value} value={month.value}>
@@ -105,14 +124,14 @@ export const FilterSection = ({
 
             {/* Year Select */}
             <div className="space-y-1.5 md:space-y-2">
-              <label className="text-xs md:text-sm font-medium text-gray-700 flex items-center gap-1.5 md:gap-2">
+              <label className={`text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-2 ${labelClass}`}>
                 <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4" />
                 <span>ปี</span>
               </label>
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                className="w-full px-3 py-2 md:px-4 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                className={`w-full px-3 py-2 md:px-4 text-sm md:text-base border rounded-lg focus:ring-2 focus:border-transparent ${selectClass}`}
               >
                 {[2025, 2026].map(year => (
                   <option key={year} value={year}>
@@ -124,7 +143,7 @@ export const FilterSection = ({
 
             {/* Operation Center Select */}
             <div className="space-y-1.5 md:space-y-2">
-              <label className="text-xs md:text-sm font-medium text-gray-700 flex items-center gap-1.5 md:gap-2">
+              <label className={`text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-2 ${labelClass}`}>
                 <Building2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
                 <span className="hidden md:inline">สำนักงาน/ศูนย์ปฏิบัติการ</span>
                 <span className="md:hidden">ศูนย์</span>
@@ -132,7 +151,7 @@ export const FilterSection = ({
               <select
                 value={selectedCenter}
                 onChange={(e) => setSelectedCenter(e.target.value)}
-                className="w-full px-3 py-2 md:px-4 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                className={`w-full px-3 py-2 md:px-4 text-sm md:text-base border rounded-lg focus:ring-2 focus:border-transparent ${selectClass}`}
               >
                 {OPERATION_CENTERS.map(center => (
                   <option key={center.value} value={center.value}>
@@ -144,7 +163,7 @@ export const FilterSection = ({
 
             {/* Case Type Select */}
             <div className="space-y-1.5 md:space-y-2">
-              <label className="text-xs md:text-sm font-medium text-gray-700 flex items-center gap-1.5 md:gap-2">
+              <label className={`text-xs md:text-sm font-medium flex items-center gap-1.5 md:gap-2 ${labelClass}`}>
                 <FileText className="w-3.5 h-3.5 md:w-4 md:h-4" />
                 <span className="hidden md:inline">ประเภทอุบัติการณ์</span>
                 <span className="md:hidden">ประเภท</span>
@@ -152,7 +171,7 @@ export const FilterSection = ({
               <select
                 value={selectedCaseType}
                 onChange={(e) => setSelectedCaseType(e.target.value)}
-                className="w-full px-3 py-2 md:px-4 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+                className={`w-full px-3 py-2 md:px-4 text-sm md:text-base border rounded-lg focus:ring-2 focus:border-transparent ${selectClass}`}
               >
                 {CASE_TYPES.map(type => (
                   <option key={type.value} value={type.value}>

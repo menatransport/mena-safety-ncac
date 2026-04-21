@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "expo-api-routes": {
+      "source": "expo/skills",
+      "sourceType": "github",
+      "computedHash": "015c6b849507fda73fcc32d2448f033aaaaa21f5229085342b8421727a90cafb"
+    },
+    "ui-ux-pro-max": {
+      "source": "nextlevelbuilder/ui-ux-pro-max-skill",
+      "sourceType": "github",
+      "computedHash": "8cd1b83a60e8d0a95c332d2baeffad9053617b286beb96bbe13e818507343f47"
+    }
+  }
+}

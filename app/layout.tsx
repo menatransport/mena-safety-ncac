@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MENA NCAC",
-  description: "MENA NCAC Management System - ระบบจัดการเอกสาร NC/AC",
+  title: "MENA SAFETY",
+  description: "MENA SAFETY Management System - ระบบจัดการความปลอดภัย และจัดการเอกสาร",
 };
 
 export default function RootLayout({
