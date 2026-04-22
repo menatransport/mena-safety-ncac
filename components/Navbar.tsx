@@ -397,7 +397,13 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
 
             {isSidebarHidden && (
               <button
-                onClick={() => handleNavigation('/home')}
+                onClick={() => {
+                  if (pathname.startsWith('/trainer-app/')) {
+                    router.back();
+                  } else {
+                    handleNavigation('/home');
+                  }
+                }}
                 className={`mr-2 inline-flex h-10 w-10 items-center justify-center rounded-xl border shadow-sm transition-all duration-300 hover:-translate-x-0.5 hover:shadow-md cursor-pointer ${isDark ? 'border-white/10 bg-white/5 text-white/70 hover:bg-indigo-500 hover:text-white hover:border-indigo-400' : 'border-slate-200/70 bg-white text-slate-600 hover:bg-blue-600 hover:text-white'}`}
                 aria-label="Go back"
               >

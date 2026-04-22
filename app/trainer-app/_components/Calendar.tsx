@@ -56,6 +56,55 @@ function fmtDisplayDate(dateStr: string | null) {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  ResponsiveSelect                                                          */
+/*  - Mobile (< sm): native <select> (รองรับ touch ดีที่สุด)                  */
+/*  - Desktop (>= sm): SearchableSelect (มี search/UX สวย)                    */
+/* -------------------------------------------------------------------------- */
+type SelectOption = { value: string | number; label: string };
+function ResponsiveSelect({
+    options,
+    value,
+    onChange,
+    placeholder,
+    disabled,
+}: {
+    options: SelectOption[];
+    value: string | number | undefined;
+    onChange: (v: string | number) => void;
+    placeholder?: string;
+    disabled?: boolean;
+}) {
+    return (
+        <>
+            {/* Mobile: native select */}
+            <div className="sm:hidden">
+                <select
+                    value={value ?? ""}
+                    disabled={disabled}
+                    onChange={(e) => onChange(e.target.value)}
+                    className="w-full h-11 px-3 text-base bg-white border border-gray-300 rounded-xl text-black outline-none focus:ring-2 focus:ring-[#cfe5d0] focus:border-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed disabled:text-blue-600 disabled:font-bold"
+                >
+                    <option value="" disabled>{placeholder || "เลือก..."}</option>
+                    {options.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                </select>
+            </div>
+            {/* Desktop: SearchableSelect */}
+            <div className="hidden sm:block">
+                <SearchableSelect
+                    options={options}
+                    value={value}
+                    onChange={onChange}
+                    placeholder={placeholder}
+                    disabled={disabled}
+                />
+            </div>
+        </>
+    );
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Props                                                                     */
 /* -------------------------------------------------------------------------- */
 interface CalendarProps {
@@ -272,7 +321,6 @@ export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask
                             <span>วันนี้</span>
                         </button>
                         <button
-                            title="เพิ่มแผนได้เฉพาะหัวหน้า/ผู้จัดการ"
                             onClick={() => openAdd(fmtDate(currentYear, currentMonth, new Date().getDate()))}
                             className="h-10 px-4 cursor-pointer text-sm font-medium bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 active:bg-emerald-700 transition-colors flex items-center gap-1.5 shadow-sm disabled:cursor-not-allowed disabled:bg-emerald-500/10 disabled:text-white/70 disabled:hover:bg-emerald-500/30"
                         >
@@ -602,7 +650,7 @@ export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask
 
                                     <div>
                                         <label className="block text-sm font-medium text-slate-700 mb-1.5">เทรนเนอร์</label>
-                                        <SearchableSelect
+                                        <ResponsiveSelect
                                             options={(createform?.trainer ?? [])
                                                 .filter(u => u.position === "Safety Trainer")
                                                 .map(u => ({
@@ -615,12 +663,13 @@ export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask
                                                 setNewTask(p => ({ ...p, trainer_id: String(val) }));
                                             }}
                                             placeholder="เลือกเทรนเนอร์"
+                                            disabled={lockRole}
                                         />
                                     </div>
 
                                     <div>
                                         <label className="block text-sm font-medium text-slate-700 mb-1.5">ลูกค้า</label>
-                                        <SearchableSelect
+                                        <ResponsiveSelect
                                             options={(createform?.clients ?? []).map(c => ({
                                                 value: c,
                                                 label: c,
@@ -633,7 +682,7 @@ export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask
 
                                     <div>
                                         <label className="block text-sm font-medium text-slate-700 mb-1.5">แพล้นท์</label>
-                                        <SearchableSelect
+                                        <ResponsiveSelect
                                             options={(createform?.locations ?? []).filter(loc => !newTask.client_name || loc.client_name === newTask.client_name).map(loc => ({
                                                 value: loc.plant_code,
                                                 label: `${loc.plant_code} - ${loc.plant_name}`,
@@ -649,8 +698,8 @@ export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask
 
                                     <div>
                                         <label className="block text-sm font-medium text-slate-700 mb-1.5">สถานะ</label>
-                                        <SearchableSelect
-                                            options={[{value:"open", label: "เปิดงาน"}]}
+                                        <ResponsiveSelect
+                                            options={[{ value: "open", label: "เปิดงาน" }]}
                                             value={newTask.inspection_task_status || "open"}
                                             onChange={(val) => setNewTask(p => ({ ...p, inspection_task_status: String(val) as TaskStatus }))}
                                             placeholder="เลือกสถานะ"

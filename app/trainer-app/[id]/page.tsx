@@ -410,7 +410,7 @@ export default function TrainerApp_ID() {
                             return (
                                 <div className="flex items-center justify-center gap-10 mr-5 mt-2">
                                     
-                                    <div className={`hidden sm:inline-flex items-center gap-2.5 px-4 py-2 rounded-2xl border backdrop-blur-sm shadow-lg text-base font-bold tracking-wide ${cfg.className}`}>
+                                    <div className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-2xl border backdrop-blur-sm shadow-lg text-base font-bold tracking-wide ${cfg.className}`}>
                                         <span className="relative flex h-3 w-3">
                                             <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-60 ${dotColor}`} />
                                             <span className={`relative inline-flex rounded-full h-3 w-3 ${dotColor}`} />
