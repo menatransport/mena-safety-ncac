@@ -530,86 +530,59 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                 </div>
               )}
 
-              {/* Weather Snowy */}
+              {/* Emergency Siren Logo */}
               <div className={`flex items-center justify-center ${isMobile ? 'scale-75' : ''}`}>
                 <style jsx>{`
-                  @keyframes am-weather-sun {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
+                  @keyframes siren-flash {
+                    0%, 100% { opacity: 1; filter: drop-shadow(0 0 2px #ef4444); }
+                    50% { opacity: 0.55; filter: drop-shadow(0 0 10px #ef4444); }
                   }
-
-                  @keyframes am-weather-snow {
-                    0% { transform: translateX(0) translateY(0); }
-                    33.33% { transform: translateX(-1.2px) translateY(2px); }
-                    66.66% { transform: translateX(1.4px) translateY(4px); opacity: 1; }
-                    100% { transform: translateX(-1.6px) translateY(6px); opacity: 0; }
+                  @keyframes siren-beam-left {
+                    0%, 100% { opacity: 0; transform: translateX(0) scaleX(0.6); }
+                    50% { opacity: 0.8; transform: translateX(-2px) scaleX(1); }
                   }
-
-                  .am-weather-sun {
-                    animation: am-weather-sun 9s linear infinite;
+                  @keyframes siren-beam-right {
+                    0%, 100% { opacity: 0.8; transform: translateX(2px) scaleX(1); }
+                    50% { opacity: 0; transform: translateX(0) scaleX(0.6); }
                   }
-
-                  .am-weather-snow-1 {
-                    animation: am-weather-snow 2s linear infinite;
+                  @keyframes siren-ring {
+                    0% { opacity: 0.6; transform: scale(0.6); }
+                    100% { opacity: 0; transform: scale(1.4); }
                   }
-
-                  .am-weather-snow-2 {
-                    animation: am-weather-snow 2s linear infinite;
-                    animation-delay: 1.2s;
-                  }
+                  .siren-dome { animation: siren-flash 0.9s ease-in-out infinite; transform-origin: center; }
+                  .siren-beam-l { animation: siren-beam-left 1.4s ease-in-out infinite; transform-origin: 32px 22px; }
+                  .siren-beam-r { animation: siren-beam-right 1.4s ease-in-out infinite; transform-origin: 32px 22px; }
+                  .siren-ring { animation: siren-ring 1.6s ease-out infinite; transform-origin: 32px 22px; }
+                  .siren-ring-2 { animation: siren-ring 1.6s ease-out infinite; animation-delay: 0.6s; transform-origin: 32px 22px; }
                 `}</style>
-                <svg xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" version="1.1" width="64" height="64" viewBox="0 0 64 64">
-                  <defs>
-                    <filter id="blur" width="200%" height="200%">
-                      <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
-                      <feOffset dx="0" dy="4" result="offsetblur" />
-                      <feComponentTransfer>
-                        <feFuncA type="linear" slope="0.05" />
-                      </feComponentTransfer>
-                      <feMerge>
-                        <feMergeNode />
-                        <feMergeNode in="SourceGraphic" />
-                      </feMerge>
-                    </filter>
-                  </defs>
-                  <g filter="url(#blur)" id="snowy-1">
-                    <g transform="translate(20,10)">
-                      <g transform="translate(0,16) scale(1.2)">
-                        <g className="am-weather-sun">
-                          <g><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3" /></g>
-                          <g transform="rotate(45)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3" /></g>
-                          <g transform="rotate(90)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3" /></g>
-                          <g transform="rotate(135)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3" /></g>
-                          <g transform="rotate(180)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3" /></g>
-                          <g transform="rotate(225)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3" /></g>
-                          <g transform="rotate(270)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3" /></g>
-                          <g transform="rotate(315)"><line fill="none" stroke="orange" strokeLinecap="round" strokeWidth="2" transform="translate(0,9)" x1="0" x2="0" y1="0" y2="3" /></g>
-                        </g>
-                        <circle cx="0" cy="0" fill="orange" r="5" stroke="orange" strokeWidth="2" />
-                      </g>
-                      <g>
-                        <path d="M47.7,35.4c0-4.6-3.7-8.2-8.2-8.2c-1,0-1.9,0.2-2.8,0.5c-0.3-3.4-3.1-6.2-6.6-6.2c-3.7,0-6.7,3-6.7,6.7c0,0.8,0.2,1.6,0.4,2.3c-0.3-0.1-0.7-0.1-1-0.1c-3.7,0-6.7,3-6.7,6.7c0,3.6,2.9,6.6,6.5,6.7l17.2,0C44.2,43.3,47.7,39.8,47.7,35.4z" fill="#57A0EE" stroke="white" strokeLinejoin="round" strokeWidth="1.5" transform="translate(-15,-5) scale(0.85)" />
-                      </g>
-                    </g>
-                    <g transform="translate(20,9)">
-                      <g className="am-weather-snow-1">
-                        <g transform="translate(7,28)">
-                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1.2" transform="translate(0,9) rotate(0)" x1="0" x2="0" y1="-2.5" y2="2.5" />
-                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(45)" x1="0" x2="0" y1="-2.5" y2="2.5" />
-                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(90)" x1="0" x2="0" y1="-2.5" y2="2.5" />
-                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(135)" x1="0" x2="0" y1="-2.5" y2="2.5" />
-                        </g>
-                      </g>
-                      <g className="am-weather-snow-2">
-                        <g transform="translate(16,28)">
-                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1.2" transform="translate(0,9) rotate(0)" x1="0" x2="0" y1="-2.5" y2="2.5" />
-                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(45)" x1="0" x2="0" y1="-2.5" y2="2.5" />
-                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(90)" x1="0" x2="0" y1="-2.5" y2="2.5" />
-                          <line fill="none" stroke="#57A0EE" strokeLinecap="round" strokeWidth="1" transform="translate(0,9) rotate(135)" x1="0" x2="0" y1="-2.5" y2="2.5" />
-                        </g>
-                      </g>
-                    </g>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="48"
+                  height="48"
+                  viewBox="0 0 64 64"
+                  fill="none"
+                  aria-label="Emergency Siren"
+                >
+                  {/* Pulse rings */}
+                  <circle className="siren-ring" cx="32" cy="22" r="14" stroke="#ef4444" strokeWidth="1.5" fill="none" />
+                  <circle className="siren-ring-2" cx="32" cy="22" r="14" stroke="#ef4444" strokeWidth="1.5" fill="none" />
+
+                  {/* Light beams */}
+                  <path className="siren-beam-l" d="M18 22 L8 16 L8 28 Z" fill="#ef4444" fillOpacity="0.45" />
+                  <path className="siren-beam-r" d="M46 22 L56 16 L56 28 Z" fill="#ef4444" fillOpacity="0.45" />
+
+                  {/* Base */}
+                  <rect x="14" y="44" width="36" height="8" rx="2" fill={isDark ? "#475569" : "#334155"} />
+                  <rect x="18" y="38" width="28" height="8" rx="1.5" fill={isDark ? "#64748b" : "#475569"} />
+
+                  {/* Dome (siren light) */}
+                  <g className="siren-dome">
+                    <path d="M20 38 Q20 20 32 20 Q44 20 44 38 Z" fill="#ef4444" />
+                    <path d="M24 36 Q24 24 32 24" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.6" />
                   </g>
+
+                  {/* Top knob */}
+                  <circle cx="32" cy="18" r="2" fill={isDark ? "#94a3b8" : "#64748b"} />
                 </svg>
               </div>
 

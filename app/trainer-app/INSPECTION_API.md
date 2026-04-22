@@ -124,8 +124,24 @@ app/api/task/
   "trainer_id": "EMP-100",
   "client_name": "Client A",
   "action_date": "2026-04-02",
-  "inspection_task_status": "inspection_done",
+  "inspection_task_status": "done",
   "drug_test_attachment": null
+}
+```
+
+### 1.4.1 PUT `/api/task/{id}` — อัปเดตเฉพาะสถานะงาน
+
+| 항목 | รายละเอียด |
+|------|-----------|
+| Method | `PUT` |
+| Backend | `PUT /inspection/task/{inspection_task_id}` |
+| Params | `id` — inspection_task_id |
+| Body | `InspectionTaskUpdate` |
+
+**Request Body:**
+```json
+{
+  "inspection_task_status": "done",
 }
 ```
 

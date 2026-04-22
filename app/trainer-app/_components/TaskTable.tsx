@@ -222,7 +222,6 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
                                                 />
                                                 เปิด
                                             </button>
-                                            {!lockRole && (
                                                 <button
                                                     className="bg-rose-500/20 border border-rose-400/40 cursor-pointer hover:bg-rose-500/35 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all backdrop-blur-sm flex items-center"
                                                     onClick={onDeleteTask ? (e) => { e.stopPropagation(); onDeleteTask(task.inspection_task_id); } : undefined}
@@ -236,7 +235,6 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
                                                     />
                                                     ลบ
                                                 </button>
-                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -309,8 +307,7 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
                             </div>
 
                             {/* Actions */}
-                            <div className="relative flex justify-end gap-2 px-4 py-3 border-t border-white/10 bg-white/[0.02]">
-                                {!lockRole && (
+                            <div className="relative flex justify-end gap-2 px-4 py-3 border-t border-white/10 bg-white/[0.02]">    
                                     <button
                                         onClick={onDeleteTask ? (e) => { e.stopPropagation(); onDeleteTask(task.inspection_task_id); } : (e) => e.stopPropagation()}
                                         className="flex items-center gap-1 bg-rose-500/15 border border-rose-400/30 hover:bg-rose-500/30 active:scale-[0.97] text-rose-100 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all backdrop-blur-sm cursor-pointer"
@@ -322,8 +319,7 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
                                             style={{ width: "18px", height: "18px" }}
                                         />
                                         ลบ
-                                    </button>
-                                )}
+                                    </button>                            
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onViewTask?.(task.inspection_task_id); }}
                                     className="flex items-center gap-1 bg-gradient-to-r from-teal-500/30 to-emerald-600/30 border border-teal-400/40 hover:from-teal-500/50 hover:to-emerald-600/50 active:scale-[0.97] text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-all backdrop-blur-sm shadow-md shadow-teal-500/10 cursor-pointer"

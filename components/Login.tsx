@@ -146,7 +146,7 @@ export default function Login() {
               : "translate-y-4 opacity-0"
               }`}
           >
-            ระบบจัดการเอกสาร NC/AC
+            ระบบจัดการเอกสาร และความปลอดภัย 
           </h1>
           <p
             className={`text-white text-sm transform transition-all duration-700 ease-out delay-300 ${isVisible
@@ -154,7 +154,7 @@ export default function Login() {
               : "translate-y-4 opacity-0"
               }`}
           >
-            MENA NCAC System Powered by Operations Support
+            MENA SAFETY System Powered by Operations Support
           </p>
         </div>
 

@@ -83,21 +83,33 @@ export default function HomePage() {
           />
         </div>
 
-        <div className="relative w-full max-w-6xl space-y-5 sm:space-y-10 px-4 py-10 sm:px-6 sm:py-14 lg:px-10">
-          <div className="flex flex-col gap-3 items-center sm:items-start text-center sm:text-left">
-            <h1 className={`text-3xl sm:text-4xl font-black tracking-tight leading-tight ${isDark ? "text-white" : "text-slate-900"}`}>
-              ยินดีต้อนรับ<br />
+        <div className="relative w-full place-self-center max-w-6xl space-y-5 sm:space-y-10 px-4 py-10 sm:px-6 sm:py-14 lg:px-10">
+          <div className="mb-8 flex flex-col items-center gap-2 text-center sm:mb-10">
+            <span
+              className={`text-xs font-semibold uppercase tracking-[0.2em] ${
+                isDark ? "text-white/50" : "text-slate-500"
+              }`}
+            >
+              Main Menu
+            </span>
+            <h1
+              className={`text-2xl font-black tracking-tight sm:text-4xl ${
+                isDark ? "text-white" : "text-slate-900"
+              }`}
+            >
+              ยินดีต้อนรับสู่{" "}
               <span
-                className={`bg-clip-text text-transparent ${isDark
+                className={`bg-clip-text text-transparent ${
+                  isDark
                     ? "bg-gradient-to-r from-blue-300 via-cyan-300 to-teal-300"
                     : "bg-gradient-to-r from-blue-700 via-cyan-600 to-teal-600"
-                  }`}
+                }`}
               >
                 Mena Safety
               </span>
             </h1>
-            <p className={`max-w-lg text-sm leading-relaxed sm:text-base ${isDark ? "text-white/60" : "text-slate-600"}`}>
-              เลือกระบบที่ต้องการใช้งานด้านล่างนี้
+            <p className={`text-sm ${isDark ? "text-white/60" : "text-slate-600"}`}>
+              เลือกเมนูที่ต้องการใช้งาน
             </p>
           </div>
 

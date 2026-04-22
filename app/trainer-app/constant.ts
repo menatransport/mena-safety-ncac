@@ -29,7 +29,7 @@ export const TASK_STATUS_CONFIG: Record<
         border: "border-amber-200",
         dot: "bg-amber-500",
     },
-    inspection_done: {
+    completed: {
         label: "เสร็จสิ้น",
         bg: "bg-emerald-50",
         text: "text-emerald-700",
@@ -76,7 +76,7 @@ export const DRIVER_STATUS_CONFIG: Record<
 export const TASK_TABLE_STATUS: Record<string, { label: string; className: string }> = {
     open: { label: "เปิดงาน", className: "bg-blue-500/15 text-blue-200 border-blue-400/30" },
     pending: { label: "กำลังดำเนินการ", className: "bg-amber-500/15 text-amber-200 border-amber-400/30" },
-    inspection_done: { label: "เสร็จสิ้น", className: "bg-emerald-500/15 text-emerald-200 border-emerald-400/30" },
+    completed: { label: "เสร็จสิ้น", className: "bg-emerald-500/15 text-emerald-200 border-emerald-400/30" },
 };
 
 /* -------------------------------------------------------------------------- */
@@ -94,8 +94,8 @@ export const LIST_USER_STATUS: Record<string, { label: string; dot: string; text
         dot: "bg-amber-400",
         text: "text-amber-100 bg-amber-500/20 border border-amber-400/30",
     },
-    inspection_done: {
-        label: "เสร็จแล้ว",
+    completed: {
+        label: "เสร็จสิ้น",
         dot: "bg-emerald-400",
         text: "text-emerald-100 bg-emerald-500/20 border border-emerald-400/30",
     },
@@ -105,7 +105,7 @@ export const LIST_USER_STATUS: Record<string, { label: string; dot: string; text
 /*  Legacy – คงไว้เผื่อโค้ดอื่นยังอ้างถึง                                         */
 /* -------------------------------------------------------------------------- */
 export const STATUS_CONFIG = {
-    completed: { label: "เสร็จแล้ว", color: "text-emerald-600", bgColor: "bg-emerald-500", ringColor: "ring-emerald-200" },
+    completed: { label: "เสร็จสิ้น", color: "text-emerald-600", bgColor: "bg-emerald-500", ringColor: "ring-emerald-200" },
     open: { label: "เปิดงาน", color: "text-blue-600", bgColor: "bg-blue-500", ringColor: "ring-blue-200" },
     pending: { label: "รอดำเนินการ", color: "text-slate-400", bgColor: "bg-slate-300", ringColor: "ring-slate-200" },
 } as const;

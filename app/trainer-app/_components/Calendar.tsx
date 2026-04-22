@@ -43,7 +43,7 @@ function getColors(status: string | null) {
 const GLASS_STATUS: Record<string, { bg: string; text: string; border: string; dot: string; glow: string }> = {
     open: { bg: "bg-blue-500/20", text: "text-blue-200", border: "border-blue-400/30", dot: "bg-blue-400", glow: "shadow-blue-500/25" },
     pending: { bg: "bg-amber-500/20", text: "text-amber-200", border: "border-amber-400/30", dot: "bg-amber-400", glow: "shadow-amber-500/25" },
-    inspection_done: { bg: "bg-emerald-500/20", text: "text-emerald-200", border: "border-emerald-400/30", dot: "bg-emerald-400", glow: "shadow-emerald-500/25" },
+    completed: { bg: "bg-emerald-500/20", text: "text-emerald-200", border: "border-emerald-400/30", dot: "bg-emerald-400", glow: "shadow-emerald-500/25" },
 };
 function getGlass(status: string | null) {
     return GLASS_STATUS[status ?? "open"] ?? GLASS_STATUS.open;
@@ -62,6 +62,7 @@ interface CalendarProps {
     tasks: Task[];
     createform?: { clients: string[]; trainer: Users[]; locations: { client_name: string; plant_code: string; plant_name: string }[] };
     lockRole?: boolean;
+    myUserId?: string;
     onMoveTask?: (taskId: string, newDate: string) => void;
     onAddTask?: (task: Partial<Task>) => void;
     onDeleteTask?: (taskId: string) => void;
@@ -71,7 +72,7 @@ interface CalendarProps {
 /* -------------------------------------------------------------------------- */
 /*  Component                                                                 */
 /* -------------------------------------------------------------------------- */
-export function CalendarTask({ tasks, createform, lockRole, onMoveTask, onAddTask, onDeleteTask, onViewTask }: CalendarProps) {
+export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask, onAddTask, onDeleteTask, onViewTask }: CalendarProps) {
     const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
     const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
@@ -158,9 +159,13 @@ export function CalendarTask({ tasks, createform, lockRole, onMoveTask, onAddTas
 
     /* ── Dialog helpers ── */
     const openAdd = useCallback((date: string) => {
-        setNewTask({ plan_date: date, inspection_task_status: "open" as TaskStatus });
+        setNewTask({
+            plan_date: date,
+            inspection_task_status: "open" as TaskStatus,
+            ...(lockRole && myUserId ? { trainer_id: myUserId } : {}),
+        });
         setDialogMode("add");
-    }, []);
+    }, [lockRole, myUserId]);
     const openView = useCallback((e: React.MouseEvent, task: Task) => {
         e.stopPropagation();
         setSelectedTask(task);
@@ -267,7 +272,6 @@ export function CalendarTask({ tasks, createform, lockRole, onMoveTask, onAddTas
                             <span>วันนี้</span>
                         </button>
                         <button
-                            disabled={lockRole}
                             title="เพิ่มแผนได้เฉพาะหัวหน้า/ผู้จัดการ"
                             onClick={() => openAdd(fmtDate(currentYear, currentMonth, new Date().getDate()))}
                             className="h-10 px-4 cursor-pointer text-sm font-medium bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 active:bg-emerald-700 transition-colors flex items-center gap-1.5 shadow-sm disabled:cursor-not-allowed disabled:bg-emerald-500/10 disabled:text-white/70 disabled:hover:bg-emerald-500/30"
@@ -312,7 +316,7 @@ export function CalendarTask({ tasks, createform, lockRole, onMoveTask, onAddTas
                             onClick={() => {
                                 if (!inMonth) return;
                                 if (hasTasks) openDayList(date);
-                                else if (!lockRole) openAdd(date);
+                                else openAdd(date);
                             }}
                             onDragOver={(e) => handleDragOver(e, date)}
                             onDragLeave={handleDragLeave}
@@ -545,8 +549,8 @@ export function CalendarTask({ tasks, createform, lockRole, onMoveTask, onAddTas
                                     {/* Footer */}
                                     <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex justify-between gap-2">
                                         <button
-                                            disabled={lockRole}
-                                            title="ลบได้เฉพาะหัวหน้า/ผู้จัดการ"
+                                            // disabled={lockRole}
+                                            // title="ลบได้เฉพาะหัวหน้า/ผู้จัดการ"
                                             onClick={() => handleDelete(selectedTask.inspection_task_id)}
                                             className="h-11 px-4 text-sm font-medium text-red-600 hover:bg-red-50 active:bg-red-100 rounded-xl transition-colors flex items-center gap-1.5 disabled:cursor-not-allowed disabled:bg-red-500/10 disabled:text-red-500/70 disabled:hover:bg-red-500/30"
                                         >
@@ -599,12 +603,17 @@ export function CalendarTask({ tasks, createform, lockRole, onMoveTask, onAddTas
                                     <div>
                                         <label className="block text-sm font-medium text-slate-700 mb-1.5">เทรนเนอร์</label>
                                         <SearchableSelect
-                                            options={(createform?.trainer ?? []).map(u => ({
-                                                value: u.employee_id,
-                                                label: `${u.firstname} ${u.lastname}`,
-                                            }))}
+                                            options={(createform?.trainer ?? [])
+                                                .filter(u => u.position === "Safety Trainer")
+                                                .map(u => ({
+                                                    value: u.employee_id,
+                                                    label: `${u.firstname} ${u.lastname}`,
+                                                }))}
                                             value={newTask.trainer_id || ""}
-                                            onChange={(val) => setNewTask(p => ({ ...p, trainer_id: String(val) }))}
+                                            onChange={(val) => {
+                                                if (lockRole) return;
+                                                setNewTask(p => ({ ...p, trainer_id: String(val) }));
+                                            }}
                                             placeholder="เลือกเทรนเนอร์"
                                         />
                                     </div>
@@ -641,10 +650,7 @@ export function CalendarTask({ tasks, createform, lockRole, onMoveTask, onAddTas
                                     <div>
                                         <label className="block text-sm font-medium text-slate-700 mb-1.5">สถานะ</label>
                                         <SearchableSelect
-                                            options={Object.entries(TASK_STATUS_CONFIG).map(([k, v]) => ({
-                                                value: k,
-                                                label: v.label,
-                                            }))}
+                                            options={[{value:"open", label: "เปิดงาน"}]}
                                             value={newTask.inspection_task_status || "open"}
                                             onChange={(val) => setNewTask(p => ({ ...p, inspection_task_status: String(val) as TaskStatus }))}
                                             placeholder="เลือกสถานะ"

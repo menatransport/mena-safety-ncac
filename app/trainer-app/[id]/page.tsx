@@ -10,7 +10,7 @@
 //   • ช่องอัปโหลดรูปประกอบ (UPLOAD_SLOTS_COUNT ช่อง)  → S3 ผ่าน /api/attachment
 // =============================================================================
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, use } from "react";
 import Swal from "sweetalert2";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { NavComponent } from "@/components/Navbar";
@@ -27,7 +27,7 @@ import { ImageGalleryDialog } from "@/components/ImageGalleryDialog";
 import { Separator } from "@/components/ui/separator";
 import {
     ArrowLeft, Presentation, Truck, User,
-    CalendarDays, ClipboardList, Users, ImagePlus, X,
+    CalendarDays, ClipboardList, Users, ImagePlus, X, Eye,
 } from "lucide-react";
 
 
@@ -47,6 +47,7 @@ export default function TrainerApp_ID() {
     const [draggingMap, setDraggingMap] = useState<Record<string, boolean>>({});
     const [UserSafety, setUserSafety] = useState<UsersType[]>([]);
     const [galleryOpen, setGalleryOpen] = useState(false);
+    const [previewImage, setPreviewImage] = useState<string | null>(null);
     const router = useRouter();
 
     const uploadSlots = Array.from({ length: UPLOAD_SLOTS_COUNT }, (_, index) => ({
@@ -85,10 +86,12 @@ export default function TrainerApp_ID() {
                 ]);
 
                 if (!taskRes.ok) {
+                    console.error("Failed to fetch task details:", await taskRes.text());
                     return;
                 }
 
                 const result: TaskDetail = await taskRes.json();
+                // console.log("Fetched task detail:", result);
                 setData(result);
                 // Load existing safety talk
                 if (safetyTalkRes.ok) {
@@ -138,6 +141,37 @@ export default function TrainerApp_ID() {
         loadUploadedFiles();
     }, [taskId]);
 
+    // check update status if status driver task all completed and action date have value then update status to done 
+    // else if action date doest not have value or status driver task not all completed then update status to pending 
+    // else do nothing
+    useEffect(() => {
+        // api update status is /api/task/{task_id} method PUT body { inspection_task_status: "done" or "pending" }
+        if (!data || !taskId) return;
+        const allCompleted = data.drivers?.every(d => d.inspection_task_driver_status === "completed");
+        const hasActionDate = !!data.task.action_date;
+        const newStatus = allCompleted && hasActionDate ? "completed" : (hasActionDate ? "pending" : "open");
+        if (data.task.inspection_task_status === newStatus) return;
+        const updateStatus = async () => {
+            try {
+              const res  = await fetch(`/api/task/${encodeURIComponent(taskId as string)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ inspection_task_status: newStatus }),
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    console.error("Failed to update task status:", err.error || "Unknown error");
+                    return;
+                }
+                setData((prev) => prev ? { ...prev, task: { ...prev.task, inspection_task_status: newStatus } } : prev);
+            } catch (e) {
+                console.error("Failed to update task status:", e);
+            }
+            };
+
+        updateStatus();
+
+    }, [data?.task.inspection_task_status, data?.drivers, data?.task.action_date]);
 
 
     const taskFields = [
@@ -370,7 +404,7 @@ export default function TrainerApp_ID() {
                             { label: `${data?.task.plant_name || data?.task.plant_code} (${data?.task.inspection_task_id ?? "..."})` },
                         ]}
                         rightSlot={data ? (() => {
-                            const statusKey = data.task.inspection_task_status === "completed" ? "inspection_done" : (data.task.inspection_task_status ?? "open");
+                            const statusKey = data.task.inspection_task_status === "completed" ? "completed" : (data.task.inspection_task_status ?? "open");
                             const cfg = TASK_TABLE_STATUS[statusKey] ?? TASK_TABLE_STATUS.open;
                             const dotColor = statusKey === "open" ? "bg-blue-400" : statusKey === "pending" ? "bg-amber-400" : "bg-emerald-400";
                             return (
@@ -499,6 +533,14 @@ export default function TrainerApp_ID() {
                                                             />
                                                             <button
                                                                 type="button"
+                                                                onClick={() => setPreviewImage(preview)}
+                                                                className="absolute right-12 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-sky-500/30 text-white border border-sky-300/40 backdrop-blur-md hover:bg-sky-500/50 transition-colors"
+                                                                aria-label="ขยายรูปภาพ"
+                                                            >
+                                                                <Eye size={14} />
+                                                            </button>
+                                                            <button
+                                                                type="button"
                                                                 onClick={() => clearUpload(key)}
                                                                 className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full bg-rose-500/30 text-white border border-rose-300/40 backdrop-blur-md hover:bg-rose-500/50 transition-colors"
                                                             >
@@ -556,6 +598,27 @@ export default function TrainerApp_ID() {
                 taskId={taskId as string}
                 title={data ? `${data.task.plant_name || data.task.plant_code} (${data.task.inspection_task_id})` : undefined}
             />
+            {previewImage && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+                    onClick={() => setPreviewImage(null)}
+                >
+                    <button
+                        type="button"
+                        onClick={() => setPreviewImage(null)}
+                        className="absolute top-4 right-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white border border-white/20 backdrop-blur-md hover:bg-white/20 transition-colors"
+                        aria-label="ปิด"
+                    >
+                        <X size={20} />
+                    </button>
+                    <img
+                        src={previewImage}
+                        alt="preview"
+                        className="max-h-[90vh] max-w-[90vw] rounded-xl object-contain shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
+            )}
         </NavComponent>
     );
 }

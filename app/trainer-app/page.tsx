@@ -18,6 +18,7 @@ import {
     ListChecks, TrendingUp,
     ClipboardList, Clock, CheckCircle2, XCircle,
     Sparkles,
+    BookAIcon,
 } from "lucide-react";
 
 import { NavComponent } from "@/components/Navbar";
@@ -32,6 +33,7 @@ import { ROLE_SAFETY_TRAINER } from "./constant";
 
 /* ── Tabs ── */
 const tabs = [
+    { value: "manual", label: "คู่มือ", icon: BookAIcon, href: "https://canva.link/xplgm8mmms98mtu" },
     { value: "task", label: "งานทั้งหมด", icon: ListChecks },
     { value: "analytics", label: "วิเคราะห์", icon: TrendingUp },
 ];
@@ -295,7 +297,13 @@ export default function TrainerApp() {
                                 return (
                                     <button
                                         key={t.value}
-                                        onClick={() => setActiveView(t.value)}
+                                        onClick={() => {
+                                            if (t.href) {
+                                                window.open(t.href, "_blank", "noopener,noreferrer");
+                                            } else {
+                                                setActiveView(t.value);
+                                            }
+                                        }}
                                         className={`relative flex items-center gap-1.5 px-4 sm:px-5 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${isActive
                                             ? "bg-gradient-to-br from-teal-500/30 to-emerald-600/30 border border-teal-400/30 text-white shadow-md shadow-teal-500/10"
                                             : "text-white/60 hover:text-white hover:bg-white/5"
@@ -384,6 +392,7 @@ export default function TrainerApp() {
                                                 locations: plantOptions,
                                             }}
                                             lockRole={lockRole}
+                                            myUserId={myuser?.employee_id}
                                             onMoveTask={handleMoveTask}
                                             onAddTask={handleAddTask}
                                             onDeleteTask={handleDeleteTask}
