@@ -19,6 +19,7 @@ import {
     ClipboardList, Clock, CheckCircle2, XCircle,
     Sparkles,
     BookAIcon,
+    BookIcon,
 } from "lucide-react";
 
 import { NavComponent } from "@/components/Navbar";
@@ -224,13 +225,13 @@ export default function TrainerApp() {
     }, [myuser]);
 
     const pendingCount = filteredTasks.filter(
-        (t) => t.inspection_task_status === "open" || t.inspection_task_status === "pending" || t.inspection_task_status === null
+        (t) => t.inspection_task_status === "pending"
     ).length;
     const doneCount = filteredTasks.filter(
         (t) => t.inspection_task_status === "completed"
     ).length;
-    const cancelCount = filteredTasks.filter(
-        (t) => t.inspection_task_status === "cancel"
+    const openCount = filteredTasks.filter(
+        (t) => t.inspection_task_status === "open"
     ).length;
 
     const statCards = [
@@ -238,6 +239,15 @@ export default function TrainerApp() {
             label: "ทั้งหมด",
             value: filteredTasks.length,
             icon: ClipboardList,
+            iconBg: "from-stone-500/30 to-gray-600/30",
+            iconBorder: "border-stone-400/30",
+            iconText: "text-stone-200",
+            valueAccent: "text-white",
+        },
+        {
+            label: "เปิด",
+            value: openCount,
+            icon: BookIcon,
             iconBg: "from-indigo-500/30 to-blue-600/30",
             iconBorder: "border-indigo-400/30",
             iconText: "text-indigo-200",
@@ -250,15 +260,6 @@ export default function TrainerApp() {
             iconBg: "from-amber-500/30 to-orange-600/30",
             iconBorder: "border-amber-400/30",
             iconText: "text-amber-200",
-            valueAccent: "text-white",
-        },
-        {
-            label: "ยกเลิก",
-            value: cancelCount,
-            icon: XCircle,
-            iconBg: "from-rose-500/30 to-pink-600/30",
-            iconBorder: "border-rose-400/30",
-            iconText: "text-rose-200",
             valueAccent: "text-white",
         },
         {

@@ -33,33 +33,33 @@ export async function POST(
   }
 
   const prefix = buildPrefix(id, folder);
-  const uploadedPaths: string[] = [];
 
-  for (const file of files) {
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const key = `${prefix}${file.name}`;
-
-    try {
+  try {
+    // Upload files to S3 in parallel — saves wall-clock time when the trainer
+    // queues multiple photos in one Save click on a slow field connection.
+    const uploadedPaths = await Promise.all(files.map(async (file) => {
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const key = `${prefix}${file.name}`;
       await s3.send(new PutObjectCommand({
         Bucket: BUCKET_NAME,
         Key: key,
         Body: buffer,
         ContentType: file.type,
       }));
-      uploadedPaths.push(key);
       console.log(`✅ Uploaded: ${key}`);
-    } catch (err) {
-      console.error('S3 Upload Error:', err);
-      return NextResponse.json({ error: `Upload failed: ${file.name}` }, { status: 500 });
-    }
-  }
+      return key;
+    }));
 
-  return NextResponse.json({
-    success: true,
-    paths: uploadedPaths,
-    message: `อัปโหลดไฟล์ ${files.length} ไฟล์สำเร็จ`,
-  });
+    return NextResponse.json({
+      success: true,
+      paths: uploadedPaths,
+      message: `อัปโหลดไฟล์ ${files.length} ไฟล์สำเร็จ`,
+    });
+  } catch (err) {
+    console.error('S3 Upload Error:', err);
+    return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
+  }
 }
 
 export async function GET(

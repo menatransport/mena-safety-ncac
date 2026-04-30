@@ -31,15 +31,15 @@ type StatusToken = {
 
 const STATUS_MAP: Record<string, StatusToken> = {
     Pending: {
-        label: "Pending",
+        label: "รอดำเนินการ",
         Icon: Clock3,
         accent: "text-amber-600",
         soft: "bg-amber-50",
         ring: "ring-amber-200/70",
         dot: "bg-amber-500",
     },
-    "Completed Investigate": {
-        label: "Completed",
+    "Completed": {
+        label: "เสร็จสิ้น",
         Icon: CheckCircle2,
         accent: "text-emerald-600",
         soft: "bg-emerald-50",
@@ -47,7 +47,7 @@ const STATUS_MAP: Record<string, StatusToken> = {
         dot: "bg-emerald-500",
     },
     Voided: {
-        label: "Voided",
+        label: "ยกเลิก",
         Icon: XCircle,
         accent: "text-rose-600",
         soft: "bg-rose-50",

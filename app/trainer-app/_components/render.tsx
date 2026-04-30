@@ -14,6 +14,7 @@
 import { User, CalendarDays, FileText, Upload, Trash2, Eye, X, Plus, XCircle, Save } from "lucide-react";
 import { DateTimePicker24h } from "@/components/ui/datetime-picker";
 import { useState, useRef, useCallback, useEffect } from "react";
+import Swal from "sweetalert2";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import type { FormField } from "../type";
@@ -101,123 +102,123 @@ export const FormRender = ({ title, details, icon, formData, isSubmit, onChange,
                         ? "text-base sm:text-lg font-semibold text-white/85"
                         : "text-lg font-bold text-white/85";
                     return (
-                    <div key={field.fieldKey} className={wrapperClass}>
-                        {/* Label */}
-                        <div className={labelClass}>
-                            {typeof field.icon === "string" ? ICON_MAP[field.icon] ?? ICON_MAP["text"] : field.icon}
-                            <span className={labelTextClass}>{field.label}</span>
-                        </div>
+                        <div key={field.fieldKey} className={wrapperClass}>
+                            {/* Label */}
+                            <div className={labelClass}>
+                                {typeof field.icon === "string" ? ICON_MAP[field.icon] ?? ICON_MAP["text"] : field.icon}
+                                <span className={labelTextClass}>{field.label}</span>
+                            </div>
 
-                        {/* Input */}
-                        <div className="flex-1 min-w-0">
-                            {field.type === "tags" ? (
-                                <TagsField
-                                    values={field.values ?? []}
-                                    readonly={field.readonly}
-                                    onChangeArray={(vals) => onChangeArray?.(field.fieldKey, vals)}
-                                />
-                            ) : field.type === "date" ? (
-                                <DateTimePicker24h
-                                    value={getCurrentValue(field.fieldKey, field.value) ? new Date(getCurrentValue(field.fieldKey, field.value)) : undefined}
-                                    usedFor="date"
-                                    disabled={field.readonly}
-                                    variant="dark"
-                                    onChange={(date) => {
-                                        if (date) {
-                                            const yyyy = date.getFullYear();
-                                            const mm = String(date.getMonth() + 1).padStart(2, "0");
-                                            const dd = String(date.getDate()).padStart(2, "0");
-                                            handleChange(field.fieldKey, `${yyyy}-${mm}-${dd}`);
-                                        }
-                                    }}
-                                />
-                            ) : field.type === "textarea" ? (
-                                <textarea
-                                    value={getCurrentValue(field.fieldKey, field.value)}
-                                    rows={3}
-                                    readOnly={field.readonly}
-                                    placeholder={field.readonly ? "—" : "พิมพ์ที่นี่..."}
-                                    onChange={(e) => handleChange(field.fieldKey, e.target.value)}
-                                    className={`w-full rounded-xl p-3 text-base placeholder:text-white/30 outline-none resize-y transition-colors ${field.readonly
-                                        ? "cursor-not-allowed font-bold text-teal-200 bg-white/5 border border-white/10"
-                                        : "text-white bg-white/5 border border-white/15 focus:border-teal-400/60 focus:ring-1 focus:ring-teal-400/20"
-                                        }`}
-                                />
-                            ) : field.type === "upload" ? (
-                                <FileUploadField
-                                    fieldKey={field.fieldKey}
-                                    readonly={field.readonly}
-                                    onChange={handleChange}
-                                    uploadConfig={uploadConfig}
-                                    existingUpload={existingUploads?.[field.fieldKey]}
-                                />
-                            ) : field.type === "dropdown" ? (
-                                <SearchableSelect
-                                    options={field.options ?? []}
-                                    value={getCurrentValue(field.fieldKey, field.value)}
-                                    onChange={(val) => handleChange(field.fieldKey, String(val))}
-                                    placeholder="-- เลือก --"
-                                    disabled={field.readonly}
-                                    variant="dark"
-                                />
-                            ) : field.type === "checkbox" ? (
-                                <div className="space-y-2">
-                                    <div className={dense ? "grid grid-cols-2 xl:grid-cols-3 gap-1.5" : "grid grid-cols-2 sm:grid-cols-4 gap-2"}>
-                                        {field.options?.map((option) => {
-                                            const checked = getCurrentValue(field.fieldKey, field.value) === option.value;
+                            {/* Input */}
+                            <div className="flex-1 min-w-0">
+                                {field.type === "tags" ? (
+                                    <TagsField
+                                        values={field.values ?? []}
+                                        readonly={field.readonly}
+                                        onChangeArray={(vals) => onChangeArray?.(field.fieldKey, vals)}
+                                    />
+                                ) : field.type === "date" ? (
+                                    <DateTimePicker24h
+                                        value={getCurrentValue(field.fieldKey, field.value) ? new Date(getCurrentValue(field.fieldKey, field.value)) : undefined}
+                                        usedFor="date"
+                                        disabled={field.readonly}
+                                        variant="dark"
+                                        onChange={(date) => {
+                                            if (date) {
+                                                const yyyy = date.getFullYear();
+                                                const mm = String(date.getMonth() + 1).padStart(2, "0");
+                                                const dd = String(date.getDate()).padStart(2, "0");
+                                                handleChange(field.fieldKey, `${yyyy}-${mm}-${dd}`);
+                                            }
+                                        }}
+                                    />
+                                ) : field.type === "textarea" ? (
+                                    <textarea
+                                        value={getCurrentValue(field.fieldKey, field.value)}
+                                        rows={3}
+                                        readOnly={field.readonly}
+                                        placeholder={field.readonly ? "—" : "พิมพ์ที่นี่..."}
+                                        onChange={(e) => handleChange(field.fieldKey, e.target.value)}
+                                        className={`w-full rounded-xl p-3 text-base placeholder:text-white/30 outline-none resize-y transition-colors ${field.readonly
+                                            ? "cursor-not-allowed font-bold text-teal-200 bg-white/5 border border-white/10"
+                                            : "text-white bg-white/5 border border-white/15 focus:border-teal-400/60 focus:ring-1 focus:ring-teal-400/20"
+                                            }`}
+                                    />
+                                ) : field.type === "upload" ? (
+                                    <FileUploadField
+                                        fieldKey={field.fieldKey}
+                                        readonly={field.readonly}
+                                        onChange={handleChange}
+                                        uploadConfig={uploadConfig}
+                                        existingUpload={existingUploads?.[field.fieldKey]}
+                                    />
+                                ) : field.type === "dropdown" ? (
+                                    <SearchableSelect
+                                        options={field.options ?? []}
+                                        value={getCurrentValue(field.fieldKey, field.value)}
+                                        onChange={(val) => handleChange(field.fieldKey, String(val))}
+                                        placeholder="-- เลือก --"
+                                        disabled={field.readonly}
+                                        variant="dark"
+                                    />
+                                ) : field.type === "checkbox" ? (
+                                    <div className="space-y-2">
+                                        <div className={dense ? "grid grid-cols-2 xl:grid-cols-3 gap-1.5" : "grid grid-cols-2 sm:grid-cols-4 gap-2"}>
+                                            {field.options?.map((option) => {
+                                                const checked = getCurrentValue(field.fieldKey, field.value) === option.value;
 
-                                            return (
-                                                <label
-                                                    key={option.value}
-                                                    className={`flex items-center gap-2 rounded-lg border ${dense ? "px-2 py-1.5 text-sm" : "px-3 py-2 text-lg"} transition-colors ${field.readonly
-                                                        ? "cursor-not-allowed bg-white/5 border-white/10 text-teal-200 font-bold"
-                                                        : checked
-                                                            ? "border-teal-400/40 bg-teal-500/15 text-white hover:border-teal-400/60"
-                                                            : "border-white/10 bg-white/[0.03] text-white/80 hover:border-white/20 hover:bg-white/[0.06]"
-                                                        }`}
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={checked}
-                                                        disabled={field.readonly}
-                                                        onChange={(e) => handleChange(field.fieldKey, e.target.checked ? option.value : "")}
-                                                        className="h-4 w-4 rounded border-white/20 bg-white/10 text-teal-500 focus:ring-teal-400/40"
-                                                    />
-                                                    <span>{option.label}</span>
-                                                </label>
-                                            );
-                                        })}
+                                                return (
+                                                    <label
+                                                        key={option.value}
+                                                        className={`flex items-center gap-2 rounded-lg border ${dense ? "px-2 py-1.5 text-sm" : "px-3 py-2 text-lg"} transition-colors ${field.readonly
+                                                            ? "cursor-not-allowed bg-white/5 border-white/10 text-teal-200 font-bold"
+                                                            : checked
+                                                                ? "border-teal-400/40 bg-teal-500/15 text-white hover:border-teal-400/60"
+                                                                : "border-white/10 bg-white/[0.03] text-white/80 hover:border-white/20 hover:bg-white/[0.06]"
+                                                            }`}
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={checked}
+                                                            disabled={field.readonly}
+                                                            onChange={(e) => handleChange(field.fieldKey, e.target.checked ? option.value : "")}
+                                                            className="h-4 w-4 rounded border-white/20 bg-white/10 text-teal-500 focus:ring-teal-400/40"
+                                                        />
+                                                        <span>{option.label}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {getCurrentValue(field.fieldKey, field.value) === "ไม่ผ่าน" && (
+                                            <input
+                                                type="text"
+                                                value={getCurrentValue(`${field.fieldKey}_remark`, formData.find((item) => item.fieldKey === `${field.fieldKey}_remark`)?.value ?? "")}
+                                                readOnly={field.readonly}
+                                                placeholder={field.readonly ? "—" : "โปรดระบุเหตุผลหากไม่ผ่าน..."}
+                                                onChange={(e) => handleChange(`${field.fieldKey}_remark`, e.target.value)}
+                                                className={`w-full rounded-xl h-11 px-3 text-base placeholder:text-white/30 outline-none transition-colors ${field.readonly
+                                                    ? "cursor-not-allowed font-bold text-teal-200 bg-white/5 border border-white/10"
+                                                    : "text-white bg-white/5 border border-white/15 focus:border-teal-400/60 focus:ring-1 focus:ring-teal-400/20"
+                                                    }`}
+                                            />
+                                        )}
                                     </div>
-
-                                    {getCurrentValue(field.fieldKey, field.value) === "ไม่ผ่าน" && (
-                                        <input
-                                            type="text"
-                                            value={getCurrentValue(`${field.fieldKey}_remark`, formData.find((item) => item.fieldKey === `${field.fieldKey}_remark`)?.value ?? "")}
-                                            readOnly={field.readonly}
-                                            placeholder={field.readonly ? "—" : "โปรดระบุเหตุผลหากไม่ผ่าน..."}
-                                            onChange={(e) => handleChange(`${field.fieldKey}_remark`, e.target.value)}
-                                            className={`w-full rounded-xl h-11 px-3 text-base placeholder:text-white/30 outline-none transition-colors ${field.readonly
-                                                ? "cursor-not-allowed font-bold text-teal-200 bg-white/5 border border-white/10"
-                                                : "text-white bg-white/5 border border-white/15 focus:border-teal-400/60 focus:ring-1 focus:ring-teal-400/20"
-                                                }`}
-                                        />
-                                    )}
-                                </div>
-                            ) : (
-                                <input
-                                    type="text"
-                                    value={getCurrentValue(field.fieldKey, field.value)}
-                                    readOnly={field.readonly}
-                                    placeholder={field.readonly ? "—" : "พิมพ์ที่นี่..."}
-                                    onChange={(e) => handleChange(field.fieldKey, e.target.value)}
-                                    className={`w-full rounded-xl h-11 px-3 text-base placeholder:text-white/30 outline-none transition-colors ${field.readonly
-                                        ? "cursor-not-allowed font-bold text-teal-200 bg-white/5 border border-white/10"
-                                        : "text-white bg-white/5 border border-white/15 focus:border-teal-400/60 focus:ring-1 focus:ring-teal-400/20"
-                                        }`}
-                                />
-                            )}
+                                ) : (
+                                    <input
+                                        type="text"
+                                        value={getCurrentValue(field.fieldKey, field.value)}
+                                        readOnly={field.readonly}
+                                        placeholder={field.readonly ? "—" : "พิมพ์ที่นี่..."}
+                                        onChange={(e) => handleChange(field.fieldKey, e.target.value)}
+                                        className={`w-full rounded-xl h-11 px-3 text-base placeholder:text-white/30 outline-none transition-colors ${field.readonly
+                                            ? "cursor-not-allowed font-bold text-teal-200 bg-white/5 border border-white/10"
+                                            : "text-white bg-white/5 border border-white/15 focus:border-teal-400/60 focus:ring-1 focus:ring-teal-400/20"
+                                            }`}
+                                    />
+                                )}
+                            </div>
                         </div>
-                    </div>
                     );
                 })}
             </div>
@@ -291,9 +292,45 @@ function TagsField({ values, readonly, onChangeArray }: { values: string[]; read
     );
 }
 
-/* ── File Upload with Drag & Drop + S3 ── */
+/* ── Compress an image File to JPEG (max edge px, given quality). Returns the
+     original File when input isn't a raster image (e.g. PDF) or compression
+     produces a larger result. Keeps EXIF orientation via createImageBitmap. ── */
+async function compressImage(
+    file: File,
+    fieldKey: string,
+    maxEdge = 1600,
+    quality = 0.82,
+): Promise<File> {
+    if (!file.type.startsWith("image/") || file.type === "image/gif") return file;
+    try {
+        const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" } as ImageBitmapOptions);
+        const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+        const w = Math.round(bitmap.width * scale);
+        const h = Math.round(bitmap.height * scale);
+        const canvas = typeof OffscreenCanvas !== "undefined"
+            ? new OffscreenCanvas(w, h)
+            : Object.assign(document.createElement("canvas"), { width: w, height: h });
+        const ctx = (canvas as any).getContext("2d");
+        if (!ctx) return file;
+        ctx.drawImage(bitmap, 0, 0, w, h);
+        bitmap.close?.();
+        const blob: Blob | null = canvas instanceof OffscreenCanvas
+            ? await canvas.convertToBlob({ type: "image/jpeg", quality })
+            : await new Promise((r) => (canvas as HTMLCanvasElement).toBlob(r, "image/jpeg", quality));
+        if (!blob || blob.size >= file.size) return new File([file], `${fieldKey}.jpg`, { type: file.type });
+        return new File([blob], `${fieldKey}.jpg`, { type: "image/jpeg" });
+    } catch {
+        return file;
+    }
+}
+
+/* ── File Upload with Drag & Drop + S3 ──
+   • deferred=true: do NOT upload on file pick. Show local preview, hand the
+     compressed File to parent via onPendingFile so it can batch-upload on Save.
+   • deferred=false (default): upload to S3 immediately (legacy behaviour). ── */
 export function FileUploadField({
     fieldKey, readonly, onChange, uploadConfig, existingUpload, onPreview, previewTitle,
+    deferred, onPendingFile,
 }: {
     fieldKey: string;
     readonly?: boolean;
@@ -302,6 +339,8 @@ export function FileUploadField({
     existingUpload?: { url: string; s3Key: string };
     onPreview?: (p: { url: string; title: string }) => void;
     previewTitle?: string;
+    deferred?: boolean;
+    onPendingFile?: (fieldKey: string, file: File | null) => void;
 }) {
     const [preview, setPreview] = useState<string | null>(existingUpload?.url ?? null);
     const [s3Key, setS3Key] = useState<string | null>(existingUpload?.s3Key ?? null);
@@ -321,12 +360,27 @@ export function FileUploadField({
     const handleFile = useCallback(async (file: File) => {
         if (!file.type.startsWith("image/") && !file.type.startsWith("application/pdf")) return;
 
+        // Compress images up-front so deferred preview & later upload share the
+        // same lightweight payload.
+        const compressed = await compressImage(file, fieldKey);
+
+        // Deferred: hand File to parent and just show local preview.
+        if (deferred) {
+            const reader = new FileReader();
+            reader.onload = (e) => setPreview(e.target?.result as string);
+            reader.readAsDataURL(compressed);
+            onPendingFile?.(fieldKey, compressed);
+            // Mark field as "pending upload" so caller knows there's a file to save.
+            onChange?.(fieldKey, "__pending__");
+            return;
+        }
+
         if (uploadConfig) {
             // Upload to S3 immediately
             setUploading(true);
             try {
-                const ext = file.name.substring(file.name.lastIndexOf('.'));
-                const renamedFile = new File([file], `${fieldKey}${ext}`, { type: file.type });
+                const ext = compressed.name.substring(compressed.name.lastIndexOf('.'));
+                const renamedFile = new File([compressed], `${fieldKey}${ext}`, { type: compressed.type });
                 const formData = new FormData();
                 formData.append('files', renamedFile);
                 const res = await fetch(uploadConfig.apiUrl, { method: 'POST', body: formData });
@@ -335,7 +389,7 @@ export function FileUploadField({
                 // Show local preview
                 const reader = new FileReader();
                 reader.onload = (e) => setPreview(e.target?.result as string);
-                reader.readAsDataURL(file);
+                reader.readAsDataURL(compressed);
                 setS3Key(paths[0]);
                 onChange?.(fieldKey, paths[0]);
             } catch (e) {
@@ -351,9 +405,9 @@ export function FileUploadField({
                 setPreview(result);
                 onChange?.(fieldKey, result);
             };
-            reader.readAsDataURL(file);
+            reader.readAsDataURL(compressed);
         }
-    }, [fieldKey, onChange, uploadConfig]);
+    }, [fieldKey, onChange, uploadConfig, deferred, onPendingFile]);
 
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
@@ -364,16 +418,60 @@ export function FileUploadField({
     }, [readonly, handleFile]);
 
     const handleDelete = async () => {
+        // Toast helper — top-end mini-popup so it doesn't block the form.
+        const toast = (icon: "success" | "error", title: string) =>
+            Swal.fire({
+                toast: true,
+                position: "top-end",
+                icon,
+                title,
+                showConfirmButton: false,
+                timer: 1800,
+                timerProgressBar: true,
+            });
+
+        // Deferred mode: only clear pending file. If a remote file already
+        // exists, also fire DELETE so the user truly removes it on Save flow.
+        if (deferred) {
+            onPendingFile?.(fieldKey, null);
+            if (uploadConfig && s3Key) {
+                try {
+                    const res = await fetch(uploadConfig.apiUrl, {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ key: s3Key }),
+                    });
+                    if (!res.ok) throw new Error(`delete ${res.status}`);
+                    toast("success", "ลบรูปสำเร็จ");
+                } catch (e) {
+                    console.error("Delete failed:", e);
+                    toast("error", "ลบรูปไม่สำเร็จ");
+                }
+            } else {
+                toast("success", "ลบรูปสำเร็จ");
+            }
+            setPreview(null);
+            setS3Key(null);
+            onChange?.(fieldKey, "");
+            if (inputRef.current) inputRef.current.value = "";
+            return;
+        }
+
         if (uploadConfig && s3Key) {
             try {
-                await fetch(uploadConfig.apiUrl, {
+                const res = await fetch(uploadConfig.apiUrl, {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ key: s3Key }),
                 });
+                if (!res.ok) throw new Error(`delete ${res.status}`);
+                toast("success", "ลบรูปสำเร็จ");
             } catch (e) {
                 console.error("Delete failed:", e);
+                toast("error", "ลบรูปไม่สำเร็จ");
             }
+        } else {
+            toast("success", "ลบรูปสำเร็จ");
         }
         setPreview(null);
         setS3Key(null);
@@ -399,9 +497,38 @@ export function FileUploadField({
                         alt="preview"
                         className="w-full max-h-48 object-contain bg-gradient-to-br from-slate-800/60 to-slate-900/60"
                     />
-                    {/* Subtle bottom gradient for action affordance */}
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {/* Subtle bottom gradient for action affordance (desktop hover only) */}
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/50 to-transparent opacity-0 sm:group-hover:opacity-100 transition-opacity" />
+                    {/* Mobile: always-visible action bar at top-right (no hover available).
+                        Desktop (sm+): centered overlay revealed on hover. */}
+                    <div className="absolute top-1.5 right-1.5 z-10 flex items-center gap-1.5 sm:hidden">
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (onPreview && preview) {
+                                    onPreview({ url: preview, title: previewTitle ?? fieldKey });
+                                } else {
+                                    setFullscreen(true);
+                                }
+                            }}
+                            className="p-2 rounded-full bg-black/55 text-white border border-white/25 backdrop-blur-md shadow-md active:scale-95 transition"
+                            aria-label="ดูรูปเต็ม"
+                        >
+                            <Eye size={16} />
+                        </button>
+                        {!readonly && (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+                                className="p-2 rounded-full bg-rose-600/80 text-white border border-rose-300/40 backdrop-blur-md shadow-md active:scale-95 transition"
+                                aria-label="ลบรูป"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        )}
+                    </div>
+                    <div className="hidden sm:flex absolute inset-0 items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                             type="button"
                             onClick={(e) => {

@@ -650,12 +650,13 @@ export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask
 
                                     <div>
                                         <label className="block text-sm font-medium text-slate-700 mb-1.5">เทรนเนอร์</label>
-                                        <ResponsiveSelect
-                                            options={(createform?.trainer ?? [])
-                                                .filter(u => u.position === "Safety Trainer")
-                                                .map(u => ({
-                                                    value: u.employee_id,
-                                                    label: `${u.firstname} ${u.lastname}`,
+                                      
+                                            <ResponsiveSelect
+                                                options={(createform?.trainer ?? [])
+                                                    .filter(u => !lockRole || u.position === "Safety Trainer")
+                                                    .map(u => ({
+                                                        value: u.employee_id,
+                                                        label: `${u.firstname} ${u.lastname}`,
                                                 }))}
                                             value={newTask.trainer_id || ""}
                                             onChange={(val) => {
@@ -665,6 +666,7 @@ export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask
                                             placeholder="เลือกเทรนเนอร์"
                                             disabled={lockRole}
                                         />
+                                      
                                     </div>
 
                                     <div>

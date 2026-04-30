@@ -17,8 +17,23 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import type { Task } from "../type";
-import { TASK_TABLE_STATUS, TASK_TABLE_ROWS_PER_PAGE } from "../constant";
+import { TASK_TABLE_STATUS, TASK_TABLE_ROWS_PER_PAGE, CALENDAR_MONTHS_TH_SHORT } from "../constant";
 import { LordIcon } from "@/components/LordIcon";
+
+/* -------------------------------------------------------------------------- */
+/*  Date formatter – "d ม.ค. yyyy" (Thai short month, ค.ศ.)                   */
+/* -------------------------------------------------------------------------- */
+function fmtThaiDate(value: string | null | undefined): string {
+    if (!value) return "—";
+    const raw = String(value).slice(0, 10);
+    const parts = raw.split("-");
+    if (parts.length !== 3) return value as string;
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    if (isNaN(y) || isNaN(m) || isNaN(d) || m < 1 || m > 12) return value as string;
+    return `${d} ${CALENDAR_MONTHS_TH_SHORT[m - 1]} ${y}`;
+}
 
 /* -------------------------------------------------------------------------- */
 /*  Status badge                                                              */
@@ -36,7 +51,7 @@ function StatusBadge({ status }: { status: string | null }) {
 /* -------------------------------------------------------------------------- */
 /*  Types & Props                                                             */
 /* -------------------------------------------------------------------------- */
-type SortField = "plan_date" | "client_name" | "plant_code" | "trainer_id" | "inspection_task_status" | "inspection_task_id";
+type SortField = "plan_date" | "client_name" | "plant_code" | "trainer_id" | "inspection_task_status" | "inspection_task_id" | "created_at" | "updated_at" | "action_date";
 type SortDir = "asc" | "desc";
 
 interface TaskTableProps {
@@ -53,7 +68,7 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
     const [sortField, setSortField] = useState<SortField>("plan_date");
     const [sortDir, setSortDir] = useState<SortDir>("desc");
     const [page, setPage] = useState(1);
-
+    console.log('tasks: ', tasks);
     /* ──── Sorting ──── */
     const sorted = useMemo(() => {
         return [...tasks].sort((a, b) => {
@@ -80,31 +95,32 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
             : <ArrowDown size={14} className="text-teal-300" />;
     };
 
+    
+
+    const columns: { field: SortField; label: string }[] = [
+        { field: "inspection_task_id", label: "Task ID" },
+        { field: "created_at", label: "สร้างเมื่อ" },
+        { field: "plan_date", label: "วันที่ลงแผน" },
+        { field: "action_date", label: "วันที่ดำเนินการ" },
+        { field: "plant_code", label: "Plant" },
+        { field: "client_name", label: "ลูกค้า" },
+        { field: "trainer_id", label: "Trainer" },
+        { field: "inspection_task_status", label: "สถานะ" },
+        { field: "updated_at", label: "อัปเดตเมื่อ" },
+    ];
+
+    const DATE_FIELDS: SortField[] = ["plan_date", "action_date", "created_at", "updated_at"];
     const exportExcel = () => {
-        const rows = sorted.map((t) => ({
-            "Task ID": t.inspection_task_id,
-            "Trainer": t.trainer_id,
-            "ลูกค้า": t.client_name,
-            "Plant": t.plant_name || t.plant_code,
-            "ลงแผน": t.plan_date,
-            "วันดำเนินการ": t.action_date ?? "-",
-            "สถานะ": TASK_TABLE_STATUS[t.inspection_task_status ?? ""]?.label ?? t.inspection_task_status ?? "-",
-        }));
+        const rows = sorted.map((t) => (columns.reduce((acc, col) => ({
+            ...acc,
+            [col.label]: DATE_FIELDS.includes(col.field) ? fmtThaiDate(t[col.field] as string) : (t[col.field] ?? ""),
+        }), {})));
         const ws = XLSX.utils.json_to_sheet(rows);
         ws["!cols"] = Object.keys(rows[0] || {}).map(() => ({ wch: 18 }));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Inspection Tasks");
         XLSX.writeFile(wb, `inspection_tasks_${new Date().toISOString().slice(0, 10)}.xlsx`);
     };
-
-    const columns: { field: SortField; label: string }[] = [
-        { field: "inspection_task_id", label: "Task ID" },
-        { field: "plan_date", label: "วันที่" },
-        { field: "plant_code", label: "Plant" },
-        { field: "client_name", label: "ลูกค้า" },
-        { field: "trainer_id", label: "Trainer" },
-        { field: "inspection_task_status", label: "สถานะ" },
-    ];
 
     return (
         <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm shadow-lg shadow-black/10 overflow-hidden relative">
@@ -175,7 +191,7 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
                     <tbody className="divide-y divide-white/5">
                         {paginated.length === 0 ? (
                             <tr>
-                                <td colSpan={7} className="py-16 text-center">
+                                <td colSpan={columns.length + 1} className="py-16 text-center">
                                     <div className="flex flex-col items-center gap-2 text-white/40">
                                         <Inbox size={32} strokeWidth={1.2} />
                                         <p className="text-sm font-medium">ไม่พบรายการ</p>
@@ -193,10 +209,16 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
                                         <span className="font-medium">{task.inspection_task_id}</span>
                                     </td>
                                     <td className="px-2 py-3 text-xs text-white/70 whitespace-nowrap">
-                                        {task.plan_date}
+                                        {fmtThaiDate(task.created_at)}
                                     </td>
                                     <td className="px-2 py-3 text-xs text-white/70 whitespace-nowrap">
-                                        {task.plant_name || task.plant_code}
+                                        {fmtThaiDate(task.plan_date)}
+                                    </td>
+                                    <td className="px-2 py-3 text-xs text-white/70 whitespace-nowrap">
+                                        {fmtThaiDate(task.action_date)}
+                                    </td>
+                                    <td className="px-2 py-3 text-xs text-white/70 whitespace-nowrap">
+                                        {task.plant_name || task.plant_code || "—"}
                                     </td>
                                     <td className="px-2 py-3 text-xs text-white/70 max-w-[140px] truncate" title={task.client_name || "—"}>
                                         {task.client_name || "—"}
@@ -206,6 +228,9 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
                                     </td>
                                     <td className="px-2 py-3">
                                         <StatusBadge status={task.inspection_task_status} />
+                                    </td>
+                                    <td className="px-2 py-3 text-xs text-white/70 whitespace-nowrap">
+                                        {fmtThaiDate(task.updated_at)}
                                     </td>
                                     <td className="px-2 py-3">
                                         <div className="flex justify-center gap-2">
@@ -269,7 +294,7 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
                                     <h3 className="text-base font-bold text-white tracking-tight truncate">{task.inspection_task_id}</h3>
                                     <p className="text-[11px] text-white/50 mt-1 flex items-center gap-1.5">
                                         <span className="inline-block w-1 h-1 rounded-full bg-white/40" />
-                                        วันที่ลงแผน {task.plan_date || "—"}
+                                        วันที่ลงแผน {fmtThaiDate(task.plan_date)}
                                     </p>
                                 </div>
                                 <StatusBadge status={task.inspection_task_status} />
@@ -301,7 +326,7 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
                                 <div className="rounded-lg bg-white/[0.04] border border-white/10 px-2.5 py-2">
                                     <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">วันดำเนินการ</p>
                                     <p className="text-xs text-white/90 font-medium mt-0.5 truncate">
-                                        {task.action_date || "—"}
+                                        {fmtThaiDate(task.action_date)}
                                     </p>
                                 </div>
                             </div>

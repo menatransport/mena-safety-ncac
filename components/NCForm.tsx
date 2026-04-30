@@ -1,5 +1,5 @@
 ﻿"use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { DateTimePicker24h } from "./ui/datetime-picker";
 import { SearchableSelect } from "./ui/searchable-select";
@@ -100,6 +100,56 @@ export const NCFormComponent = () => {
   const [actionExistingFiles, setActionExistingFiles] = useState<{ [actionId: number]: { key: string; fileName: string; url: string }[] }>({});
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [masterrootcauses, setMasterrootcauses] = useState<any[]>([]);
+  const investigateSnapshotRef = useRef<string>("");
+
+  const buildInvestigateSnapshot = () =>
+    JSON.stringify({
+      formInvestigate,
+      corrective_actions,
+    });
+
+  const isInvestigateDirty = () => {
+    if (!investigateSnapshotRef.current) return false;
+    const hasPendingFiles = Object.values(actionFiles || {}).some(
+      (arr) => Array.isArray(arr) && arr.length > 0
+    );
+    return hasPendingFiles || buildInvestigateSnapshot() !== investigateSnapshotRef.current;
+  };
+
+  const focusFieldByName = (name: string) => {
+    setTimeout(() => {
+      const el = document.querySelector(`[name="${name}"]`) as HTMLElement | null;
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        (el as HTMLInputElement).focus?.();
+      }
+    }, 150);
+  };
+
+  const switchToInitialAndFocus = (name: string) => {
+    if (thisform !== "initial") {
+      thisformtype("initial");
+      setTimeout(() => focusFieldByName(name), 400);
+    } else {
+      focusFieldByName(name);
+    }
+  };
+
+  const focusFirstIncompleteAction = () => {
+    const incomplete = corrective_actions?.find(
+      (a) => !a.plan_date || !a.action_completed_date
+    );
+    if (!incomplete) return;
+    setTimeout(() => {
+      const el = document.querySelector(
+        `textarea[data-action-id="${incomplete.action_id}"]`
+      ) as HTMLElement | null;
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        (el as HTMLInputElement).focus?.();
+      }
+    }, 150);
+  };
 
   const [filteredData, setFilteredData] = useState<{
     masterdrivers?: any[];
@@ -281,7 +331,7 @@ export const NCFormComponent = () => {
             const res_root = await fetch(
               `/api/list`,
               {
-              method: "GET",
+                method: "GET",
                 headers: {
                   "Content-Type": "application/json",
                   "X-Api-Path": api,
@@ -295,24 +345,27 @@ export const NCFormComponent = () => {
               // console.log("Fetched root causes data:", rootData);
               setMasterrootcauses(rootData);
               setFormInvestigate(data);
-              if (data.corrective_actions && data.corrective_actions.length > 0) {
-                setCorrectiveActions(
-                  data.corrective_actions.map((action: any, index: number) => ({
-                    ...action,
-                    action_id: index + 1,
-                  })) as any
-                );
-              } else {
-                setCorrectiveActions([
-                  {
-                    action_id: 1,
-                    corrective_action: "",
-                    pic_contract: "",
-                    plan_date: null,
-                    action_completed_date: null,
-                  },
-                ] as any);
-              }
+              const loadedActions =
+                data.corrective_actions && data.corrective_actions.length > 0
+                  ? data.corrective_actions.map((action: any, index: number) => ({
+                      ...action,
+                      action_id: index + 1,
+                    }))
+                  : [
+                      {
+                        action_id: 1,
+                        corrective_action: "",
+                        pic_contract: "",
+                        plan_date: null,
+                        action_completed_date: null,
+                      },
+                    ];
+              setCorrectiveActions(loadedActions as any);
+              // snapshot for dirty check
+              investigateSnapshotRef.current = JSON.stringify({
+                formInvestigate: data,
+                corrective_actions: loadedActions,
+              });
             } else {
               console.error(
                 "Failed to fetch investigate data:",
@@ -821,7 +874,7 @@ export const NCFormComponent = () => {
     }
   };
 
-  
+
 
   const finditems = (type: string, itemName: string) => {
     let obj = {};
@@ -1311,12 +1364,17 @@ export const NCFormComponent = () => {
       });
       setFormData((prev) => ({
         ...prev,
-        casestatus: "Completed Investigate",
+        casestatus: "Completed",
       }));
       // Upload action files to S3
       if (formData.document_no) {
         await uploadActionFiles(formData.document_no);
       }
+      // refresh snapshot for dirty check
+      investigateSnapshotRef.current = JSON.stringify({
+        formInvestigate,
+        corrective_actions,
+      });
     } else {
       sendErrorLog("NCForm/handleSubmitInvestigate", `Investigate update failed: ${responseData.message || 'Unknown error'} แนบ : ${JSON.stringify(data)}`);
       Swal.fire({
@@ -1358,6 +1416,11 @@ export const NCFormComponent = () => {
       if (formData.document_no) {
         await uploadActionFiles(formData.document_no);
       }
+      // refresh snapshot for dirty check
+      investigateSnapshotRef.current = JSON.stringify({
+        formInvestigate,
+        corrective_actions,
+      });
     }
     else {
       sendErrorLog("NCForm/handleUpdateInvestigate", `Investigate update failed: ${responseData.message || 'Unknown error'}`);
@@ -1367,6 +1430,164 @@ export const NCFormComponent = () => {
         draggable: true,
         confirmButtonText: "ตกลง",
         allowOutsideClick: false,
+      });
+    }
+  }
+
+  const handleCloseCase = async () => {
+    if (!formData.document_no)
+      return Swal.fire({
+        icon: "error",
+        title: "ไม่พบเลขที่เอกสารนี้",
+        text: "โปรดลองใหม่อีกครั้ง",
+        confirmButtonText: "ตกลง",
+      });
+
+    const warn = (title: string, onClose?: () => void) =>
+      Swal.fire({
+        icon: "warning",
+        title,
+        confirmButtonText: "ตกลง",
+        confirmButtonColor: "#d33",
+      }).then(() => {
+        onClose?.();
+      });
+
+    // 0) ตรวจสอบว่ามีการแก้ไขข้อมูลที่ยังไม่ได้บันทึกหรือไม่
+    if (isInvestigateDirty()) {
+      return warn(
+        "พบการแก้ไขที่ยังไม่ได้บันทึก กรุณากดปุ่ม 'อัปเดตข้อมูล' ก่อนปิดเคส"
+      );
+    }
+
+    // 1) Actual Cost (อยู่ในส่วน Initial)
+    if (!formData.actual_price || Number(formData.actual_price) === 0) {
+      return warn("กรุณากรอกมูลค่าจริง (Actual Cost) ก่อนปิดเคส", () =>
+        switchToInitialAndFocus("actual_price")
+      );
+    }
+
+    // 2) Root Cause
+    if (!formInvestigate.root_cause || formInvestigate.root_cause === "") {
+      return warn("กรุณากรอกสาเหตุหลัก (Root Cause) ก่อนปิดเคส", () =>
+        focusFieldByName("root_cause_analysis")
+      );
+    }
+
+    // 3) Root Cause Analysis
+    if (
+      !formInvestigate.root_cause_analysis ||
+      formInvestigate.root_cause_analysis === ""
+    ) {
+      return warn(
+        "กรุณากรอกการวิเคราะห์สาเหตุ (Cause Analysis) ก่อนปิดเคส",
+        () => focusFieldByName("root_cause_analysis")
+      );
+    }
+
+    // 4) Corrective Actions
+    const incompleteActions = corrective_actions?.filter(
+      (action) => !action.plan_date || !action.action_completed_date
+    );
+    if (incompleteActions && incompleteActions.length > 0) {
+      return warn(
+        "กรุณากรอกแผนมาตรการป้องกันให้ครบถ้วน ก่อนปิดเคส",
+        () => focusFirstIncompleteAction()
+      );
+    }
+
+    // 5) Claim Type
+    if (!formInvestigate.claim_type || formInvestigate.claim_type === "") {
+      return warn("กรุณากรอกประเภทการเคลม ก่อนปิดเคส", () =>
+        focusFieldByName("claim_type")
+      );
+    }
+
+    // 6) Claim values: ต้องมีอย่างน้อย 1 ค่ามากกว่า 0
+    const claimValues = [
+      Number(formInvestigate.insurance_claim) || 0,
+      Number(formInvestigate.product_resellable) || 0,
+      Number(formInvestigate.remaining_damage_cost) || 0,
+      Number(formInvestigate.driver_cost) || 0,
+      Number(formInvestigate.company_cost) || 0,
+    ];
+    if (!claimValues.some((v) => v > 0)) {
+      return warn(
+        "กรุณากรอกมูลค่าการเคลมและค่าใช้จ่าย ก่อนปิดเคส",
+        () => focusFieldByName("insurance_claim")
+      );
+    }
+
+    // 7) ยืนยันการปิดเคสอีกครั้ง
+    const confirmResult = await Swal.fire({
+      icon: "question",
+      title: "ยืนยันการปิดเคส",
+      html: `คุณต้องการปิดเคส <b>${formData.document_no}</b> ใช่หรือไม่?<br/><span style="font-size:12px;color:#888">เมื่อปิดแล้วสถานะจะเปลี่ยนเป็น <b style="color:#16a34a">เสร็จสิ้น</b></span>`,
+      showCancelButton: true,
+      confirmButtonText: "ยืนยันปิดเคส",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#16a34a",
+      cancelButtonColor: "#6b7280",
+      reverseButtons: true,
+      allowOutsideClick: false,
+    });
+    if (!confirmResult.isConfirmed) return;
+
+    // 8) ส่ง casestatus = Completed เข้าระบบ
+    try {
+      const {
+        priority,
+        reporter_name,
+        record_date,
+        site_name,
+        driver_name,
+        client_name,
+        department_name,
+        driver_role_name,
+        origin_name,
+        vehicle_head_plate,
+        vehicle_tail_plate,
+        ...filteredFormData
+      } = formData;
+
+      const payload = {
+        ...filteredFormData,
+        casestatus: "Completed",
+        incident_date: filteredFormData.incident_date
+          ? toThaiISO(new Date(filteredFormData.incident_date))
+          : filteredFormData.incident_date,
+      };
+
+      const res = await fetch("/api/document/nc", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || `HTTP ${res.status}`);
+      }
+
+      setFormData((prev) => ({ ...prev, casestatus: "Completed" }));
+      await Swal.fire({
+        icon: "success",
+        title: "ปิดเคสสำเร็จ",
+        text: `เอกสาร ${formData.document_no} ถูกปิดเรียบร้อยแล้ว`,
+        confirmButtonText: "ตกลง",
+        allowOutsideClick: false,
+      });
+    } catch (error) {
+      console.error("Error closing case:", error);
+      sendErrorLog(
+        "NCForm/handleCloseCase",
+        error instanceof Error ? error : String(error)
+      );
+      Swal.fire({
+        icon: "error",
+        title: "ปิดเคสไม่สำเร็จ",
+        text: error instanceof Error ? error.message : "Unknown error",
+        confirmButtonText: "ตกลง",
       });
     }
   }
@@ -2275,7 +2496,7 @@ export const NCFormComponent = () => {
                       <div className="grid grid-cols-1 gap-6">
                         <div>
                           <label className="block text-gray-700 font-medium mb-1 text-sm">
-                            สาเหตุหลัก (root cause): 
+                            สาเหตุหลัก (root cause):
                           </label>
                           <SearchableSelect
                             options={(masterrootcauses || []).map((cause: any) => ({
@@ -2343,63 +2564,63 @@ export const NCFormComponent = () => {
                         />
                       </div>
                     </div>
-                    <div className="p-6">
-                      <div className="overflow-x-auto">
-                        <table className="w-full border border-gray-300 mb-6 text-sm">
-                          <thead className="bg-gray-100">
-                            <tr>
-                              <th className="border border-gray-300 px-3 py-2 text-left font-medium text-gray-700 w-8">
-                                ลำดับ
-                              </th>
-                              <th className="border border-gray-300 px-3 py-2 text-left font-medium text-gray-700">
-                                มาตรการแก้ไขและป้องกัน
-                              </th>
-                              <th className="border border-gray-300 px-3 py-2 text-left font-medium text-gray-700 w-40">
-                                ผู้รับผิดชอบ
-                              </th>
-                              <th className="border border-gray-300 px-3 py-2 text-left font-medium text-gray-700 w-36">
-                                แผนดำเนินการ
-                              </th>
-                              <th className="border border-gray-300 px-3 py-2 text-left font-medium text-gray-700 w-36">
-                                ดำเนินการเสร็จ
-                              </th>
-                              <th className="border border-gray-300 px-3 py-2 text-left font-medium text-gray-700 w-36">
-                                แนบไฟล์หรือรูป
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white">
-                            {(corrective_actions || []).map((action, index) => (
-                              <tr key={action.action_id}>
-                                <td className="border border-gray-300 px-3 py-2 text-black text-center">
-                                  {index + 1}
-                                </td>
-                                <td className="border border-gray-300 px-3 py-2 text-black">
-                                  <textarea
-                                    value={action.corrective_action || ""}
-                                    data-action-id={action.action_id}
-                                    onChange={(e) => {
-                                      handleCorrectiveActionChange(
-                                        action.action_id,
-                                        "corrective_action",
-                                        e.target.value
-                                      );
-                                      // Auto resize on change
-                                      e.target.style.height = "auto";
-                                      e.target.style.height = `${Math.max(
-                                        50,
-                                        e.target.scrollHeight
-                                      )}px`;
-                                    }}
 
-                                    className={`w-full text-sm p-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black resize-none overflow-hidden ${isViewMode
-                                      ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
-                                      : "bg-white"
-                                      }`}
-                                    disabled={isViewMode}
-                                  />
-                                </td>
-                                <td className="border border-gray-300 px-3 py-2 text-black">
+                    <div className="p-3 sm:p-4">
+                      {((corrective_actions as any[]) || []).length === 0 && (
+                        <div className="text-center py-4 text-xs text-gray-500 border border-dashed border-gray-300 rounded">
+                          ยังไม่มีรายการ — กดปุ่ม + เพื่อเพิ่มมาตรการ
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        {(corrective_actions || []).map((action, index) => (
+                          <div
+                            key={action.action_id}
+                            className="border border-gray-300 rounded bg-white"
+                          >
+                            {/* Card Header */}
+                            <div className="flex items-center bg-gray-100 px-3 py-1.5 border-b border-gray-300">
+                              <span className="text-xs font-semibold text-gray-700">
+                                มาตรการที่ {index + 1}
+                              </span>
+                            </div>
+
+                            {/* Card Body */}
+                            <div className="p-3 space-y-2.5">
+                              {/* Corrective action - full width */}
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  มาตรการแก้ไขและป้องกัน
+                                </label>
+                                <textarea
+                                  value={action.corrective_action || ""}
+                                  data-action-id={action.action_id}
+                                  rows={2}
+                                  onChange={(e) => {
+                                    handleCorrectiveActionChange(
+                                      action.action_id,
+                                      "corrective_action",
+                                      e.target.value
+                                    );
+                                    e.target.style.height = "auto";
+                                    e.target.style.height = `${Math.max(
+                                      48,
+                                      e.target.scrollHeight
+                                    )}px`;
+                                  }}
+                                  className={`w-full text-sm px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-[#cfe5d0] focus:outline-none text-black resize-none overflow-hidden ${isViewMode
+                                    ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                    : "bg-white"
+                                    }`}
+                                  disabled={isViewMode}
+                                />
+                              </div>
+
+                              {/* Responsible + Dates */}
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                                    ผู้รับผิดชอบ
+                                  </label>
                                   <input
                                     type="text"
                                     value={action.pic_contract}
@@ -2410,14 +2631,17 @@ export const NCFormComponent = () => {
                                         e.target.value
                                       )
                                     }
-                                    className={`w-full text-sm p-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                                    className={`w-full text-sm px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
                                       ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
                                       : "bg-white"
                                       }`}
                                     disabled={isViewMode}
                                   />
-                                </td>
-                                <td className="border border-gray-300 px-3 py-2 text-black">
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                                    แผนดำเนินการ
+                                  </label>
                                   <DateTimePicker24h
                                     value={
                                       action.plan_date
@@ -2434,8 +2658,11 @@ export const NCFormComponent = () => {
                                     disabled={isViewMode}
                                     usedFor="date"
                                   />
-                                </td>
-                                <td className="border border-gray-300 px-3 py-2 text-black">
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                                    ดำเนินการเสร็จ
+                                  </label>
                                   <DateTimePicker24h
                                     value={
                                       action.action_completed_date
@@ -2452,85 +2679,98 @@ export const NCFormComponent = () => {
                                     disabled={isViewMode}
                                     usedFor="date"
                                   />
-                                </td>
-                                <td className="border border-gray-300 px-3 py-2 text-black">
-                                  <div className="flex flex-col gap-1 min-w-[100px]">
-                                    {/* Existing files from S3 */}
-                                    {(actionExistingFiles[action.action_id] || []).map((file) => (
-                                      <div key={file.key} className="flex items-center gap-1 text-xs bg-gray-50 p-1 rounded">
-                                        {/\.(jpg|jpeg|png|gif|webp)$/i.test(file.fileName) ? (
-                                          <img
-                                            src={file.url}
-                                            alt={file.fileName}
-                                            className="w-8 h-8 object-cover rounded cursor-pointer border hover:opacity-80"
-                                            onClick={() => setPreviewUrl(file.url)}
-                                          />
-                                        ) : (
-                                          <a
-                                            href={file.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-blue-600 underline truncate max-w-[80px] text-xs"
-                                          >
-                                            {file.fileName}
-                                          </a>
-                                        )}
-                                        {!isViewMode && (
-                                          <button
-                                            type="button"
-                                            onClick={() => removeActionExistingFile(action.action_id, file.key)}
-                                            className="text-red-400 hover:text-red-600 ml-auto"
-                                          >
-                                            <X className="w-3 h-3" />
-                                          </button>
-                                        )}
-                                      </div>
-                                    ))}
-                                    {/* New files (pending upload) */}
-                                    {(actionFiles[action.action_id] || []).map((file, fIdx) => (
-                                      <div key={fIdx} className="flex items-center gap-1 text-xs bg-blue-50 p-1 rounded">
-                                        {file.type.startsWith("image/") ? (
-                                          <img
-                                            src={URL.createObjectURL(file)}
-                                            alt={file.name}
-                                            className="w-8 h-8 object-cover rounded cursor-pointer border hover:opacity-80"
-                                            onClick={() => setPreviewUrl(URL.createObjectURL(file))}
-                                          />
-                                        ) : (
-                                          <span className="truncate max-w-[80px] text-xs">{file.name}</span>
-                                        )}
+                                </div>
+                              </div>
+
+                              {/* Attachments */}
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">
+                                  แนบไฟล์หรือรูป
+                                </label>
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {/* Existing files from S3 */}
+                                  {(actionExistingFiles[action.action_id] || []).map((file) => (
+                                    <div
+                                      key={file.key}
+                                      className="inline-flex items-center gap-1.5 text-xs bg-gray-50 border border-gray-300 px-1.5 py-1 rounded max-w-[200px]"
+                                    >
+                                      {/\.(jpg|jpeg|png|gif|webp)$/i.test(file.fileName) ? (
+                                        <img
+                                          src={file.url}
+                                          alt={file.fileName}
+                                          className="w-7 h-7 object-cover rounded-sm cursor-pointer border border-gray-200"
+                                          onClick={() => setPreviewUrl(file.url)}
+                                        />
+                                      ) : (
+                                        <a
+                                          href={file.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-blue-600 hover:underline truncate max-w-[130px]"
+                                        >
+                                          {file.fileName}
+                                        </a>
+                                      )}
+                                      {!isViewMode && (
                                         <button
                                           type="button"
-                                          onClick={() => removeActionNewFile(action.action_id, fIdx)}
-                                          className="text-red-400 hover:text-red-600 ml-auto"
+                                          onClick={() => removeActionExistingFile(action.action_id, file.key)}
+                                          className="text-gray-400 hover:text-red-600"
+                                          aria-label="ลบไฟล์"
                                         >
                                           <X className="w-3 h-3" />
                                         </button>
-                                      </div>
-                                    ))}
-                                    {/* Upload button */}
-                                    {!isViewMode && (
-                                      <label className="flex items-center gap-1 cursor-pointer text-xs text-gray-500 hover:text-blue-600 mt-1">
-                                        <Paperclip className="w-3.5 h-3.5" />
-                                        <span>แนบไฟล์</span>
-                                        <input
-                                          type="file"
-                                          multiple
-                                          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-                                          className="hidden"
-                                          onChange={(e) => {
-                                            handleActionFileChange(action.action_id, e.target.files);
-                                            e.target.value = "";
-                                          }}
+                                      )}
+                                    </div>
+                                  ))}
+                                  {/* New files (pending upload) */}
+                                  {(actionFiles[action.action_id] || []).map((file, fIdx) => (
+                                    <div
+                                      key={fIdx}
+                                      className="inline-flex items-center gap-1.5 text-xs bg-blue-50 border border-blue-200 px-1.5 py-1 rounded max-w-[200px]"
+                                    >
+                                      {file.type.startsWith("image/") ? (
+                                        <img
+                                          src={URL.createObjectURL(file)}
+                                          alt={file.name}
+                                          className="w-7 h-7 object-cover rounded-sm cursor-pointer border border-gray-200"
+                                          onClick={() => setPreviewUrl(URL.createObjectURL(file))}
                                         />
-                                      </label>
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                                      ) : (
+                                        <span className="truncate max-w-[130px]">{file.name}</span>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => removeActionNewFile(action.action_id, fIdx)}
+                                        className="text-gray-400 hover:text-red-600"
+                                        aria-label="ลบไฟล์"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                  {/* Upload button */}
+                                  {!isViewMode && (
+                                    <label className="inline-flex items-center gap-1 cursor-pointer text-xs text-gray-600 hover:text-blue-600 border border-gray-300 hover:border-blue-400 px-2 py-1 rounded">
+                                      <Paperclip className="w-3 h-3" />
+                                      <span>แนบไฟล์</span>
+                                      <input
+                                        type="file"
+                                        multiple
+                                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                          handleActionFileChange(action.action_id, e.target.files);
+                                          e.target.value = "";
+                                        }}
+                                      />
+                                    </label>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
@@ -2716,12 +2956,13 @@ export const NCFormComponent = () => {
                     thisform === "initial" && (
                       <button
                         type="button"
-                        className="py-2 px-4 cursor-pointer rounded-lg text-sm inline-block bg-gray-600 hover:bg-gray-700 focus:text-gray-600 focus:bg-gray-200 text-white font-semibold leading-loose transition duration-200"
+                        className="py-2 px-4 cursor-pointer rounded-lg text-sm inline-block bg-orange-600 hover:bg-orange-700 focus:text-yellow-600 focus:bg-yellow-200 text-white font-semibold leading-loose transition duration-200"
                         onClick={handleUpdate}
                       >
                         อัปเดตข้อมูล
                       </button>
                     )}
+                    
                   {formData?.casestatus == "" && thisform === "initial" && (
                     <button
                       type="submit"
@@ -2734,12 +2975,23 @@ export const NCFormComponent = () => {
                     thisform === "investigate" && (
                       <button
                         type="button"
-                        className="py-2 px-4 cursor-pointer rounded-lg text-sm inline-block bg-gray-600 hover:bg-gray-700 focus:text-gray-600 focus:bg-gray-200 text-white font-semibold leading-loose transition duration-200"
+                        className="py-2 px-4 cursor-pointer rounded-lg text-sm inline-block bg-orange-600 hover:bg-orange-700 focus:text-yellow-600 focus:bg-yellow-200 text-white font-semibold leading-loose transition duration-200"
                         onClick={formInvestigate?.investigate_id ? handleUpdateInvestigate : handleSubmitInvestigate}
                       >
                         {formInvestigate?.investigate_id ? "อัปเดตข้อมูล" : "บันทึกข้อมูล"}
                       </button>
                     )}
+
+                    {formData?.casestatus !== "" && formData?.casestatus == "Pending" &&
+                      <button
+                        type="button"
+                        className="py-2 px-4 cursor-pointer rounded-lg text-sm inline-block bg-emerald-600 hover:bg-emerald-700 focus:text-emerald-600 focus:bg-emerald-200 text-white font-semibold leading-loose transition duration-200"
+                        onClick={handleCloseCase}
+                      >
+                        ปิดเคส
+                      </button>
+                    }
+
                 </div>
               </form>
             </div>

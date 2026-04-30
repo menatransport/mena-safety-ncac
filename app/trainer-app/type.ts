@@ -21,6 +21,8 @@ export interface Task {
     trainer_id: string;
     client_name: string;
     plan_date: string;
+    created_at: string;
+    updated_at: string;
     inspection_task_status: TaskStatus | null;
 }
 

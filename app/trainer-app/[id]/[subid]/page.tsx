@@ -12,7 +12,7 @@
 // ˂ ข้อมูลติดตั้ง (constants ของ field schema) ถูกเก็บไว้ inline ในไฟล์นี้เพราะถูกใช้ที่เดียว
 // =============================================================================
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Swal from "sweetalert2";
 import { useParams, useRouter } from "next/navigation";
 import { FileUploadField } from "@/app/trainer-app/_components/render";
@@ -88,7 +88,7 @@ type EditableField = {
 function EditableSectionCard({
     title, subtitle, icon, accent, fields, photoKey, completionMode,
     onChange, getRemark, existingUploads, uploadConfig, onPreview,
-    onQuickPass, onQuickReset,
+    onQuickPass, onQuickReset, onPendingFile,
 }: {
     title: string;
     subtitle?: string;
@@ -104,6 +104,7 @@ function EditableSectionCard({
     onPreview: (p: { url: string; title: string }) => void;
     onQuickPass?: () => void;
     onQuickReset?: () => void;
+    onPendingFile?: (fieldKey: string, file: File | null) => void;
 }) {
     const stats = countSection(fields, completionMode);
     const photoUrl = photoKey ? existingUploads[photoKey]?.url : undefined;
@@ -168,6 +169,8 @@ function EditableSectionCard({
                             existingUpload={existingUploads[photoKey]}
                             onPreview={onPreview}
                             previewTitle={title}
+                            deferred
+                            onPendingFile={onPendingFile}
                         />
                         {photoUrl && (
                             <button
@@ -263,6 +266,15 @@ export default function TrainerApp_SUBID() {
     const [vehicleInspectId, setVehicleInspectId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [existingUploads, setExistingUploads] = useState<Record<string, { url: string; s3Key: string }>>({});
+    // Files chosen by the user but not yet uploaded to S3 — flushed on Save.
+    // Stored in a ref to avoid extra re-renders when the user picks/replaces images.
+    const pendingFilesRef = useRef<Record<string, File>>({});
+    const [pendingCount, setPendingCount] = useState(0);
+    const addPendingFile = useCallback((fieldKey: string, file: File | null) => {
+        if (file) pendingFilesRef.current[fieldKey] = file;
+        else delete pendingFilesRef.current[fieldKey];
+        setPendingCount(Object.keys(pendingFilesRef.current).length);
+    }, []);
     // Dirty flags — only PUT/POST sections that the user actually modified
     const [drugDirty, setDrugDirty] = useState(false);
     const [ppeDirty, setPpeDirty] = useState(false);
@@ -457,7 +469,7 @@ export default function TrainerApp_SUBID() {
             return;
         }
 
-        if (!drugDirty && !ppeDirty && !vehicleDirty) {
+        if (!drugDirty && !ppeDirty && !vehicleDirty && pendingCount === 0) {
             Swal.fire({ icon: "info", title: "ไม่มีข้อมูลที่แก้ไข", text: "ยังไม่มีการเปลี่ยนแปลงในหน้านี้", timer: 1800, showConfirmButton: false });
             return;
         }
@@ -496,6 +508,55 @@ export default function TrainerApp_SUBID() {
 
         setSaving(true);
         const driverId = encodeURIComponent(inspectionTaskDriverId);
+
+        // ── Step 1: batch-upload all pending photos in a single multipart POST.
+        // Network round-trip dominates on cellular field connections, so we
+        // fold every queued File (already client-side compressed) into one
+        // request to /upload?folder=... — server uploads them to S3 in parallel.
+        const pending = pendingFilesRef.current;
+        const pendingKeys = Object.keys(pending);
+        if (pendingKeys.length > 0) {
+            if (!uploadApiUrl) {
+                setSaving(false);
+                Swal.fire("ผิดพลาด", "ไม่พร้อมอัปโหลดรูปภาพ กรุณาลองใหม่", "error");
+                return;
+            }
+            try {
+                const fd = new FormData();
+                pendingKeys.forEach((key) => {
+                    const f = pending[key];
+                    const ext = f.name.includes(".") ? f.name.substring(f.name.lastIndexOf(".")) : ".jpg";
+                    fd.append("files", new File([f], `${key}${ext}`, { type: f.type }));
+                });
+                const res = await fetch(uploadApiUrl, { method: "POST", body: fd });
+                if (!res.ok) throw new Error(`upload ${res.status}`);
+                // Refresh signed URLs for the newly uploaded files.
+                try {
+                    const listRes = await fetch(uploadApiUrl);
+                    if (listRes.ok) {
+                        const { files } = await listRes.json();
+                        if (Array.isArray(files)) {
+                            const map: Record<string, { url: string; s3Key: string }> = {};
+                            files.forEach((f: { url: string; key: string; fileName: string }) => {
+                                const baseName = (f.fileName ?? "").replace(/\.[^.]+$/, "");
+                                map[baseName] = { url: f.url, s3Key: f.key };
+                            });
+                            setExistingUploads((prev) => ({ ...prev, ...map }));
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to refresh uploaded files:", e);
+                }
+                // Clear queue on success.
+                pendingFilesRef.current = {};
+                setPendingCount(0);
+            } catch (e) {
+                console.error("Batch upload failed:", e);
+                setSaving(false);
+                Swal.fire("ผิดพลาด", "อัปโหลดรูปภาพล้มเหลว กรุณาลองใหม่", "error");
+                return;
+            }
+        }
 
         // Build bodies (only used if dirty)
         const drugBody = {
@@ -588,11 +649,21 @@ export default function TrainerApp_SUBID() {
             if (succeeded.includes("PPE")) setPpeDirty(false);
             if (succeeded.includes("Vehicle Inspect")) setVehicleDirty(false);
 
-            if (failed.length === 0) {
+            const photoNote = pendingKeys.length > 0 ? `รูปภาพ ${pendingKeys.length} รายการ` : "";
+            if (jobs.length === 0) {
+                // Only photos were pending — already uploaded above.
                 Swal.fire({
                     icon: "success",
                     title: "บันทึกข้อมูลสำเร็จ",
-                    text: `อัปเดต: ${succeeded.join(", ")}`,
+                    text: `อัปเดต: ${photoNote}`,
+                    timer: 1500,
+                    showConfirmButton: false,
+                });
+            } else if (failed.length === 0) {
+                Swal.fire({
+                    icon: "success",
+                    title: "บันทึกข้อมูลสำเร็จ",
+                    text: `อัปเดต: ${[...succeeded, photoNote].filter(Boolean).join(", ")}`,
                     timer: 1500,
                     showConfirmButton: false,
                 });
@@ -1737,7 +1808,7 @@ export default function TrainerApp_SUBID() {
                             { label: masterDriverLabel || String(subid ?? "") },
                         ]}
                         rightSlot={
-                            <Badge className="bg-white/10 backdrop-blur-sm border border-white/20 text-white/80 px-3 py-1.5 text-xs font-medium rounded-lg w-fit flex items-center gap-1.5">
+                            <Badge className="hidden sm:flex bg-white/10 backdrop-blur-sm border border-white/20 text-white/80 px-3 py-1.5 text-xs font-medium rounded-lg w-fit items-center gap-1.5">
                                 <User size={12} />
                                 ตรวจสอบคนขับ
                             </Badge>
@@ -1812,6 +1883,7 @@ export default function TrainerApp_SUBID() {
                                 existingUploads={existingUploads}
                                 uploadConfig={uploadConfig}
                                 onPreview={setPreviewImage}
+                                onPendingFile={addPendingFile}
                             />
                             <EditableSectionCard
                                 title="ตรวจสารเสพติด"
@@ -1826,6 +1898,7 @@ export default function TrainerApp_SUBID() {
                                 existingUploads={existingUploads}
                                 uploadConfig={uploadConfig}
                                 onPreview={setPreviewImage}
+                                onPendingFile={addPendingFile}
                             />
                         </div>
                     </div>
@@ -1855,6 +1928,7 @@ export default function TrainerApp_SUBID() {
                             existingUploads={existingUploads}
                             uploadConfig={uploadConfig}
                             onPreview={setPreviewImage}
+                            onPendingFile={addPendingFile}
                         />
                     </div>
 
@@ -1922,6 +1996,7 @@ export default function TrainerApp_SUBID() {
                                         onPreview={setPreviewImage}
                                         onQuickPass={handleQuickPass}
                                         onQuickReset={handleQuickReset}
+                                        onPendingFile={addPendingFile}
                                     />
                                 );
                             })}
