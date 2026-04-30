@@ -131,24 +131,19 @@ export const NCFormComponent = () => {
       thisformtype("initial");
       setTimeout(() => focusFieldByName(name), 400);
     } else {
-      focusFieldByName(name);
+      thisformtype("initial");
+      setTimeout(() => focusFieldByName(name), 400);
     }
   };
 
-  const focusFirstIncompleteAction = () => {
-    const incomplete = corrective_actions?.find(
-      (a) => !a.plan_date || !a.action_completed_date
-    );
-    if (!incomplete) return;
-    setTimeout(() => {
-      const el = document.querySelector(
-        `textarea[data-action-id="${incomplete.action_id}"]`
-      ) as HTMLElement | null;
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-        (el as HTMLInputElement).focus?.();
-      }
-    }, 150);
+  const switchToInvestigateAndFocus = (name: string) => {
+    if (thisform !== "investigate") {
+      thisformtype("investigate");
+      setTimeout(() => focusFieldByName(name), 400);
+    } else {
+      thisformtype("investigate");
+      setTimeout(() => focusFieldByName(name), 400);
+    }
   };
 
   const [filteredData, setFilteredData] = useState<{
@@ -348,18 +343,18 @@ export const NCFormComponent = () => {
               const loadedActions =
                 data.corrective_actions && data.corrective_actions.length > 0
                   ? data.corrective_actions.map((action: any, index: number) => ({
-                      ...action,
-                      action_id: index + 1,
-                    }))
+                    ...action,
+                    action_id: index + 1,
+                  }))
                   : [
-                      {
-                        action_id: 1,
-                        corrective_action: "",
-                        pic_contract: "",
-                        plan_date: null,
-                        action_completed_date: null,
-                      },
-                    ];
+                    {
+                      action_id: 1,
+                      corrective_action: "",
+                      pic_contract: "",
+                      plan_date: null,
+                      action_completed_date: null,
+                    },
+                  ];
               setCorrectiveActions(loadedActions as any);
               // snapshot for dirty check
               investigateSnapshotRef.current = JSON.stringify({
@@ -1300,10 +1295,12 @@ export const NCFormComponent = () => {
       ...filteredFormData
     } = formData;
 
+    const inspectionPassed = passesInspectionSilently();
     const data = {
       ...filteredFormData,
       incident_date: toThaiISO(new Date(filteredFormData.incident_date || "")),
-      docs: [docValue as any]
+      docs: [docValue as any],
+      ...(inspectionPassed ? { casestatus: "Completed" } : {}),
     };
 
     //  console.log("NC Form Update <><><><> :", formData);
@@ -1340,9 +1337,11 @@ export const NCFormComponent = () => {
   const handleSubmitInvestigate = async () => {
     if (!formData.document_no)
       return alert("ไม่พบเลขที่เอกสารนี้ โปรดลองใหม่อีกครั้ง");
+    const inspectionPassed = passesInspectionSilently();
     const data = {
       ...formInvestigate,
       corrective_actions: corrective_actions,
+      ...(inspectionPassed ? { casestatus: "Completed" } : {}),
     };
     // console.log("Submitting Investigate Data:", data);
     const res = await fetch("/api/investigate/nc", {
@@ -1362,10 +1361,12 @@ export const NCFormComponent = () => {
         confirmButtonText: "ตกลง",
         allowOutsideClick: false,
       });
-      setFormData((prev) => ({
-        ...prev,
-        casestatus: "Completed",
-      }));
+      if (inspectionPassed) {
+        setFormData((prev) => ({
+          ...prev,
+          casestatus: "Completed",
+        }));
+      }
       // Upload action files to S3
       if (formData.document_no) {
         await uploadActionFiles(formData.document_no);
@@ -1390,9 +1391,11 @@ export const NCFormComponent = () => {
   const handleUpdateInvestigate = async () => {
     if (!formData.document_no)
       return alert("ไม่พบเลขที่เอกสารนี้ โปรดลองใหม่อีกครั้ง");
+    const inspectionPassed = passesInspectionSilently();
     const data = {
       ...formInvestigate,
       corrective_actions: corrective_actions,
+      ...(inspectionPassed ? { casestatus: "Completed" } : {}),
     };
     // console.log("Updating Investigate Data:", data);
     const res = await fetch("/api/investigate/nc", {
@@ -1412,6 +1415,12 @@ export const NCFormComponent = () => {
         confirmButtonText: "ตกลง",
         allowOutsideClick: false,
       });
+      if (inspectionPassed) {
+        setFormData((prev) => ({
+          ...prev,
+          casestatus: "Completed",
+        }));
+      }
       // Upload action files to S3
       if (formData.document_no) {
         await uploadActionFiles(formData.document_no);
@@ -1434,7 +1443,71 @@ export const NCFormComponent = () => {
     }
   }
 
-  const handleCloseCase = async () => {
+  // ========== Inspection Rules (single source of truth) ==========
+  // กฎเช็ค inspection ทั้งหมด ใช้ร่วมกันระหว่าง passesInspectionSilently() และ handleInspection()
+  // - ถ้าเพิ่ม/ลด/แก้เงื่อนไข ให้แก้ที่นี่ที่เดียว
+  // - failedMessage / onFail ใช้เฉพาะตอน handleInspection แสดง popup
+  type InspectionRule = {
+    isInvalid: () => boolean;
+    failedMessage: string;
+    onFail?: () => void;
+  };
+
+  const getInspectionRules = (): InspectionRule[] => [
+    {
+      isInvalid: () => !formData.actual_price || Number(formData.actual_price) === 0,
+      failedMessage: "กรุณากรอกมูลค่าความเสียหายจริง (Actual Cost)",
+      onFail: () => switchToInitialAndFocus("actual_price"),
+    },
+    {
+      isInvalid: () => !formInvestigate.root_cause || formInvestigate.root_cause === "",
+      failedMessage: "กรุณากรอกสาเหตุหลัก (Root Cause)",
+      onFail: () => switchToInvestigateAndFocus("root_cause"),
+    },
+    {
+      isInvalid: () =>
+        !formInvestigate.root_cause_analysis || formInvestigate.root_cause_analysis === "",
+      failedMessage: "กรุณากรอกการวิเคราะห์สาเหตุ (Cause Analysis)",
+      onFail: () => switchToInvestigateAndFocus("root_cause_analysis"),
+    },
+    {
+      isInvalid: () => {
+        const incomplete = corrective_actions?.filter(
+          (action) => !action.plan_date || !action.action_completed_date
+        );
+        return !!(incomplete && incomplete.length > 0);
+      },
+      failedMessage: "กรุณากรอกแผนมาตรการป้องกัน ให้ครบถ้วน",
+      onFail: () => switchToInvestigateAndFocus("action_completed_date"),
+    },
+    {
+      isInvalid: () => !formInvestigate.claim_type || formInvestigate.claim_type === "",
+      failedMessage: "กรุณากรอกประเภทการเคลม",
+      onFail: () => switchToInvestigateAndFocus("claim_type"),
+    },
+    {
+      isInvalid: () => {
+        const claimValues = [
+          Number(formInvestigate.insurance_claim) || 0,
+          Number(formInvestigate.product_resellable) || 0,
+          Number(formInvestigate.remaining_damage_cost) || 0,
+          Number(formInvestigate.driver_cost) || 0,
+          Number(formInvestigate.company_cost) || 0,
+        ];
+        return !claimValues.some((v) => v > 0);
+      },
+      failedMessage: "กรุณากรอกมูลค่าหัวข้อเคลมและค่าใช้จ่าย ให้ครบถ้วน",
+      onFail: () => switchToInvestigateAndFocus("company_cost"),
+    },
+  ];
+
+  // เช็คเงื่อนไข inspection แบบไม่แสดง popup เพื่อใช้ตัดสินใจส่ง casestatus: Completed
+  const passesInspectionSilently = (): boolean => {
+    if (!formData.document_no) return false;
+    return getInspectionRules().every((rule) => !rule.isInvalid());
+  };
+
+  const handleInspection = async () => {
     if (!formData.document_no)
       return Swal.fire({
         icon: "error",
@@ -1453,143 +1526,19 @@ export const NCFormComponent = () => {
         onClose?.();
       });
 
-    // 0) ตรวจสอบว่ามีการแก้ไขข้อมูลที่ยังไม่ได้บันทึกหรือไม่
+    // วน inspection rules และแสดง popup ที่ rule แรกที่ไม่ผ่าน
+    const failed = getInspectionRules().find((rule) => rule.isInvalid());
+    if (failed) {
+      return warn(failed.failedMessage, failed.onFail);
+    }
+
+    // ตรวจสอบว่ามีการแก้ไขข้อมูลที่ยังไม่ได้บันทึกหรือไม่
     if (isInvestigateDirty()) {
       return warn(
-        "พบการแก้ไขที่ยังไม่ได้บันทึก กรุณากดปุ่ม 'อัปเดตข้อมูล' ก่อนปิดเคส"
+        "พบการแก้ไขที่ยังไม่ได้บันทึก กรุณากดปุ่ม 'อัปเดตข้อมูล'"
       );
     }
 
-    // 1) Actual Cost (อยู่ในส่วน Initial)
-    if (!formData.actual_price || Number(formData.actual_price) === 0) {
-      return warn("กรุณากรอกมูลค่าจริง (Actual Cost) ก่อนปิดเคส", () =>
-        switchToInitialAndFocus("actual_price")
-      );
-    }
-
-    // 2) Root Cause
-    if (!formInvestigate.root_cause || formInvestigate.root_cause === "") {
-      return warn("กรุณากรอกสาเหตุหลัก (Root Cause) ก่อนปิดเคส", () =>
-        focusFieldByName("root_cause_analysis")
-      );
-    }
-
-    // 3) Root Cause Analysis
-    if (
-      !formInvestigate.root_cause_analysis ||
-      formInvestigate.root_cause_analysis === ""
-    ) {
-      return warn(
-        "กรุณากรอกการวิเคราะห์สาเหตุ (Cause Analysis) ก่อนปิดเคส",
-        () => focusFieldByName("root_cause_analysis")
-      );
-    }
-
-    // 4) Corrective Actions
-    const incompleteActions = corrective_actions?.filter(
-      (action) => !action.plan_date || !action.action_completed_date
-    );
-    if (incompleteActions && incompleteActions.length > 0) {
-      return warn(
-        "กรุณากรอกแผนมาตรการป้องกันให้ครบถ้วน ก่อนปิดเคส",
-        () => focusFirstIncompleteAction()
-      );
-    }
-
-    // 5) Claim Type
-    if (!formInvestigate.claim_type || formInvestigate.claim_type === "") {
-      return warn("กรุณากรอกประเภทการเคลม ก่อนปิดเคส", () =>
-        focusFieldByName("claim_type")
-      );
-    }
-
-    // 6) Claim values: ต้องมีอย่างน้อย 1 ค่ามากกว่า 0
-    const claimValues = [
-      Number(formInvestigate.insurance_claim) || 0,
-      Number(formInvestigate.product_resellable) || 0,
-      Number(formInvestigate.remaining_damage_cost) || 0,
-      Number(formInvestigate.driver_cost) || 0,
-      Number(formInvestigate.company_cost) || 0,
-    ];
-    if (!claimValues.some((v) => v > 0)) {
-      return warn(
-        "กรุณากรอกมูลค่าการเคลมและค่าใช้จ่าย ก่อนปิดเคส",
-        () => focusFieldByName("insurance_claim")
-      );
-    }
-
-    // 7) ยืนยันการปิดเคสอีกครั้ง
-    const confirmResult = await Swal.fire({
-      icon: "question",
-      title: "ยืนยันการปิดเคส",
-      html: `คุณต้องการปิดเคส <b>${formData.document_no}</b> ใช่หรือไม่?<br/><span style="font-size:12px;color:#888">เมื่อปิดแล้วสถานะจะเปลี่ยนเป็น <b style="color:#16a34a">เสร็จสิ้น</b></span>`,
-      showCancelButton: true,
-      confirmButtonText: "ยืนยันปิดเคส",
-      cancelButtonText: "ยกเลิก",
-      confirmButtonColor: "#16a34a",
-      cancelButtonColor: "#6b7280",
-      reverseButtons: true,
-      allowOutsideClick: false,
-    });
-    if (!confirmResult.isConfirmed) return;
-
-    // 8) ส่ง casestatus = Completed เข้าระบบ
-    try {
-      const {
-        priority,
-        reporter_name,
-        record_date,
-        site_name,
-        driver_name,
-        client_name,
-        department_name,
-        driver_role_name,
-        origin_name,
-        vehicle_head_plate,
-        vehicle_tail_plate,
-        ...filteredFormData
-      } = formData;
-
-      const payload = {
-        ...filteredFormData,
-        casestatus: "Completed",
-        incident_date: filteredFormData.incident_date
-          ? toThaiISO(new Date(filteredFormData.incident_date))
-          : filteredFormData.incident_date,
-      };
-
-      const res = await fetch("/api/document/nc", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.message || `HTTP ${res.status}`);
-      }
-
-      setFormData((prev) => ({ ...prev, casestatus: "Completed" }));
-      await Swal.fire({
-        icon: "success",
-        title: "ปิดเคสสำเร็จ",
-        text: `เอกสาร ${formData.document_no} ถูกปิดเรียบร้อยแล้ว`,
-        confirmButtonText: "ตกลง",
-        allowOutsideClick: false,
-      });
-    } catch (error) {
-      console.error("Error closing case:", error);
-      sendErrorLog(
-        "NCForm/handleCloseCase",
-        error instanceof Error ? error : String(error)
-      );
-      Swal.fire({
-        icon: "error",
-        title: "ปิดเคสไม่สำเร็จ",
-        text: error instanceof Error ? error.message : "Unknown error",
-        confirmButtonText: "ตกลง",
-      });
-    }
   }
 
   // ========== File Management Functions ==========
@@ -2962,7 +2911,7 @@ export const NCFormComponent = () => {
                         อัปเดตข้อมูล
                       </button>
                     )}
-                    
+
                   {formData?.casestatus == "" && thisform === "initial" && (
                     <button
                       type="submit"
@@ -2982,15 +2931,15 @@ export const NCFormComponent = () => {
                       </button>
                     )}
 
-                    {formData?.casestatus !== "" && formData?.casestatus == "Pending" &&
-                      <button
-                        type="button"
-                        className="py-2 px-4 cursor-pointer rounded-lg text-sm inline-block bg-emerald-600 hover:bg-emerald-700 focus:text-emerald-600 focus:bg-emerald-200 text-white font-semibold leading-loose transition duration-200"
-                        onClick={handleCloseCase}
-                      >
-                        ปิดเคส
-                      </button>
-                    }
+                  {formData?.casestatus !== "" && formData?.casestatus == "Pending" &&
+                    <button
+                      type="button"
+                      className="py-2 px-4 cursor-pointer rounded-lg text-sm inline-block bg-emerald-600 hover:bg-emerald-700 focus:text-emerald-600 focus:bg-emerald-200 text-white font-semibold leading-loose transition duration-200"
+                      onClick={handleInspection}
+                    >
+                      ตรวจสอบเคส
+                    </button>
+                  }
 
                 </div>
               </form>
