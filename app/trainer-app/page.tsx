@@ -12,6 +12,7 @@
 // =============================================================================
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 import {
@@ -27,10 +28,17 @@ import { mapTasksWithDropdowns } from "@/lib/trainerMapper";
 
 import { TaskTable } from "./_components/TaskTable";
 import { TaskFilter } from "./_components/TaskFilter";
-import { CalendarTask } from "./_components/Calendar";
-import { TrainerPerformance } from "./_components/trainer_performance";
 import type { Task, TaskFilterRef, Users } from "./type";
 import { ROLE_SAFETY_TRAINER } from "./constant";
+
+const CalendarTask = dynamic(
+    () => import("./_components/Calendar").then(m => m.CalendarTask),
+    { ssr: false, loading: () => <div className="rounded-2xl border border-white/10 bg-white/5 h-[600px] animate-pulse" /> }
+);
+const TrainerPerformance = dynamic(
+    () => import("./_components/trainer_performance").then(m => m.TrainerPerformance),
+    { ssr: false, loading: () => <div className="rounded-2xl border border-white/10 bg-white/5 h-[600px] animate-pulse" /> }
+);
 
 /* ── Tabs ── */
 const tabs = [
@@ -279,7 +287,7 @@ export default function TrainerApp() {
         <NavComponent>
             <div className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-[#3d5578] relative overflow-hidden">
 
-                <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-tr from-emerald-50/40 via-teal-50/30 to-transparent rounded-full blur-3xl pointer-events-none" />
+                <div className="hidden lg:block absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-tr from-emerald-50/40 via-teal-50/30 to-transparent rounded-full blur-3xl pointer-events-none" />
 
                 <div className="relative w-full mt-5 sm:mt-2  px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8">
                     {/* Header row */}
@@ -337,13 +345,13 @@ export default function TrainerApp() {
                             return (
                                 <div
                                     key={card.label}
-                                    className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-4 sm:p-5 transition-all duration-300 hover:border-teal-400/30 hover:bg-white/[0.08] hover:-translate-y-0.5"
+                                    className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 lg:backdrop-blur-sm p-4 sm:p-5 transition-all duration-300 hover:border-teal-400/30 hover:bg-white/[0.08] hover:-translate-y-0.5"
                                 >
-                                    {/* Decorative blur */}
-                                    <div className={`absolute -top-6 -right-6 w-24 h-24 rounded-full bg-gradient-to-br ${card.iconBg} blur-2xl opacity-60 group-hover:opacity-100 transition-opacity duration-500`} />
+                                    {/* Decorative blur (desktop only) */}
+                                    <div className={`hidden lg:block absolute -top-6 -right-6 w-24 h-24 rounded-full bg-gradient-to-br ${card.iconBg} blur-2xl opacity-60 group-hover:opacity-100 transition-opacity duration-500`} />
 
                                     <div className="relative flex items-start justify-between mb-3">
-                                        <div className={`flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br ${card.iconBg} border ${card.iconBorder} ${card.iconText} backdrop-blur-sm transition-transform duration-300 group-hover:scale-110`}>
+                                        <div className={`flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br ${card.iconBg} border ${card.iconBorder} ${card.iconText} lg:backdrop-blur-sm transition-transform duration-300 group-hover:scale-110`}>
                                             <Icon size={20} />
                                         </div>
                                     </div>

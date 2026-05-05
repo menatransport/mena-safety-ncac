@@ -27,6 +27,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="th">
+      <head>
+        <link rel="preconnect" href="https://cdn.lordicon.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://cdn.lordicon.com" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

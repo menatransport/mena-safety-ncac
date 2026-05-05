@@ -153,7 +153,7 @@ export default function TrainerApp_ID() {
         if (data.task.inspection_task_status === newStatus) return;
         const updateStatus = async () => {
             try {
-              const res  = await fetch(`/api/task/${encodeURIComponent(taskId as string)}`, {
+                const res = await fetch(`/api/task/${encodeURIComponent(taskId as string)}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ inspection_task_status: newStatus }),
@@ -167,7 +167,7 @@ export default function TrainerApp_ID() {
             } catch (e) {
                 console.error("Failed to update task status:", e);
             }
-            };
+        };
 
         updateStatus();
 
@@ -409,7 +409,7 @@ export default function TrainerApp_ID() {
                             const dotColor = statusKey === "open" ? "bg-blue-400" : statusKey === "pending" ? "bg-amber-400" : "bg-emerald-400";
                             return (
                                 <div className="flex items-center justify-center gap-10 mr-5 mt-2">
-                                    
+
                                     <div className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-2xl border backdrop-blur-sm shadow-lg text-base font-bold tracking-wide ${cfg.className}`}>
                                         <span className="relative flex h-3 w-3">
                                             <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-60 ${dotColor}`} />
@@ -437,7 +437,7 @@ export default function TrainerApp_ID() {
                         })() : null}
                     />
 
-                    
+
                     {/* ── Stat cards ── */}
                     <div className="grid grid-cols-2 gap-3 sm:gap-4">
                         {statCards.map((card) => {

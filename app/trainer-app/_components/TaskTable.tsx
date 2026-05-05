@@ -13,12 +13,10 @@
 import { useState, useMemo } from "react";
 import {
     ArrowUpDown, ArrowUp, ArrowDown,
-    FileSpreadsheet, ChevronLeft, ChevronRight, Inbox,
+    FileSpreadsheet, Inbox, Eye, Trash2,
 } from "lucide-react";
-import * as XLSX from "xlsx";
 import type { Task } from "../type";
 import { TASK_TABLE_STATUS, TASK_TABLE_ROWS_PER_PAGE, CALENDAR_MONTHS_TH_SHORT } from "../constant";
-import { LordIcon } from "@/components/LordIcon";
 
 /* -------------------------------------------------------------------------- */
 /*  Date formatter – "d ม.ค. yyyy" (Thai short month, ค.ศ.)                   */
@@ -51,7 +49,7 @@ function StatusBadge({ status }: { status: string | null }) {
 /* -------------------------------------------------------------------------- */
 /*  Types & Props                                                             */
 /* -------------------------------------------------------------------------- */
-type SortField = "plan_date" | "client_name" | "plant_code" | "trainer_id" | "inspection_task_status" | "inspection_task_id" | "created_at" | "updated_at" | "action_date";
+type SortField = "plan_date" | "client_name" | "plant_name" | "trainer_id" | "inspection_task_status" | "inspection_task_id" | "created_at" | "updated_at" | "action_date";
 type SortDir = "asc" | "desc";
 
 interface TaskTableProps {
@@ -68,7 +66,7 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
     const [sortField, setSortField] = useState<SortField>("plan_date");
     const [sortDir, setSortDir] = useState<SortDir>("desc");
     const [page, setPage] = useState(1);
-    console.log('tasks: ', tasks);
+
     /* ──── Sorting ──── */
     const sorted = useMemo(() => {
         return [...tasks].sort((a, b) => {
@@ -95,35 +93,72 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
             : <ArrowDown size={14} className="text-teal-300" />;
     };
 
-    
+
 
     const columns: { field: SortField; label: string }[] = [
         { field: "inspection_task_id", label: "Task ID" },
         { field: "created_at", label: "สร้างเมื่อ" },
         { field: "plan_date", label: "วันที่ลงแผน" },
         { field: "action_date", label: "วันที่ดำเนินการ" },
-        { field: "plant_code", label: "Plant" },
+        { field: "plant_name", label: "แพล้นท์" },
         { field: "client_name", label: "ลูกค้า" },
-        { field: "trainer_id", label: "Trainer" },
+        { field: "trainer_id", label: "เทรนเนอร์" },
         { field: "inspection_task_status", label: "สถานะ" },
         { field: "updated_at", label: "อัปเดตเมื่อ" },
     ];
 
     const DATE_FIELDS: SortField[] = ["plan_date", "action_date", "created_at", "updated_at"];
-    const exportExcel = () => {
-        const rows = sorted.map((t) => (columns.reduce((acc, col) => ({
-            ...acc,
-            [col.label]: DATE_FIELDS.includes(col.field) ? fmtThaiDate(t[col.field] as string) : (t[col.field] ?? ""),
-        }), {})));
-        const ws = XLSX.utils.json_to_sheet(rows);
-        ws["!cols"] = Object.keys(rows[0] || {}).map(() => ({ wch: 18 }));
+
+    /* แปลงสตริงวันที่ → Date object (local midnight) เพื่อให้ Excel เป็น type วันที่
+       คำนวณได้ (เช่น =B2-A2) และไม่มีเวลาติดมาเพราะ timezone shift */
+    const toExcelDate = (value: unknown): Date | null => {
+        if (value == null || value === "") return null;
+        const s = String(value).slice(0, 10);
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+        if (!m) return null;
+        const date = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+        return isNaN(date.getTime()) ? null : date;
+    };
+
+    const exportExcel = async () => {
+        const XLSX = await import("xlsx");
+        const rows = sorted.map((row) => {
+            const newRow: Record<string, unknown> = { ...row };
+            DATE_FIELDS.forEach((field) => {
+                if (newRow[field]) {
+                    const d = toExcelDate(newRow[field]);
+                    newRow[field] = d ?? newRow[field];
+                }
+            });
+            return newRow;
+        });
+
+        const ws = XLSX.utils.json_to_sheet(rows, { cellDates: true });
+
+        // กำหนด format dd/mm/yyyy ให้คอลัมน์วันที่ (ไม่มีเวลา)
+        const headerKeys = Object.keys(rows[0] || {});
+        const dateColIdx = DATE_FIELDS
+            .map((f) => headerKeys.indexOf(f))
+            .filter((i) => i >= 0);
+        const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
+        for (let R = range.s.r + 1; R <= range.e.r; R++) {
+            for (const C of dateColIdx) {
+                const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
+                if (cell && cell.v instanceof Date) {
+                    cell.t = "d";
+                    cell.z = "dd/mm/yyyy";
+                }
+            }
+        }
+
+        ws["!cols"] = headerKeys.map(() => ({ wch: 18 }));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Inspection Tasks");
-        XLSX.writeFile(wb, `inspection_tasks_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        XLSX.writeFile(wb, `inspection_tasks_${new Date().toISOString().slice(0, 10)}.xlsx`, { cellDates: true });
     };
 
     return (
-        <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm shadow-lg shadow-black/10 overflow-hidden relative">
+        <div className="rounded-2xl border border-white/10 bg-white/5 lg:backdrop-blur-sm shadow-lg shadow-black/10 overflow-hidden relative">
             {/* Header bar */}
             <div className="p-4 bg-gradient-to-r from-slate-900/60 via-slate-800/40 to-teal-900/30 border-b border-white/10">
                 <h2 className="text-xl text-white font-semibold">
@@ -236,30 +271,18 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
                                         <div className="flex justify-center gap-2">
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); onViewTask?.(task.inspection_task_id); }}
-                                                className="bg-gradient-to-r from-teal-500/30 to-emerald-600/30 border border-teal-400/40 cursor-pointer hover:from-teal-500/50 hover:to-emerald-600/50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all backdrop-blur-sm shadow-md shadow-teal-500/10 flex items-center"
+                                                className="bg-gradient-to-r from-teal-500/30 to-emerald-600/30 border border-teal-400/40 cursor-pointer hover:from-teal-500/50 hover:to-emerald-600/50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-md shadow-teal-500/10 flex items-center"
                                             >
-                                                <LordIcon
-                                                    src="https://cdn.lordicon.com/nocovwne.json"
-                                                    trigger="hover"
-                                                    colors="primary:#ffffff"
-                                                    style={{ width: "20px", height: "20px" }}
-                                                    className="mr-1"
-                                                />
+                                                <Eye size={18} className="mr-1" />
                                                 เปิด
                                             </button>
-                                                <button
-                                                    className="bg-rose-500/20 border border-rose-400/40 cursor-pointer hover:bg-rose-500/35 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all backdrop-blur-sm flex items-center"
-                                                    onClick={onDeleteTask ? (e) => { e.stopPropagation(); onDeleteTask(task.inspection_task_id); } : undefined}
-                                                >
-                                                    <LordIcon
-                                                        src="https://cdn.lordicon.com/skkahier.json"
-                                                        trigger="hover"
-                                                        colors="primary:#ffffff"
-                                                        style={{ width: "20px", height: "20px" }}
-                                                        className="mr-1"
-                                                    />
-                                                    ลบ
-                                                </button>
+                                            <button
+                                                className="bg-rose-500/20 border border-rose-400/40 cursor-pointer hover:bg-rose-500/35 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center"
+                                                onClick={onDeleteTask ? (e) => { e.stopPropagation(); onDeleteTask(task.inspection_task_id); } : undefined}
+                                            >
+                                                <Trash2 size={18} className="mr-1" />
+                                                ลบ
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -282,10 +305,10 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
                         <div
                             key={task.inspection_task_id}
                             onClick={() => onViewTask?.(task.inspection_task_id)}
-                            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] via-white/[0.04] to-transparent backdrop-blur-sm shadow-md shadow-black/20 hover:border-teal-400/40 hover:shadow-teal-500/10 active:scale-[0.99] transition-all duration-200 cursor-pointer"
+                            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] via-white/[0.04] to-transparent shadow-md shadow-black/20 hover:border-teal-400/40 hover:shadow-teal-500/10 active:scale-[0.99] transition-all duration-200 cursor-pointer"
                         >
-                            {/* Decorative blur */}
-                            <div className="pointer-events-none absolute -top-8 -right-8 w-28 h-28 rounded-full bg-gradient-to-br from-teal-500/15 to-emerald-600/10 blur-2xl opacity-60 group-hover:opacity-100 transition-opacity duration-500" />
+                            {/* Decorative blur (desktop only) */}
+                            <div className="hidden lg:block pointer-events-none absolute -top-8 -right-8 w-28 h-28 rounded-full bg-gradient-to-br from-teal-500/15 to-emerald-600/10 blur-2xl opacity-60 group-hover:opacity-100 transition-opacity duration-500" />
 
                             {/* Header */}
                             <div className="relative flex items-start justify-between gap-3 px-4 pt-4 pb-3">
@@ -332,29 +355,19 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
                             </div>
 
                             {/* Actions */}
-                            <div className="relative flex justify-end gap-2 px-4 py-3 border-t border-white/10 bg-white/[0.02]">    
-                                    <button
-                                        onClick={onDeleteTask ? (e) => { e.stopPropagation(); onDeleteTask(task.inspection_task_id); } : (e) => e.stopPropagation()}
-                                        className="flex items-center gap-1 bg-rose-500/15 border border-rose-400/30 hover:bg-rose-500/30 active:scale-[0.97] text-rose-100 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all backdrop-blur-sm cursor-pointer"
-                                    >
-                                        <LordIcon
-                                            src="https://cdn.lordicon.com/skkahier.json"
-                                            trigger="hover"
-                                            colors="primary:#fecaca"
-                                            style={{ width: "18px", height: "18px" }}
-                                        />
-                                        ลบ
-                                    </button>                            
+                            <div className="relative flex justify-end gap-2 px-4 py-3 border-t border-white/10 bg-white/[0.02]">
+                                <button
+                                    onClick={onDeleteTask ? (e) => { e.stopPropagation(); onDeleteTask(task.inspection_task_id); } : (e) => e.stopPropagation()}
+                                    className="flex items-center gap-1 bg-rose-500/15 border border-rose-400/30 hover:bg-rose-500/30 active:scale-[0.97] text-rose-100 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                                >
+                                    <Trash2 size={16} />
+                                    ลบ
+                                </button>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onViewTask?.(task.inspection_task_id); }}
-                                    className="flex items-center gap-1 bg-gradient-to-r from-teal-500/30 to-emerald-600/30 border border-teal-400/40 hover:from-teal-500/50 hover:to-emerald-600/50 active:scale-[0.97] text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-all backdrop-blur-sm shadow-md shadow-teal-500/10 cursor-pointer"
+                                    className="flex items-center gap-1 bg-gradient-to-r from-teal-500/30 to-emerald-600/30 border border-teal-400/40 hover:from-teal-500/50 hover:to-emerald-600/50 active:scale-[0.97] text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-md shadow-teal-500/10 cursor-pointer"
                                 >
-                                    <LordIcon
-                                        src="https://cdn.lordicon.com/nocovwne.json"
-                                        trigger="hover"
-                                        colors="primary:#ffffff"
-                                        style={{ width: "18px", height: "18px" }}
-                                    />
+                                    <Eye size={16} />
                                     เปิด
                                 </button>
                             </div>
