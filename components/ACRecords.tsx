@@ -644,7 +644,7 @@ export const ACRecordsComponent = () => {
 
   return (
     <div className={`min-h-screen ${theme === "Dark" ? "bg-gradient-to-br from-slate-800 via-slate-700 to-[#3d5578]" : "bg-[#d1ffe1]"} py-6`}>
-      <div className="max-w-7xl mx-auto m-4">
+      <div className="max-w-full m-4 mx-10">
         <RecordFilter
           ref={filterRef}
           type="AC"

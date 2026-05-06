@@ -93,7 +93,7 @@ export const NCRecordsComponent = () => {
     departments: [],
     clients: [],
   });
-  
+
   useEffect(() => {
     const fetchDropdownData = async () => {
       try {
@@ -123,7 +123,7 @@ export const NCRecordsComponent = () => {
         });
 
         const filteredDepartments = sortedDepartments.filter((dept: any) => {
-          return dept.department_id == 3 || dept.department_id == 15 || dept.department_id == 16 || dept.department_id == 17 ||  dept.department_id == 19 || dept.department_id == 20 
+          return dept.department_id == 3 || dept.department_id == 15 || dept.department_id == 16 || dept.department_id == 17 || dept.department_id == 19 || dept.department_id == 20
         });
 
         setDropdownData((prev) => ({
@@ -467,7 +467,7 @@ export const NCRecordsComponent = () => {
   };
 
   const handleRouter = (id: string) => {
-    
+
     window.open(`/nc-form?doc=${id}`, "_blank");
   };
 
@@ -646,9 +646,9 @@ export const NCRecordsComponent = () => {
 
   return (
     <div className={`min-h-screen ${theme === "Dark" ? "bg-gradient-to-br from-slate-800 via-slate-700 to-[#3d5578]" : "bg-[#d1ffe1]"} py-6`}>
-      <div className="max-w-7xl mx-auto m-4">
+      <div className="max-w-full m-4 mx-10">
         {/* Filter Section - Using new RecordFilter component */}
-        <RecordFilter 
+        <RecordFilter
           ref={filterRef}
           type="NC"
           onFilter={handleFilterChange}
@@ -802,6 +802,15 @@ export const NCRecordsComponent = () => {
                   </th>
                   <th
                     className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
+                    onClick={() => handleSort("incident_cause")}
+                  >
+                    <div className="flex items-center gap-2" title="สาเหตุการเกิด">
+                      <span>Cause</span>
+                      {getSortIcon("incident_cause")}
+                    </div>
+                  </th>
+                  <th
+                    className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
                     onClick={() => handleSort("estimated_cost")}
                   >
                     <div className="flex items-center gap-2" title="มูลค่าความเสียหายประมาณการ">
@@ -904,7 +913,7 @@ export const NCRecordsComponent = () => {
                         {formatDate(record.incident_date)}
                       </td>
                       <td
-                        className="px-3 py-4 text-xs text-gray-600 max-w-[140px] truncate"
+                        className="px-3 py-4 text-xs text-gray-600 max-w-[100px] truncate"
                         title={record.client_name || "ไม่ระบุ"}
                       >
                         {record.client_name || "ไม่ระบุ"}
@@ -920,6 +929,12 @@ export const NCRecordsComponent = () => {
                       </td>
                       <td className="px-3 py-4 text-xs text-gray-600" >
                         {record.driver_name || "ไม่ระบุ"}
+                      </td>
+                      <td
+                        className="px-3 py-4 text-xs text-gray-600 align-center max-w-[100px] whitespace-normal break-words leading-snug"
+                        title={record.incident_cause || "ไม่ระบุ"}
+                      >
+                        {record.incident_cause || "ไม่ระบุ"}
                       </td>
                       <td className="px-3 py-4 text-xs text-gray-600">
                         {record.estimated_cost != null ? Number(record.estimated_cost).toLocaleString() : "-"}
@@ -1074,6 +1089,11 @@ export const NCRecordsComponent = () => {
                             <p className="text-gray-900 text-xs mt-1 border-b-1 w-fit">{record.location}</p>
                           </div>
                         )}
+                      </div>
+
+                      <div>
+                        <span className="font-semibold text-indigo-600">สาเหตุการเกิด:</span>
+                        <p className="text-gray-900 text-xs border-b-1 w-fit">{record.incident_cause || "ไม่ระบุ"}</p>
                       </div>
 
                       {record.description && (
