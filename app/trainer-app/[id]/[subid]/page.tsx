@@ -509,28 +509,40 @@ export default function TrainerApp_SUBID() {
         setSaving(true);
         const driverId = encodeURIComponent(inspectionTaskDriverId);
 
-        // ── Step 1: batch-upload all pending photos in a single multipart POST.
-        // Network round-trip dominates on cellular field connections, so we
-        // fold every queued File (already client-side compressed) into one
-        // request to /upload?folder=... — server uploads them to S3 in parallel.
+        // ── Step 1: upload pending photos one-by-one in parallel.
+        // Per-file requests so a single failure (network blip / bad file) doesn't
+        // block the rest of the photos OR the data save below. Failed files stay
+        // in the pending queue so the user can retry by hitting Save again.
         const pending = pendingFilesRef.current;
         const pendingKeys = Object.keys(pending);
-        if (pendingKeys.length > 0) {
-            if (!uploadApiUrl) {
-                setSaving(false);
-                Swal.fire("ผิดพลาด", "ไม่พร้อมอัปโหลดรูปภาพ กรุณาลองใหม่", "error");
-                return;
-            }
-            try {
+        let photoOk = 0;
+        const photoFailedKeys: string[] = [];
+        if (pendingKeys.length > 0 && uploadApiUrl) {
+            const results = await Promise.all(pendingKeys.map(async (key) => {
+                const f = pending[key];
+                const ext = f.name.includes(".") ? f.name.substring(f.name.lastIndexOf(".")) : ".jpg";
                 const fd = new FormData();
-                pendingKeys.forEach((key) => {
-                    const f = pending[key];
-                    const ext = f.name.includes(".") ? f.name.substring(f.name.lastIndexOf(".")) : ".jpg";
-                    fd.append("files", new File([f], `${key}${ext}`, { type: f.type }));
-                });
-                const res = await fetch(uploadApiUrl, { method: "POST", body: fd });
-                if (!res.ok) throw new Error(`upload ${res.status}`);
-                // Refresh signed URLs for the newly uploaded files.
+                fd.append("files", new File([f], `${key}${ext}`, { type: f.type }));
+                try {
+                    const res = await fetch(uploadApiUrl, { method: "POST", body: fd });
+                    return { key, ok: res.ok };
+                } catch (e) {
+                    console.error(`Upload failed for ${key}:`, e);
+                    return { key, ok: false };
+                }
+            }));
+            results.forEach(({ key, ok }) => {
+                if (ok) {
+                    delete pendingFilesRef.current[key];
+                    photoOk++;
+                } else {
+                    photoFailedKeys.push(key);
+                }
+            });
+            setPendingCount(Object.keys(pendingFilesRef.current).length);
+
+            // Refresh signed URLs if at least one photo went up.
+            if (photoOk > 0) {
                 try {
                     const listRes = await fetch(uploadApiUrl);
                     if (listRes.ok) {
@@ -547,15 +559,10 @@ export default function TrainerApp_SUBID() {
                 } catch (e) {
                     console.error("Failed to refresh uploaded files:", e);
                 }
-                // Clear queue on success.
-                pendingFilesRef.current = {};
-                setPendingCount(0);
-            } catch (e) {
-                console.error("Batch upload failed:", e);
-                setSaving(false);
-                Swal.fire("ผิดพลาด", "อัปโหลดรูปภาพล้มเหลว กรุณาลองใหม่", "error");
-                return;
             }
+        } else if (pendingKeys.length > 0 && !uploadApiUrl) {
+            // No upload endpoint resolved yet — treat all as failed but still try data save.
+            photoFailedKeys.push(...pendingKeys);
         }
 
         // Build bodies (only used if dirty)
@@ -649,17 +656,26 @@ export default function TrainerApp_SUBID() {
             if (succeeded.includes("PPE")) setPpeDirty(false);
             if (succeeded.includes("Vehicle Inspect")) setVehicleDirty(false);
 
-            const photoNote = pendingKeys.length > 0 ? `รูปภาพ ${pendingKeys.length} รายการ` : "";
+            const photoNote = photoOk > 0 ? `รูปภาพ ${photoOk} รายการ` : "";
+            const photoFailNote = photoFailedKeys.length > 0
+                ? `อัปโหลดรูปไม่สำเร็จ ${photoFailedKeys.length} รายการ (ค้างไว้ใน queue กด "บันทึก" อีกครั้งเพื่อลองใหม่)`
+                : "";
             if (jobs.length === 0) {
-                // Only photos were pending — already uploaded above.
-                Swal.fire({
-                    icon: "success",
-                    title: "บันทึกข้อมูลสำเร็จ",
-                    text: `อัปเดต: ${photoNote}`,
-                    timer: 1500,
-                    showConfirmButton: false,
-                });
-            } else if (failed.length === 0) {
+                // Only photos were pending — already attempted above.
+                if (photoOk > 0 && photoFailedKeys.length === 0) {
+                    Swal.fire({
+                        icon: "success",
+                        title: "บันทึกข้อมูลสำเร็จ",
+                        text: `อัปเดต: ${photoNote}`,
+                        timer: 1500,
+                        showConfirmButton: false,
+                    });
+                } else if (photoOk > 0 && photoFailedKeys.length > 0) {
+                    Swal.fire("บันทึกบางส่วนล้มเหลว", `${photoNote} • ${photoFailNote}`, "warning");
+                } else {
+                    Swal.fire("ผิดพลาด", `อัปโหลดรูปภาพล้มเหลว ${photoFailNote}`, "error");
+                }
+            } else if (failed.length === 0 && photoFailedKeys.length === 0) {
                 Swal.fire({
                     icon: "success",
                     title: "บันทึกข้อมูลสำเร็จ",
@@ -667,10 +683,16 @@ export default function TrainerApp_SUBID() {
                     timer: 1500,
                     showConfirmButton: false,
                 });
-            } else if (failed.length === jobs.length) {
+            } else if (failed.length === jobs.length && photoOk === 0) {
                 Swal.fire("ผิดพลาด", "ไม่สามารถบันทึกข้อมูลได้", "error");
             } else {
-                Swal.fire("บันทึกบางส่วนล้มเหลว", `ไม่สามารถบันทึก: ${failed.join(", ")}`, "warning");
+                const parts: string[] = [];
+                if (succeeded.length > 0 || photoOk > 0) {
+                    parts.push(`บันทึกสำเร็จ: ${[...succeeded, photoNote].filter(Boolean).join(", ")}`);
+                }
+                if (failed.length > 0) parts.push(`บันทึกไม่สำเร็จ: ${failed.join(", ")}`);
+                if (photoFailNote) parts.push(photoFailNote);
+                Swal.fire("การอัปโหลดรูปภาพบางส่วนล้มเหลว", parts.join(" • "), "warning");
             }
         } catch {
             Swal.fire("ผิดพลาด", "เกิดข้อผิดพลาดในการเชื่อมต่อ", "error");
