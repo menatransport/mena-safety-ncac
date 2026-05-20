@@ -151,6 +151,21 @@ export interface TaskFilterRef {
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Performance API                                                           */
+/* -------------------------------------------------------------------------- */
+export interface PerformanceData {
+    summary: {
+        open_count: number;
+        pending_count: number;
+        completed_count: number;
+        total_count: number;
+    };
+    open: string[];
+    pending: string[];
+    completed: string[];
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Stepper                                                                   */
 /* -------------------------------------------------------------------------- */
 export interface StepItem {

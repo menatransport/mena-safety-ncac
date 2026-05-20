@@ -264,7 +264,12 @@ export default function TrainerApp_ID() {
 
         const task = data.task;
         const hasActionDate = !!task.action_date;
-        const status = hasActionDate ? "pending" : "open";
+        const allDriversCompleted = (data.drivers?.length ?? 0) > 0
+            && data.drivers!.every(d => d.inspection_task_driver_status === "completed");
+
+        const status = allDriversCompleted && hasActionDate
+            ? "completed"
+            : (hasActionDate ? "pending" : "open");
 
         const result = await Swal.fire({
             title: 'ยืนยันบันทึก?',

@@ -39,12 +39,13 @@ import {
     ZoomIn,
     X,
     CheckCheck,
+    Video,
 } from "lucide-react";
 
 /* ── Status helpers (module-level so identity is stable across renders) ── */
 const STATUS_PASS = ["ผ่าน", "มี", "ไม่พบสาร"];
 const STATUS_FAIL = ["ไม่ผ่าน", "ไม่มี", "ชำรุด", "พบสาร"];
-const STATUS_NA = ["ไม่มีให้ตรวจ", "ไม่เกี่ยวข้อง", "ไม่ได้ตรวจ"];
+const STATUS_NA = ["ไม่มีให้ตรวจ", "ไม่เกี่ยวข้อง", "ไม่ได้ตรวจ", "Toolbox Talk Online"];
 const statusTone = (v: string, fieldType?: string) => {
     if (!v) return "empty";
     // Numeric text fields (e.g. alcohol mg%): >0 = fail, 0 = pass
@@ -108,6 +109,18 @@ function EditableSectionCard({
 }) {
     const stats = countSection(fields, completionMode);
     const photoUrl = photoKey ? existingUploads[photoKey]?.url : undefined;
+
+    /* Quick Online: ตั้งทุกฟิลด์ (ยกเว้น upload) เป็น "Toolbox Talk Online"
+       • text fields (เช่น alcohol mg%) → "0"
+       • เคลียร์ remark เพราะสถานะใหม่ไม่ใช่ "ไม่ผ่าน" แล้ว */
+    const handleQuickOnline = () => {
+        fields.filter(f => f.type !== "upload").forEach(f => {
+            const v = f.type === "text" ? "0" : "Toolbox Talk Online";
+            onChange(f.fieldKey, v);
+            onChange(`${f.fieldKey}_remark`, "");
+        });
+    };
+
     return (
         <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm overflow-hidden">
             {/* Header */}
@@ -118,6 +131,15 @@ function EditableSectionCard({
                     {subtitle && <p className="text-sm text-white/70 truncate">{subtitle}</p>}
                 </div>
                 <div className="flex items-center gap-2 text-sm">
+                    <button
+                        type="button"
+                        onClick={handleQuickOnline}
+                        title="Toolbox Talk Online (ตั้งทั้งหมด)"
+                        aria-label="Toolbox Talk Online"
+                        className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-sky-500/25 hover:bg-sky-500/40 text-sky-100 border border-sky-300/30 backdrop-blur transition-all active:scale-95"
+                    >
+                        <Video size={18} />
+                    </button>
                     {onQuickPass && (
                         <button
                             type="button"
@@ -218,9 +240,13 @@ function EditableSectionCard({
                                             className={`w-full rounded-md border px-3 py-2 text-base font-medium focus:outline-none focus:ring-2 focus:ring-teal-400/40 transition-colors ${selectTone}`}
                                         >
                                             <option value="" className="bg-slate-800 text-white">— เลือก —</option>
-                                            {f.options?.filter(o => o.value !== "").map(o => (
-                                                <option key={o.value} value={o.value} className="bg-slate-800 text-white">{o.label}</option>
-                                            ))}
+                                            {(() => {
+                                                const base = (f.options ?? []).filter(o => o.value !== "" && o.value !== "Toolbox Talk Online");
+                                                const withOnline = [...base, { value: "Toolbox Talk Online", label: "Toolbox Talk Online" }];
+                                                return withOnline.map(o => (
+                                                    <option key={o.value} value={o.value} className="bg-slate-800 text-white">{o.label}</option>
+                                                ));
+                                            })()}
                                         </select>
                                     )}
                                     {showRemark && (
@@ -757,6 +783,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ไม่พบสาร", label: "ไม่พบสาร" },
                 { value: "พบสาร", label: "พบสาร" },
                 { value: "ไม่ได้ตรวจ", label: "ไม่ได้ตรวจ" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "amfetamin",
@@ -771,6 +798,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ไม่พบสาร", label: "ไม่พบสาร" },
                 { value: "พบสาร", label: "พบสาร" },
                 { value: "ไม่ได้ตรวจ", label: "ไม่ได้ตรวจ" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "kra",
@@ -785,6 +813,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ไม่พบสาร", label: "ไม่พบสาร" },
                 { value: "พบสาร", label: "พบสาร" },
                 { value: "ไม่ได้ตรวจ", label: "ไม่ได้ตรวจ" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "thc",
@@ -803,6 +832,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ไม่มี", label: "ไม่มี" },
                 { value: "ชำรุด", label: "ชำรุด" },
                 { value: "ไม่เกี่ยวข้อง", label: "ไม่เกี่ยวข้อง" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "helmet_check",
@@ -817,6 +847,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ไม่มี", label: "ไม่มี" },
                 { value: "ชำรุด", label: "ชำรุด" },
                 { value: "ไม่เกี่ยวข้อง", label: "ไม่เกี่ยวข้อง" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "glasses_check",
@@ -831,6 +862,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ไม่มี", label: "ไม่มี" },
                 { value: "ชำรุด", label: "ชำรุด" },
                 { value: "ไม่เกี่ยวข้อง", label: "ไม่เกี่ยวข้อง" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "mask_check",
@@ -845,6 +877,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ไม่มี", label: "ไม่มี" },
                 { value: "ชำรุด", label: "ชำรุด" },
                 { value: "ไม่เกี่ยวข้อง", label: "ไม่เกี่ยวข้อง" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "gloves_check",
@@ -859,29 +892,30 @@ export default function TrainerApp_SUBID() {
                 { value: "ไม่มี", label: "ไม่มี" },
                 { value: "ชำรุด", label: "ชำรุด" },
                 { value: "ไม่เกี่ยวข้อง", label: "ไม่เกี่ยวข้อง" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "vest_check",
             readonly: false,
             value: dbPPE?.vest_check ?? "",
         },
-        {
-            label: "5-1 ไซส์เสื้อสะท้อนแสง",
-            type: "dropdown" as const,
-            options: [
-                { value: "", label: "" },
-                { value: "s", label: "S" },
-                { value: "m", label: "M" },
-                { value: "l", label: "L" },
-                { value: "xl", label: "XL" },
-                { value: "2xl", label: "2XL" },
-                { value: "3xl", label: "3XL" },
-            ],
-            icon: null,
-            fieldKey: "vest_size",
-            readonly: false,
-            value: dbPPE?.vest_size ?? "",
-        },
+        // {
+        //     label: "5-1 ไซส์เสื้อสะท้อนแสง",
+        //     type: "dropdown" as const,
+        //     options: [
+        //         { value: "", label: "" },
+        //         { value: "s", label: "S" },
+        //         { value: "m", label: "M" },
+        //         { value: "l", label: "L" },
+        //         { value: "xl", label: "XL" },
+        //         { value: "2xl", label: "2XL" },
+        //         { value: "3xl", label: "3XL" },
+        //     ],
+        //     icon: null,
+        //     fieldKey: "vest_size",
+        //     readonly: false,
+        //     value: dbPPE?.vest_size ?? "",
+        // },
         {
             label: "6. รองเท้านิรภัย",
             type: "checkbox" as const,
@@ -890,37 +924,38 @@ export default function TrainerApp_SUBID() {
                 { value: "ไม่มี", label: "ไม่มี" },
                 { value: "ชำรุด", label: "ชำรุด" },
                 { value: "ไม่เกี่ยวข้อง", label: "ไม่เกี่ยวข้อง" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "safety_shoes_check",
             readonly: false,
             value: dbPPE?.safety_shoes_check ?? "",
         },
-        {
-            label: "6-1 ไซส์รองเท้านิรภัย",
-            type: "dropdown" as const,
-            options: [
-                { value: "", label: "" },
-                { value: "35", label: "35" },
-                { value: "36", label: "36" },
-                { value: "37", label: "37" },
-                { value: "38", label: "38" },
-                { value: "39", label: "39" },
-                { value: "40", label: "40" },
-                { value: "41", label: "41" },
-                { value: "42", label: "42" },
-                { value: "43", label: "43" },
-                { value: "44", label: "44" },
-                { value: "45", label: "45" },
-                { value: "46", label: "46" },
-                { value: "47", label: "47" },
-                { value: "48", label: "48" },
-            ],
-            icon: null,
-            fieldKey: "safety_shoes_size",
-            readonly: false,
-            value: dbPPE?.safety_shoes_size ?? "",
-        },
+        // {
+        //     label: "6-1 ไซส์รองเท้านิรภัย",
+        //     type: "dropdown" as const,
+        //     options: [
+        //         { value: "", label: "" },
+        //         { value: "35", label: "35" },
+        //         { value: "36", label: "36" },
+        //         { value: "37", label: "37" },
+        //         { value: "38", label: "38" },
+        //         { value: "39", label: "39" },
+        //         { value: "40", label: "40" },
+        //         { value: "41", label: "41" },
+        //         { value: "42", label: "42" },
+        //         { value: "43", label: "43" },
+        //         { value: "44", label: "44" },
+        //         { value: "45", label: "45" },
+        //         { value: "46", label: "46" },
+        //         { value: "47", label: "47" },
+        //         { value: "48", label: "48" },
+        //     ],
+        //     icon: null,
+        //     fieldKey: "safety_shoes_size",
+        //     readonly: false,
+        //     value: dbPPE?.safety_shoes_size ?? "",
+        // },
         {
             label: "7. แนบรูปถ่าย PPE",
             type: "upload" as const,
@@ -947,6 +982,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ผ่าน", label: "ผ่าน" },
                 { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
                 { value: "ไม่มีให้ตรวจ", label: "ไม่มีให้ตรวจ" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "vehicle_front_glass",
@@ -960,6 +996,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ผ่าน", label: "ผ่าน" },
                 { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
                 { value: "ไม่มีให้ตรวจ", label: "ไม่มีให้ตรวจ" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "vehicle_front_sidemirror",
@@ -973,6 +1010,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ผ่าน", label: "ผ่าน" },
                 { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
                 { value: "ไม่มีให้ตรวจ", label: "ไม่มีให้ตรวจ" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "vehicle_front_headlight",
@@ -986,6 +1024,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ผ่าน", label: "ผ่าน" },
                 { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
                 { value: "ไม่มีให้ตรวจ", label: "ไม่มีให้ตรวจ" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "vehicle_front_light",
@@ -999,6 +1038,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ผ่าน", label: "ผ่าน" },
                 { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
                 { value: "ไม่มีให้ตรวจ", label: "ไม่มีให้ตรวจ" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "vehicle_front_turnsignal",
@@ -1012,6 +1052,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ผ่าน", label: "ผ่าน" },
                 { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
                 { value: "ไม่มีให้ตรวจ", label: "ไม่มีให้ตรวจ" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "vehicle_front_tax",
@@ -1025,6 +1066,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ผ่าน", label: "ผ่าน" },
                 { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
                 { value: "ไม่มีให้ตรวจ", label: "ไม่มีให้ตรวจ" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "vehicle_license_plate",
@@ -1038,6 +1080,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ผ่าน", label: "ผ่าน" },
                 { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
                 { value: "ไม่มีให้ตรวจ", label: "ไม่มีให้ตรวจ" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "vehicle_front_tape",
@@ -1051,6 +1094,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ผ่าน", label: "ผ่าน" },
                 { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
                 { value: "ไม่มีให้ตรวจ", label: "ไม่มีให้ตรวจ" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "vehicle_number",
@@ -1062,7 +1106,8 @@ export default function TrainerApp_SUBID() {
             type: "checkbox" as const,
             options: [
                 { value: "ผ่าน", label: "ผ่าน" },
-                { value: "ไม่ผ่าน", label: "ไม่ผ่าน" }
+                { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "vehicle_front_cleanliness",
@@ -1087,6 +1132,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ผ่าน", label: "ผ่าน" },
                 { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
                 { value: "ไม่มีให้ตรวจ", label: "ไม่มีให้ตรวจ" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "vehicle_left_doorglass",
@@ -1100,6 +1146,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ผ่าน", label: "ผ่าน" },
                 { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
                 { value: "ไม่มีให้ตรวจ", label: "ไม่มีให้ตรวจ" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "vehicle_left_sidestep",
@@ -1113,6 +1160,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ผ่าน", label: "ผ่าน" },
                 { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
                 { value: "ไม่มีให้ตรวจ", label: "ไม่มีให้ตรวจ" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "vehicle_left_doorsticker",
@@ -1126,6 +1174,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ผ่าน", label: "ผ่าน" },
                 { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
                 { value: "ไม่มีให้ตรวจ", label: "ไม่มีให้ตรวจ" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "vehicle_left_tape",
@@ -1139,6 +1188,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ผ่าน", label: "ผ่าน" },
                 { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
                 { value: "ไม่มีให้ตรวจ", label: "ไม่มีให้ตรวจ" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "vehicle_left_sidetape",
@@ -1152,11 +1202,13 @@ export default function TrainerApp_SUBID() {
                 { value: "ผ่าน", label: "ผ่าน" },
                 { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
                 { value: "ไม่มีให้ตรวจ", label: "ไม่มีให้ตรวจ" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "vehicle_left_rooflight",
             readonly: false,
             value: dbVehicle?.vehicle_left_rooflight ?? "",
+            
         },
         {
             label: "7. ล้อหัวเก๋งด้านซ้าย",
@@ -1165,6 +1217,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ผ่าน", label: "ผ่าน" },
                 { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
                 { value: "ไม่มีให้ตรวจ", label: "ไม่มีให้ตรวจ" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "vehicle_left_frontwheel",
@@ -1178,6 +1231,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ผ่าน", label: "ผ่าน" },
                 { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
                 { value: "ไม่มีให้ตรวจ", label: "ไม่มีให้ตรวจ" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "vehicle_left_rearwheel",
@@ -1191,6 +1245,7 @@ export default function TrainerApp_SUBID() {
                 { value: "ผ่าน", label: "ผ่าน" },
                 { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
                 { value: "ไม่มีให้ตรวจ", label: "ไม่มีให้ตรวจ" },
+                { value: "Toolbox Talk Online", label: "Toolbox Talk Online" },
             ],
             icon: null,
             fieldKey: "vehicle_left_storage",
@@ -1579,7 +1634,7 @@ export default function TrainerApp_SUBID() {
             value: dbVehicle?.vehicle_inside_photo ?? "",
         },
         {
-            label: "1. ยาสารมัญ",
+            label: "1. ยาสามัญ",
             type: "checkbox" as const,
             options: [
                 { value: "ผ่าน", label: "ผ่าน" },
