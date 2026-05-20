@@ -31,6 +31,8 @@ interface NCRecord {
   status: string;
   description: string;
   location: string;
+  origin_name: string;
+  destination: string;
   estimated_cost: number;
   actual_price: number;
   incident_date: string;
@@ -226,6 +228,8 @@ export const NCRecordsComponent = () => {
           incident_cause: record.incident_cause,
           description: record.case_details,
           location: record.case_location,
+          origin_name: record.origin_name,
+          destination: record.destination,
           actual_price: record.actual_price,
           estimated_cost: record.estimated_cost,
           claim_type: record.investigation.claim_type,
@@ -590,6 +594,8 @@ export const NCRecordsComponent = () => {
         'สาเหตุของเหตุการณ์': record.incident_cause || '',
         'รายละเอียด': record.description || '',
         'สถานที่เกิดเหตุ': record.location || '',
+        'ต้นทาง': record.origin_name || '',
+        'ปลายทาง': record.destination || '',
         'มูลค่าความเสียหายประมาณการ': record.estimated_cost != null ? Number(record.estimated_cost) : null,
         'มูลค่าความเสียหายจริง': record.actual_price != null ? Number(record.actual_price) : null,
         'ประเภทการเคลม': record.claim_type || '',
