@@ -39,6 +39,7 @@ interface NCRecord {
   driver_role_name: string;
   vehicle_head_plate: string;
   vehicle_tail_plate: string;
+  breakdown_status: string;
   incident_cause: string;
   claim_type: string;
   company_cost: number;
@@ -226,6 +227,7 @@ export const NCRecordsComponent = () => {
           vehicle_head_plate: record.vehicle_head_plate,
           vehicle_tail_plate: record.vehicle_tail_plate,
           incident_cause: record.incident_cause,
+          breakdown_status: record.breakdown_status,
           description: record.case_details,
           location: record.case_location,
           origin_name: record.origin_name,
@@ -239,7 +241,7 @@ export const NCRecordsComponent = () => {
           product_resellable: record.investigation.product_resellable,
           remaining_damage_cost: record.investigation.remaining_damage_cost
         }));
-        // console.log("filteredRecords NC :", transformedRecords.length);
+        // console.log("filteredRecords NC :", transformedRecords);
         setRecords(transformedRecords);
       } else {
         console.error("Search failed");
@@ -591,6 +593,7 @@ export const NCRecordsComponent = () => {
         'เบอร์รถ': record.plateNumber || '',
         'ทะเบียนรถหัว': record.vehicle_head_plate || '',
         'ทะเบียนรถท้าย': record.vehicle_tail_plate || '',
+        'สถานะ breakdown': (record.breakdown_status || '') === 'มี breakdown' ? 'มี' : 'ไม่มี',
         'สาเหตุของเหตุการณ์': record.incident_cause || '',
         'รายละเอียด': record.description || '',
         'สถานที่เกิดเหตุ': record.location || '',
@@ -934,7 +937,8 @@ export const NCRecordsComponent = () => {
                         {record.department_name || "ไม่ระบุ"}
                       </td>
                       <td className="px-3 py-4 text-xs text-gray-600" >
-                        {record.driver_name || "ไม่ระบุ"}
+                        {record.driver_name || "ไม่ระบุ"} 
+                      <p className="text-[9px]">{record.vehicle_head_plate} <span className="text-red-600 font-semibold">{record.breakdown_status == 'มี breakdown' ? 'breakdown' : ''}</span></p>
                       </td>
                       <td
                         className="px-3 py-4 text-xs text-gray-600 align-center max-w-[100px] whitespace-normal break-words leading-snug"
@@ -1070,7 +1074,7 @@ export const NCRecordsComponent = () => {
                         </div>
                         <div>
                           <span className="font-semibold text-indigo-600">ทะเบียนรถ:</span>
-                          <p className="text-gray-900 text-xs border-b-1 w-fit">{record.plateNumber || "ไม่ระบุ"}</p>
+                          <p className="text-gray-900 text-xs border-b-1 w-fit">{record.plateNumber || "ไม่ระบุ"} <span className="text-red-600 font-semibold">{record.breakdown_status == 'มี breakdown' ? 'breakdown' : ''}</span></p>
                         </div>
                       </div>
 

@@ -42,6 +42,7 @@ export const useClipboard_nc = (data: any) => {
 ⏰ วันที่แจ้ง: ${formatDT(data.formData.record_date) || 'N/A'}
 🔥 วันที่เกิดเหตุ: ${formatDT(data.formData.incident_date) || 'N/A'}
 🚚 พนักงาน: ${data.formData.driver_name || 'N/A'}
+${data.formData.vehicle_head_plate || 'N/A'} ${(data.formData.breakdown_status || 'N/A') === 'มี breakdown' ? '⛔ breakdown' : ''}
 
 🔗 https://mena-safety-ncac.vercel.app/nc-form?doc=${data.formData.document_no}
 ===================
