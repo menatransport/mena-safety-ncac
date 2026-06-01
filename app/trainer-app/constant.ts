@@ -159,3 +159,5 @@ export const ROLE_SAFETY_TRAINER = "Safety Trainer";
 /* -------------------------------------------------------------------------- */
 export const TRUCK_TYPES = ["Trailer", "Mixer"] as const;
 
+export const ANALYTICS_TABS = ["สรุปภาพรวม", "สารเสพติด & แอลกอฮอล์", "PPE", "ตรวจสภาพรอบรถ"] as const;
+

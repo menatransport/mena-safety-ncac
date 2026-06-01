@@ -26,6 +26,7 @@ interface TaskFilterProps {
     loading?: boolean;
     className?: string;
     onFilter: (filtered: Task[]) => void;
+    onFilterStateChange?: (state: TaskFilterResult) => void;
     onSearch?: () => void;
     onTrainerChange?: (trainerId: string) => void;
     myuser?: Users;
@@ -56,7 +57,7 @@ const matchesDateRange = (planDate: string, years: number[], months: number[]): 
 /*  Component                                                                 */
 /* -------------------------------------------------------------------------- */
 export const TaskFilter = forwardRef<TaskFilterRef, TaskFilterProps>(
-    function TaskFilter({ tasks, loading = false, className = "", myuser, onFilter, onSearch, onTrainerChange }, ref) {
+    function TaskFilter({ tasks, loading = false, className = "", myuser, onFilter, onFilterStateChange, onSearch, onTrainerChange }, ref) {
         const currentYear = new Date().getFullYear();
 
         const [selectedYears, setSelectedYears] = useState<number[]>([currentYear]);
@@ -119,7 +120,8 @@ export const TaskFilter = forwardRef<TaskFilterRef, TaskFilterProps>(
             }
 
             onFilter(result);
-        }, [tasks, selectedYears, selectedMonths, status, trainerId, clientName, search, onFilter]);
+            onFilterStateChange?.({ search, status: (status || "all") as TaskFilterResult["status"], selectedYears, selectedMonths, trainerId, clientName });
+        }, [tasks, selectedYears, selectedMonths, status, trainerId, clientName, search, onFilter, onFilterStateChange]);
 
         const handleReset = useCallback(() => {
             setSelectedYears([currentYear]);

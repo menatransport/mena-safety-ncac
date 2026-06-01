@@ -13,7 +13,7 @@
 import { useState, useMemo } from "react";
 import {
     ArrowUpDown, ArrowUp, ArrowDown,
-    FileSpreadsheet, Inbox, Eye, Trash2,
+    FileSpreadsheet, Inbox, Eye, Trash2, Loader2,
 } from "lucide-react";
 import type { Task } from "../type";
 import { TASK_TABLE_STATUS, TASK_TABLE_ROWS_PER_PAGE, CALENDAR_MONTHS_TH_SHORT } from "../constant";
@@ -66,6 +66,7 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
     const [sortField, setSortField] = useState<SortField>("plan_date");
     const [sortDir, setSortDir] = useState<SortDir>("desc");
     const [page, setPage] = useState(1);
+    const [isExporting, setIsExporting] = useState(false);
 
     /* ──── Sorting ──── */
     const sorted = useMemo(() => {
@@ -121,7 +122,11 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
     };
 
     const exportExcel = async () => {
+        setIsExporting(true);
+        try {
         const XLSX = await import("xlsx");
+
+        /* ── Sheet 1: Inspection Tasks (เดิม) ── */
         const rows = sorted.map((row) => {
             const newRow: Record<string, unknown> = { ...row };
             DATE_FIELDS.forEach((field) => {
@@ -133,28 +138,148 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
             return newRow;
         });
 
-        const ws = XLSX.utils.json_to_sheet(rows, { cellDates: true });
+        const ws1 = XLSX.utils.json_to_sheet(rows, { cellDates: true });
 
-        // กำหนด format dd/mm/yyyy ให้คอลัมน์วันที่ (ไม่มีเวลา)
-        const headerKeys = Object.keys(rows[0] || {});
-        const dateColIdx = DATE_FIELDS
-            .map((f) => headerKeys.indexOf(f))
+        const headerKeys1 = Object.keys(rows[0] || {});
+        const dateColIdx1 = DATE_FIELDS
+            .map((f) => headerKeys1.indexOf(f))
             .filter((i) => i >= 0);
-        const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
-        for (let R = range.s.r + 1; R <= range.e.r; R++) {
-            for (const C of dateColIdx) {
-                const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
+        const range1 = XLSX.utils.decode_range(ws1["!ref"] || "A1");
+        for (let R = range1.s.r + 1; R <= range1.e.r; R++) {
+            for (const C of dateColIdx1) {
+                const cell = ws1[XLSX.utils.encode_cell({ r: R, c: C })];
                 if (cell && cell.v instanceof Date) {
                     cell.t = "d";
                     cell.z = "dd/mm/yyyy";
                 }
             }
         }
+        ws1["!cols"] = headerKeys1.map(() => ({ wch: 18 }));
 
-        ws["!cols"] = headerKeys.map(() => ({ wch: 18 }));
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Inspection Tasks");
+        XLSX.utils.book_append_sheet(wb, ws1, "Inspection Tasks");
+
+        /* ── Sheet 2: สรุปผลการตรวจ (ใหม่) ── */
+        const taskIds = [...new Set(sorted.map((t) => t.inspection_task_id))];
+
+        if (taskIds.length > 0) {
+            try {
+                const params = new URLSearchParams();
+                taskIds.forEach((id) => params.append("task_ids", id));
+                const res = await fetch(`/api/task/report?${params.toString()}`);
+
+                if (res.ok) {
+                    type DriverSummaryRow = {
+                        inspection_task_id: string;
+                        plan_date: string | null;
+                        action_date: string | null;
+                        plant_name: string | null;
+                        client_name: string | null;
+                        trainer_id: string | null;
+                        driver_status: string | null;
+                        driver_id: string | null;
+                        first_name: string | null;
+                        last_name: string | null;
+                        number_plate: string | null;
+                        truck_number: string | null;
+                        truck_type: string | null;
+                        alcohol: number | null;
+                        amfetamin: string | null;
+                        kra: string | null;
+                        thc: string | null;
+                        drug_test_status: string | null;
+                        helmet_check: string | null;
+                        glasses_check: string | null;
+                        mask_check: string | null;
+                        vest_check: string | null;
+                        glove_check: string | null;
+                        safety_shoes_check: string | null;
+                        ppe_status: string | null;
+                        vehicle_status: string | null;
+                        vehicle_front_result: string | null;
+                        vehicle_front_fail_items: string | null;
+                        vehicle_left_result: string | null;
+                        vehicle_left_fail_items: string | null;
+                        vehicle_rear_result: string | null;
+                        vehicle_rear_fail_items: string | null;
+                        vehicle_right_result: string | null;
+                        vehicle_right_fail_items: string | null;
+                        vehicle_inside_result: string | null;
+                        vehicle_inside_fail_items: string | null;
+                    };
+
+                    const summary: DriverSummaryRow[] = await res.json();
+
+                    const summaryRows = summary.map((d) => ({
+                        "Task ID": d.inspection_task_id,
+                        "วันที่ลงแผน": toExcelDate(d.plan_date) ?? d.plan_date ?? "—",
+                        "วันที่ดำเนินการ": toExcelDate(d.action_date) ?? d.action_date ?? "—",
+                        "แพล้นท์": d.plant_name ?? "—",
+                        "ลูกค้า": d.client_name ?? "—",
+                        "เทรนเนอร์": d.trainer_id ?? "—",
+                        "สถานะคนขับ": d.driver_status ?? "—",
+                        "รหัสคนขับ": d.driver_id ?? "—",
+                        "ชื่อ": d.first_name ?? "—",
+                        "นามสกุล": d.last_name ?? "—",
+                        "ทะเบียน": d.number_plate ?? "—",
+                        "เลขรถ": d.truck_number ?? "—",
+                        "ประเภทรถ": d.truck_type ?? "—",
+                        "แอลกอฮอล์": d.alcohol ?? "—",
+                        "แอมเฟตามีน": d.amfetamin ?? "—",
+                        "KRA": d.kra ?? "—",
+                        "THC": d.thc ?? "—",
+                        "ผล Drug/Alc": d.drug_test_status ?? "—",
+                        "หมวก Safety": d.helmet_check ?? "—",
+                        "แว่นตา Safety": d.glasses_check ?? "—",
+                        "ผ้าปิดจมูก": d.mask_check ?? "—",
+                        "เสื้อสะท้อนแสง": d.vest_check ?? "—",
+                        "ถุงมือ Safety": d.glove_check ?? "—",
+                        "รองเท้า Safety": d.safety_shoes_check ?? "—",
+                        "ผล PPE": d.ppe_status ?? "—",
+                        "ผลตรวจรถ (รวม)": d.vehicle_status ?? "—",
+                        "ด้านหน้า ผล": d.vehicle_front_result ?? "—",
+                        "ด้านหน้า เหตุผล": d.vehicle_front_fail_items ?? "—",
+                        "ด้านซ้าย ผล": d.vehicle_left_result ?? "—",
+                        "ด้านซ้าย เหตุผล": d.vehicle_left_fail_items ?? "—",
+                        "ด้านหลัง ผล": d.vehicle_rear_result ?? "—",
+                        "ด้านหลัง เหตุผล": d.vehicle_rear_fail_items ?? "—",
+                        "ด้านขวา ผล": d.vehicle_right_result ?? "—",
+                        "ด้านขวา เหตุผล": d.vehicle_right_fail_items ?? "—",
+                        "ภายในรถ ผล": d.vehicle_inside_result ?? "—",
+                        "ภายในรถ เหตุผล": d.vehicle_inside_fail_items ?? "—",
+                    }));
+
+                    const ws2 = XLSX.utils.json_to_sheet(summaryRows, { cellDates: true });
+
+                    // กำหนด format วันที่ใน sheet 2
+                    const dateHeaders = ["วันที่ลงแผน", "วันที่ดำเนินการ"];
+                    const headerKeys2 = Object.keys(summaryRows[0] || {});
+                    const dateColIdx2 = dateHeaders
+                        .map((h) => headerKeys2.indexOf(h))
+                        .filter((i) => i >= 0);
+                    const range2 = XLSX.utils.decode_range(ws2["!ref"] || "A1");
+                    for (let R = range2.s.r + 1; R <= range2.e.r; R++) {
+                        for (const C of dateColIdx2) {
+                            const cell = ws2[XLSX.utils.encode_cell({ r: R, c: C })];
+                            if (cell && cell.v instanceof Date) {
+                                cell.t = "d";
+                                cell.z = "dd/mm/yyyy";
+                            }
+                        }
+                    }
+                    ws2["!cols"] = headerKeys2.map(() => ({ wch: 18 }));
+
+                    XLSX.utils.book_append_sheet(wb, ws2, "สรุปผลการตรวจ");
+                }
+            } catch {
+                // ถ้า fetch summary ล้มเหลว ยังคง export sheet 1 ได้ปกติ
+            }
+        }
+
         XLSX.writeFile(wb, `inspection_tasks_${new Date().toISOString().slice(0, 10)}.xlsx`, { cellDates: true });
+        } finally {
+            setIsExporting(false);
+        }
     };
 
     return (
@@ -172,10 +297,13 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
                 <div className="absolute top-4 right-4 flex flex-col sm:flex-row gap-2">
                     <button
                         onClick={exportExcel}
-                        className="bg-gradient-to-r from-emerald-500/30 to-teal-600/30 border border-teal-400/40 hover:from-emerald-500/50 hover:to-teal-600/50 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 shadow-md shadow-teal-500/10 backdrop-blur-sm"
+                        disabled={isExporting}
+                        className="bg-gradient-to-r from-emerald-500/30 to-teal-600/30 border border-teal-400/40 hover:from-emerald-500/50 hover:to-teal-600/50 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 shadow-md shadow-teal-500/10 backdrop-blur-sm disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                        <FileSpreadsheet size={20} />
-                        <span className="hidden sm:inline">Excel</span>
+                        {isExporting
+                            ? <Loader2 size={20} className="animate-spin" />
+                            : <FileSpreadsheet size={20} />}
+                        <span className="hidden sm:inline">{isExporting ? "กำลังโหลด..." : "Excel"}</span>
                     </button>
                 </div>
 

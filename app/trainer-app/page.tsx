@@ -28,8 +28,9 @@ import { mapTasksWithDropdowns } from "@/lib/trainerMapper";
 
 import { TaskTable } from "./_components/TaskTable";
 import { TaskFilter } from "./_components/TaskFilter";
-import type { Task, TaskFilterRef, Users } from "./type";
-import { ROLE_SAFETY_TRAINER } from "./constant";
+import type { Task, TaskFilterRef, TaskFilterResult, Users } from "./type";
+import { ROLE_SAFETY_TRAINER,ANALYTICS_TABS } from "./constant";
+import { AnalyticsTabs } from "./_components/analytics/main";
 
 const CalendarTask = dynamic(
     () => import("./_components/Calendar").then(m => m.CalendarTask),
@@ -59,6 +60,15 @@ export default function TrainerApp() {
     const [plantOptions, setPlantOptions] = useState<{ client_name: string; plant_code: string; plant_name: string }[]>([]);
     const [myuser, setMyUser] = useState<any | null>(null);
     const [selectedTrainer, setSelectedTrainer] = useState<string>("");
+    const [activeAnalyticsTab, setActiveAnalyticsTab] = useState(ANALYTICS_TABS[0]) as [typeof ANALYTICS_TABS[number], React.Dispatch<React.SetStateAction<typeof ANALYTICS_TABS[number]>>];
+    const [analyticsFilters, setAnalyticsFilters] = useState<TaskFilterResult>({
+        search: "",
+        status: "all",
+        selectedYears: [new Date().getFullYear()],
+        selectedMonths: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+        trainerId: "",
+        clientName: "",
+    });
 
     /* ── Bootstrap: load current user from localStorage or redirect to /login ── */
     useEffect(() => {
@@ -334,6 +344,15 @@ export default function TrainerApp() {
                         myuser={myuser}
                         onFilter={handleFilterChange}
                         onSearch={fetchData}
+                        onFilterStateChange={(state) => {
+                            const trainer = UserSafety.find(
+                                u => `${u.firstname} ${u.lastname}` === state.trainerId
+                            );
+                            setAnalyticsFilters({
+                                ...state,
+                                trainerId: trainer?.employee_id ?? state.trainerId,
+                            });
+                        }}
                         onTrainerChange={(name) => setSelectedTrainer(name)}
                         className="z-[10] relative"
                     />
@@ -436,15 +455,25 @@ export default function TrainerApp() {
                     )}
 
                     {activeView === "analytics" && (
-                        <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/60 via-slate-800/40 to-teal-900/30 backdrop-blur-md p-8 shadow-lg shadow-black/10">
-                            <div className="flex flex-col items-center justify-center py-16">
-                                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500/30 to-emerald-600/30 border border-teal-400/30 flex items-center justify-center mb-4">
-                                    <Sparkles size={28} strokeWidth={1.5} className="text-teal-200" />
-                                </div>
-                                <p className="text-base font-semibold text-white/90">เร็ว ๆ นี้</p>
-                                <p className="text-sm text-white/50 mt-1">ฟีเจอร์วิเคราะห์กำลังอยู่ระหว่างพัฒนา</p>
-                            </div>
+                        // TAB SELECTION
+                        <>
+                        <div className="flex flex-wrap gap-4 mb-6">
+                            {ANALYTICS_TABS.map((tab) => (
+                                <button
+                                    key={tab}
+                                    className={`px-4 py-2 rounded-lg transition-colors ${
+                                        activeAnalyticsTab === tab
+                                            ? "bg-gradient-to-br from-teal-500/30 to-emerald-600/30 text-white"
+                                            : "bg-white/10 text-white/70 hover:bg-white/20 cursor-pointer"
+                                    }`}
+                                    onClick={() => setActiveAnalyticsTab(tab)}
+                                >
+                                    {tab}
+                                </button>
+                            ))}
                         </div>
+                        <AnalyticsTabs activeTab={activeAnalyticsTab} filters={analyticsFilters} />
+                        </>
                     )}
                 </div>
             </div>
