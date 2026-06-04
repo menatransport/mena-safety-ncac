@@ -60,6 +60,7 @@ export default function TrainerApp() {
     const [plantOptions, setPlantOptions] = useState<{ client_name: string; plant_code: string; plant_name: string }[]>([]);
     const [myuser, setMyUser] = useState<any | null>(null);
     const [selectedTrainer, setSelectedTrainer] = useState<string>("");
+    const [calendarNav, setCalendarNav] = useState({ year: new Date().getFullYear(), month: new Date().getMonth() + 1 });
     const [activeAnalyticsTab, setActiveAnalyticsTab] = useState(ANALYTICS_TABS[0]) as [typeof ANALYTICS_TABS[number], React.Dispatch<React.SetStateAction<typeof ANALYTICS_TABS[number]>>];
     const [analyticsFilters, setAnalyticsFilters] = useState<TaskFilterResult>({
         search: "",
@@ -342,6 +343,7 @@ export default function TrainerApp() {
                         tasks={mappedTasksForFilter}
                         loading={loading}
                         myuser={myuser}
+                        syncMonth={calendarNav}
                         onFilter={handleFilterChange}
                         onSearch={fetchData}
                         onFilterStateChange={(state) => {
@@ -414,6 +416,7 @@ export default function TrainerApp() {
 
                                         <CalendarTask
                                             tasks={filteredTasks}
+                                            onMonthChange={(y, m) => setCalendarNav({ year: y, month: m })}
                                             createform={{
                                                 clients: [...new Map(plantOptions.map(p => [p.client_name, p.client_name])).values()],
                                                 trainer: UserSafety,

@@ -30,6 +30,7 @@ interface TaskFilterProps {
     onSearch?: () => void;
     onTrainerChange?: (trainerId: string) => void;
     myuser?: Users;
+    syncMonth?: { year: number; month: number } | null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -57,7 +58,7 @@ const matchesDateRange = (planDate: string, years: number[], months: number[]): 
 /*  Component                                                                 */
 /* -------------------------------------------------------------------------- */
 export const TaskFilter = forwardRef<TaskFilterRef, TaskFilterProps>(
-    function TaskFilter({ tasks, loading = false, className = "", myuser, onFilter, onFilterStateChange, onSearch, onTrainerChange }, ref) {
+    function TaskFilter({ tasks, loading = false, className = "", myuser, onFilter, onFilterStateChange, onSearch, onTrainerChange, syncMonth }, ref) {
         const currentYear = new Date().getFullYear();
 
         const [selectedYears, setSelectedYears] = useState<number[]>([currentYear]);
@@ -145,7 +146,14 @@ export const TaskFilter = forwardRef<TaskFilterRef, TaskFilterProps>(
             applyFilter();
         }, [selectedYears, selectedMonths, status, trainerId, clientName, tasks]);
 
-        // myuser 
+        // Sync month/year from Calendar navigation
+        useEffect(() => {
+            if (!syncMonth) return;
+            setSelectedYears([syncMonth.year]);
+            setSelectedMonths([syncMonth.month]);
+        }, [syncMonth?.year, syncMonth?.month]);
+
+        // myuser
         useEffect(() => {
             if (myuser && myuser.position === ROLE_SAFETY_TRAINER) {
                 setTrainerId(`${myuser.firstname} ${myuser.lastname}`);
@@ -181,16 +189,16 @@ export const TaskFilter = forwardRef<TaskFilterRef, TaskFilterProps>(
                 <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 bg-gradient-to-r from-slate-900/60 via-slate-800/40 to-teal-900/30">
                     <div className="flex items-center gap-2.5">
                         <div className="flex items-start gap-3">
-                    <div className="p-2 bg-gradient-to-br from-teal-500/30 to-emerald-600/30 border border-teal-400/30 rounded-xl">
-                        <Filter size={22} className="text-teal-200" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
-                            ตัวกรองข้อมูล TRAINER
-                        </h2>
-                        <p className="text-xs text-white/50 mt-0.5">กรองข้อมูลตามเงื่อนไขที่กำหนด</p>
-                    </div>
-                </div>
+                            <div className="p-2 bg-gradient-to-br from-teal-500/30 to-emerald-600/30 border border-teal-400/30 rounded-xl">
+                                <Filter size={22} className="text-teal-200" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                                    ตัวกรองข้อมูล TRAINER
+                                </h2>
+                                <p className="text-xs text-white/50 mt-0.5">กรองข้อมูลตามเงื่อนไขที่กำหนด</p>
+                            </div>
+                        </div>
                         {loading && (
                             <div className="flex items-center gap-1.5 ml-2">
                                 <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />

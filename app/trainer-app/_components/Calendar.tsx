@@ -10,7 +10,7 @@
 //   • ปิดปุ่มเพิ่มงานเมื่อ lockRole = true
 // =============================================================================
 
-import { useState, useMemo, useCallback, DragEvent } from "react";
+import { useState, useMemo, useCallback, useEffect, DragEvent } from "react";
 import { ChevronLeft, ChevronRight, Plus, X, Trash2, Clock, MapPin, User, CalendarDays, Eye } from "lucide-react";
 import type { Task, TaskStatus, Users, DialogMode } from "../type";
 import {
@@ -116,12 +116,13 @@ interface CalendarProps {
     onAddTask?: (task: Partial<Task>) => void;
     onDeleteTask?: (taskId: string) => void;
     onViewTask?: (taskId: string) => void;
+    onMonthChange?: (year: number, month: number) => void;
 }
 
 /* -------------------------------------------------------------------------- */
 /*  Component                                                                 */
 /* -------------------------------------------------------------------------- */
-export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask, onAddTask, onDeleteTask, onViewTask }: CalendarProps) {
+export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask, onAddTask, onDeleteTask, onViewTask, onMonthChange }: CalendarProps) {
     const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
     const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
@@ -182,6 +183,11 @@ export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask
             days.push({ day: d, inMonth: false, date: fmtDate(y, m, d) });
         }
         return days;
+    }, [currentYear, currentMonth]);
+
+    /* ── Notify parent when month/year changes ── */
+    useEffect(() => {
+        onMonthChange?.(currentYear, currentMonth + 1);
     }, [currentYear, currentMonth]);
 
     /* ── Navigation ── */
