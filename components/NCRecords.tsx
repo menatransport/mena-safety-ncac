@@ -60,6 +60,7 @@ interface FilterCriteria {
   driver_id?: string;
   casestatus?: string;
   priority?: string;
+  vehicle_plate?: string;
 }
 
 type SortConfig = {
@@ -90,11 +91,13 @@ export const NCRecordsComponent = () => {
     drivers: any[];
     departments: any[];
     clients: any[];
+    plates: { plate_no: string }[];
   }>({
     sites: [],
     drivers: [],
     departments: [],
     clients: [],
+    plates: [],
   });
 
   useEffect(() => {
@@ -241,8 +244,18 @@ export const NCRecordsComponent = () => {
           product_resellable: record.investigation.product_resellable,
           remaining_damage_cost: record.investigation.remaining_damage_cost
         }));
-        // console.log("filteredRecords NC :", transformedRecords);
         setRecords(transformedRecords);
+
+        const allPlates = new Set<string>();
+        transformedRecords.forEach((r: NCRecord) => {
+          if (r.plateNumber) allPlates.add(r.plateNumber);
+          if (r.vehicle_head_plate) allPlates.add(r.vehicle_head_plate);
+          if (r.vehicle_tail_plate) allPlates.add(r.vehicle_tail_plate);
+        });
+        setDropdownData((prev) => ({
+          ...prev,
+          plates: [...allPlates].sort().map((p) => ({ plate_no: p })),
+        }));
       } else {
         console.error("Search failed");
       }
@@ -355,6 +368,12 @@ export const NCRecordsComponent = () => {
           );
         });
 
+    const matchesPlate =
+      !filterCriteria.vehicle_plate ||
+      record.plateNumber === filterCriteria.vehicle_plate ||
+      record.vehicle_head_plate === filterCriteria.vehicle_plate ||
+      record.vehicle_tail_plate === filterCriteria.vehicle_plate;
+
     const matchesDocumentNo =
       !filterCriteria.document_no ||
       filterCriteria.document_no
@@ -398,10 +417,12 @@ export const NCRecordsComponent = () => {
       matchesStatus &&
       matchesSite &&
       matchesDriver &&
+      matchesPlate &&
       matchesDocumentNo &&
       matchesDepartment &&
       matchesClient &&
-      matchesPriority
+      matchesPriority 
+      
     );
   });
 
@@ -665,6 +686,7 @@ export const NCRecordsComponent = () => {
           dropdownData={dropdownData}
           onLoadDrivers={loadDrivers}
           onLoadClients={loadClients}
+          onLoadPlates={() => {}}
           className="mb-6 z-[10] relative"
         />
 

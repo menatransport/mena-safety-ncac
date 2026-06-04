@@ -61,6 +61,7 @@ interface FilterCriteria {
   driver_id?: string;
   casestatus?: string;
   priority?: string;
+  vehicle_plate?: string;
 }
 
 type SortConfig = {
@@ -90,11 +91,13 @@ export const ACRecordsComponent = () => {
     drivers: any[];
     departments: any[];
     clients: any[];
+    plates: { plate_no: string }[];
   }>({
     sites: [],
     drivers: [],
     departments: [],
     clients: [],
+    plates: [],
   });
 
   useEffect(() => {
@@ -246,6 +249,17 @@ export const ACRecordsComponent = () => {
           actual_price: (record.actual_goods_damage_value + record.actual_vehicle_damage_value),
         }));
         setRecords(transformedRecords);
+
+        const allPlates = new Set<string>();
+        transformedRecords.forEach((r: ACRecord) => {
+          if (r.plateNumber) allPlates.add(r.plateNumber);
+          if (r.vehicle_head_plate) allPlates.add(r.vehicle_head_plate);
+          if (r.vehicle_tail_plate) allPlates.add(r.vehicle_tail_plate);
+        });
+        setDropdownData((prev) => ({
+          ...prev,
+          plates: [...allPlates].sort().map((p) => ({ plate_no: p })),
+        }));
       } else {
         console.error("AC Search failed");
         sendErrorLog('ACRecords/handleSearch', `AC Search failed with status ${response}`);
@@ -394,6 +408,12 @@ export const ACRecordsComponent = () => {
         .map((p) => p.trim())
         .includes(record.priority);
 
+    const matchesPlate =
+      !filterCriteria.vehicle_plate ||
+      record.plateNumber === filterCriteria.vehicle_plate ||
+      record.vehicle_head_plate === filterCriteria.vehicle_plate ||
+      record.vehicle_tail_plate === filterCriteria.vehicle_plate;
+
     return (
       matchesSearch &&
       matchesStatus &&
@@ -402,7 +422,8 @@ export const ACRecordsComponent = () => {
       matchesDocumentNo &&
       matchesDepartment &&
       matchesClient &&
-      matchesPriority
+      matchesPriority &&
+      matchesPlate
     );
   });
 
@@ -653,6 +674,7 @@ export const ACRecordsComponent = () => {
           dropdownData={dropdownData}
           onLoadDrivers={loadDrivers}
           onLoadClients={loadClients}
+          onLoadPlates={() => {}}
           className="mb-6 z-[10] relative"
         />
 

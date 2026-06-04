@@ -17,6 +17,7 @@ export interface RecordFilterResult {
     driver_id?: string;
     casestatus?: string;
     priority?: string;
+    vehicle_plate?: string;
 }
 
 export interface DropdownData {
@@ -24,6 +25,7 @@ export interface DropdownData {
     drivers: Array<{ driver_id: string | number; first_name: string; last_name: string }>;
     departments: Array<{ department_id: string | number; department_name: string; department_name_th?: string }>;
     clients: Array<{ client_id: string | number; client_name: string }>;
+    plates?: Array<{ plate_no: string }>;
 }
 
 export interface RecordFilterRef {
@@ -40,6 +42,7 @@ interface RecordFilterProps {
     autoSearch?: boolean; // auto search on mount, default true
     onLoadDrivers?: () => void;
     onLoadClients?: () => void;
+    onLoadPlates?: () => void;
 }
 
 /* ----------------------------- Helper Functions ------------------------------ */
@@ -96,6 +99,7 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
             autoSearch = true,
             onLoadDrivers,
             onLoadClients,
+            onLoadPlates,
         },
         ref
     ) {
@@ -113,6 +117,7 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
         const [driverId, setDriverId] = useState("");
         const [caseStatus, setCaseStatus] = useState("");
         const [priority, setPriority] = useState("");
+        const [vehiclePlate, setVehiclePlate] = useState("");
 
         // UI state
         const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -132,8 +137,9 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
                 ...(driverId && { driver_id: driverId }),
                 ...(caseStatus && { casestatus: caseStatus }),
                 ...(priority && { priority: priority }),
+                ...(vehiclePlate && { vehicle_plate: vehiclePlate }),
             };
-        }, [selectedYears, selectedMonths, documentNo, departmentId, siteId, clientId, driverId, caseStatus, priority]);
+        }, [selectedYears, selectedMonths, documentNo, departmentId, siteId, clientId, driverId, caseStatus, priority, vehiclePlate]);
 
         const handleApply = useCallback(() => {
             onFilter(buildFilterResult());
@@ -149,6 +155,7 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
             setDriverId("");
             setCaseStatus("");
             setPriority("");
+            setVehiclePlate("");
 
             const dateRange = getDateRangeFromSelection([currentYear], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
             onFilter({
@@ -171,7 +178,7 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
         useEffect(() => {
             if (!isInitialized) return;
             handleApply();
-        }, [selectedYears, selectedMonths, departmentId, siteId, clientId, driverId, caseStatus, priority]);
+        }, [selectedYears, selectedMonths, departmentId, siteId, clientId, driverId, caseStatus, priority, vehiclePlate]);
 
         useEffect(() => {
             if (!isInitialized) return;
@@ -371,6 +378,25 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
                                     />
                                 </div>
 
+                                {/* Vehicle Plate */}
+                                <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                                        ทะเบียนรถ
+                                    </label>
+                                    <SearchableSelect
+                                        options={
+                                            dropdownData.plates?.map((p) => ({
+                                                value: p.plate_no,
+                                                label: p.plate_no,
+                                            })) || []
+                                        }
+                                        value={vehiclePlate}
+                                        onChange={(value) => setVehiclePlate(value.toString())}
+                                        onOpen={onLoadPlates}
+                                        placeholder="เลือกทะเบียนรถ..."
+                                    />
+                                </div>
+
                                 {/* Status */}
                                 <div>
                                     <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
@@ -403,7 +429,7 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
                                         onChange={(value) => setPriority(value.toString())}
                                         placeholder="เลือกระดับ..."
                                     />
-                                </div>
+                                </div>                            
                             </div>
                         )}
                     </div>
