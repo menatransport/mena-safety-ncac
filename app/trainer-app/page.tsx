@@ -436,6 +436,8 @@ export default function TrainerApp() {
                                             user={UserSafety}
                                             tasks={filteredTasks}
                                             selectedTrainer={selectedTrainer}
+                                            filterYears={analyticsFilters.selectedYears}
+                                            filterMonths={analyticsFilters.selectedMonths}
                                             lockRole={lockRole}
                                             onViewTask={handleViewTask}
                                             onDeleteTask={handleDeleteTask}

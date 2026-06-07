@@ -10,7 +10,7 @@
 //   • ปุ่ม ดูผลงาน จะดึงข้อมูล performance จาก API แสดงเป็น card + modal navigate
 // =============================================================================
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -122,11 +122,14 @@ type ModalState = {
 /* -------------------------------------------------------------------------- */
 export const ListUsers = ({
     users, tasks, selectedTrainer = "",
+    filterYears = [], filterMonths = [],
     onViewTask, onDeleteTask: _onDeleteTask, onSelectTrainer, lockRole,
 }: {
     users: Users[];
     tasks: Task[];
     selectedTrainer?: string;
+    filterYears?: number[];
+    filterMonths?: number[];
     onViewTask?: (taskId: string) => void;
     onDeleteTask?: (taskId: string) => void;
     onSelectTrainer?: (trainerDisplayName: string) => void;
@@ -147,11 +150,20 @@ export const ListUsers = ({
         return map;
     }, [users, tasks]);
 
+    // Clear cache whenever filter changes so re-expand fetches fresh data
+    useEffect(() => {
+        setPerfMap(new Map());
+        setExpandedId(null);
+    }, [filterYears.join(","), filterMonths.join(",")]);
+
     const fetchPerformance = async (person: Users) => {
         if (perfMap.has(person.employee_id)) return;
         setPerfLoading(prev => { const s = new Set(prev); s.add(person.id); return s; });
         try {
-            const res = await fetch(`/api/task/performance?trainer_id=${person.employee_id}`);
+            const params = new URLSearchParams({ trainer_id: person.employee_id });
+            filterYears.forEach(y => params.append("years", String(y)));
+            filterMonths.forEach(m => params.append("months", String(m)));
+            const res = await fetch(`/api/task/performance?${params.toString()}`);
             if (res.ok) {
                 const data: PerformanceData = await res.json();
                 setPerfMap(prev => new Map(prev).set(person.employee_id, data));

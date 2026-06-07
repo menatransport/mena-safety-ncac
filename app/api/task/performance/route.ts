@@ -5,8 +5,12 @@ const API_BASE = `${process.env.api_url}/inspection/performance`;
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const trainer_id = searchParams.get('trainer_id');
+    const params = new URLSearchParams();
+    searchParams.getAll('years').forEach(y => params.append('years', y));
+    searchParams.getAll('months').forEach(m => params.append('months', m));
+    const qs = params.toString();
     try {
-        const res = await fetch(`${API_BASE}/${trainer_id}`, {
+        const res = await fetch(`${API_BASE}/${trainer_id}${qs ? `?${qs}` : ""}`, {
             method: 'GET',
             headers: { 'Content-Type': 'application/json' },
         });

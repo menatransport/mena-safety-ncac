@@ -15,13 +15,15 @@ interface TrainerPerformanceProps {
     user: Users[];
     tasks: Task[];
     selectedTrainer?: string;
+    filterYears?: number[];
+    filterMonths?: number[];
     onViewTask?: (taskId: string) => void;
     onDeleteTask?: (taskId: string) => void;
     onSelectTrainer?: (trainerDisplayName: string) => void;
     lockRole?: boolean;
 }
 
-export const TrainerPerformance = ({ user, tasks, selectedTrainer = "", onViewTask, onDeleteTask, onSelectTrainer, lockRole }: TrainerPerformanceProps) => {
+export const TrainerPerformance = ({ user, tasks, selectedTrainer = "", filterYears = [], filterMonths = [], onViewTask, onDeleteTask, onSelectTrainer, lockRole }: TrainerPerformanceProps) => {
     const allTrainers = user.filter(u => u.position === ROLE_SAFETY_TRAINER);
     const trainers = selectedTrainer
         ? allTrainers.filter(t => `${t.firstname} ${t.lastname}` === selectedTrainer)
@@ -70,7 +72,7 @@ export const TrainerPerformance = ({ user, tasks, selectedTrainer = "", onViewTa
 
             {/* ━━━ Content ━━━ */}
             <div className="p-3 sm:p-4">
-                <ListUsers users={trainers} tasks={tasks} selectedTrainer={selectedTrainer} onViewTask={onViewTask} onDeleteTask={onDeleteTask} onSelectTrainer={onSelectTrainer} lockRole={lockRole} />
+                <ListUsers users={trainers} tasks={tasks} selectedTrainer={selectedTrainer} filterYears={filterYears} filterMonths={filterMonths} onViewTask={onViewTask} onDeleteTask={onDeleteTask} onSelectTrainer={onSelectTrainer} lockRole={lockRole} />
             </div>
         </div>
     );
