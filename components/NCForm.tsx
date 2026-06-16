@@ -2333,6 +2333,8 @@ export const NCFormComponent = () => {
                                       <option value="ชิ้น">ชิ้น</option>
                                       <option value="ลิตร">ลิตร</option>
                                       <option value="แกลลอน">แกลลอน</option>
+                                      <option value="ตัน">ตัน</option>
+                                      <option value="งาน">งาน</option>
                                       <option value="บาท">บาท</option>
                                     </select>
                                   </td>
