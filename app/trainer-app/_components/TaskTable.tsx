@@ -212,11 +212,12 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
 
                     const summaryRows = summary.map((d) => ({
                         "Task ID": d.inspection_task_id,
+                        "Driver ID": d.inspection_task_id + "-" + d.driver_id,
                         "วันที่ลงแผน": toExcelDate(d.plan_date) ?? d.plan_date ?? "—",
                         "วันที่ดำเนินการ": toExcelDate(d.action_date) ?? d.action_date ?? "—",
                         "แพล้นท์": d.plant_name ?? "—",
                         "ลูกค้า": d.client_name ?? "—",
-                        "เทรนเนอร์": d.trainer_id ?? "—",
+                        "เทรนเนอร์": sorted.find(t => t.inspection_task_id === d.inspection_task_id)?.trainer_id ?? d.trainer_id ?? "—",
                         "สถานะคนขับ": d.driver_status ?? "—",
                         "รหัสคนขับ": d.driver_id ?? "—",
                         "ชื่อ": d.first_name ?? "—",
