@@ -11,7 +11,7 @@
 // =============================================================================
 
 import { useState, useMemo, useCallback, useEffect, DragEvent } from "react";
-import { ChevronLeft, ChevronRight, Plus, X, Trash2, Clock, MapPin, User, CalendarDays, Eye } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X, Trash2, Clock, MapPin, User, CalendarDays, Eye, Handshake } from "lucide-react";
 import type { Task, TaskStatus, Users, DialogMode } from "../type";
 import {
     TASK_STATUS_CONFIG,
@@ -105,6 +105,47 @@ function ResponsiveSelect({
 }
 
 /* -------------------------------------------------------------------------- */
+/*  PartnerMultiSelect                                                        */
+/*  - SearchableSelect ใน multi-select mode (คลิกแถว = toggle, +/− ก็ใช้ได้)  */
+/* -------------------------------------------------------------------------- */
+function PartnerMultiSelect({
+    options,
+    selected,
+    onChangeSelected,
+    disabled,
+}: {
+    options: SelectOption[];
+    selected: string[];
+    onChangeSelected: (next: string[]) => void;
+    disabled?: boolean;
+}) {
+    const toggle = (v: string | number) => {
+        const id = String(v);
+        // ปุ่ม X ของ SearchableSelect ส่ง onChange("") = ล้างทั้งหมด
+        if (!id) {
+            onChangeSelected([]);
+            return;
+        }
+        onChangeSelected(
+            selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]
+        );
+    };
+    return (
+        <SearchableSelect
+            options={options}
+            value={selected.join(",")}
+            onChange={toggle}
+            onAddFilter={(v) => {
+                if (!selected.includes(String(v))) onChangeSelected([...selected, String(v)]);
+            }}
+            onRemoveFilter={(v) => onChangeSelected(selected.filter(id => id !== String(v)))}
+            placeholder="เลือกพาร์ทเนอร์ (เลือกได้หลายคน)"
+            disabled={disabled}
+        />
+    );
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Props                                                                     */
 /* -------------------------------------------------------------------------- */
 interface CalendarProps {
@@ -117,12 +158,15 @@ interface CalendarProps {
     onDeleteTask?: (taskId: string) => void;
     onViewTask?: (taskId: string) => void;
     onMonthChange?: (year: number, month: number) => void;
+    onUpdatePartners?: (taskId: string, partnerIds: string[]) => void;
+    /** ชื่อเทรนเนอร์ในมุมมองปัจจุบัน (ตัวเองเมื่อ lockRole / เทรนเนอร์ที่กดกรอง) — ใช้บ่งชี้งาน partner */
+    partnerViewName?: string;
 }
 
 /* -------------------------------------------------------------------------- */
 /*  Component                                                                 */
 /* -------------------------------------------------------------------------- */
-export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask, onAddTask, onDeleteTask, onViewTask, onMonthChange }: CalendarProps) {
+export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask, onAddTask, onDeleteTask, onViewTask, onMonthChange, onUpdatePartners, partnerViewName }: CalendarProps) {
     const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
     const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
@@ -133,6 +177,21 @@ export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [newTask, setNewTask] = useState<Partial<Task>>({});
+    // partner ที่กำลังแก้ไขใน View dialog (เก็บ employee_id ดิบ)
+    const [editPartners, setEditPartners] = useState<string[]>([]);
+    // แสดงช่องเลือก partner ใน Add dialog (ซ่อนไว้ก่อนจนกว่าจะกด "ต้องการเพิ่มพาร์ทเนอร์?")
+    const [showPartnerField, setShowPartnerField] = useState(false);
+
+    // งานที่ถูกแชร์เป็น partner ในมุมมองปัจจุบัน — ใช้แสดง indicator
+    // (ตัวเราเอง หรือเทรนเนอร์ที่หัวหน้ากดกรองอยู่)
+    const isPartnerTask = useCallback(
+        (t: Task) => {
+            if (myUserId && (t.partner_trainer_ids ?? []).includes(myUserId)) return true;
+            if (partnerViewName && t.trainer_id !== partnerViewName && (t.partner_trainer_names ?? []).includes(partnerViewName)) return true;
+            return false;
+        },
+        [myUserId, partnerViewName]
+    );
 
     /* ── Available years from tasks ── */
     const availableYears = useMemo(() => {
@@ -219,11 +278,13 @@ export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask
             inspection_task_status: "open" as TaskStatus,
             ...(lockRole && myUserId ? { trainer_id: myUserId } : {}),
         });
+        setShowPartnerField(false);
         setDialogMode("add");
     }, [lockRole, myUserId]);
     const openView = useCallback((e: React.MouseEvent, task: Task) => {
         e.stopPropagation();
         setSelectedTask(task);
+        setEditPartners(task.partner_trainer_ids ?? []);
         setDialogMode("view");
     }, []);
     const openDayList = useCallback((date: string) => {
@@ -320,13 +381,6 @@ export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask
                     {/* Action buttons */}
                     <div className="flex items-center gap-2 justify-end">
                         <button
-                            onClick={goToday}
-                            className="h-10 px-4 text-sm cursor-pointer font-medium text-white bg-white/15 border border-white/20 rounded-xl hover:bg-white/25 active:bg-white/30 transition-colors flex items-center gap-1.5"
-                        >
-                            <CalendarDays size={15} />
-                            <span>วันนี้</span>
-                        </button>
-                        <button
                             onClick={() => openAdd(fmtDate(currentYear, currentMonth, new Date().getDate()))}
                             className="h-10 px-4 cursor-pointer text-sm font-medium bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 active:bg-emerald-700 transition-colors flex items-center gap-1.5 shadow-sm disabled:cursor-not-allowed disabled:bg-emerald-500/10 disabled:text-white/70 disabled:hover:bg-emerald-500/30"
                         >
@@ -405,7 +459,7 @@ export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask
                                         return (
                                             <span
                                                 key={task.inspection_task_id}
-                                                className={`w-2 h-2 rounded-full ${g.dot} shadow-sm`}
+                                                className={`w-2 h-2 rounded-full ${g.dot} shadow-sm ${isPartnerTask(task) ? "ring-2 ring-violet-400" : ""}`}
                                             />
                                         );
                                     })}
@@ -437,10 +491,13 @@ export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask
                                                 transition-all duration-150 backdrop-blur-sm
                                                 ${draggedTaskId === task.inspection_task_id ? "opacity-25 scale-95" : ""}
                                             `}
-                                            title={`${task.inspection_task_id} — ${task.client_name}${task.plant_name ? ` · ${task.plant_name}` : ""}`}
+                                            title={`${task.inspection_task_id} — ${task.client_name}${task.plant_name ? ` · ${task.plant_name}` : ""}${isPartnerTask(task) ? " · คุณเป็นพาร์ทเนอร์" : ""}`}
                                         >
                                             <span className={`w-1.5 h-1.5 rounded-full ${g.dot} flex-shrink-0 shadow-sm`} />
                                             <span className="truncate leading-tight">{task.client_name || task.inspection_task_id}</span>
+                                            {isPartnerTask(task) && (
+                                                <Handshake size={11} className="flex-shrink-0 ml-auto text-violet-300" />
+                                            )}
                                         </div>
                                     );
                                 })}
@@ -527,7 +584,14 @@ export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask
                                                         <p className="text-sm font-medium text-slate-900 truncate">{task.client_name || task.inspection_task_id}</p>
                                                         <p className="text-xs text-slate-400 mt-0.5">{task.trainer_id} · {task.plant_name || task.plant_code}</p>
                                                     </div>
-                                                    <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium ${c.bg} ${c.text} border ${c.border}`}>
+                                                    {isPartnerTask(task) && (
+                                                        <span className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-50 text-violet-600 border border-violet-200">
+                                                            <Handshake size={10} /> Partner
+                                                        </span>
+                                                    )}
+                                                    <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium border ${isPartnerTask(task)
+                                                        ? "bg-violet-50 text-violet-600 border-violet-200"
+                                                        : `${c.bg} ${c.text} ${c.border}`}`}>
                                                         {TASK_STATUS_CONFIG[task.inspection_task_status ?? "open"]?.label ?? task.inspection_task_status}
                                                     </span>
                                                 </button>
@@ -544,6 +608,10 @@ export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask
                         {/* ── View Task ── */}
                         {dialogMode === "view" && selectedTask && (() => {
                             const c = getColors(selectedTask.inspection_task_status);
+                            const origPartners = selectedTask.partner_trainer_ids ?? [];
+                            const partnersChanged =
+                                [...editPartners].sort().join(",") !== [...origPartners].sort().join(",");
+                            const ownerId = selectedTask.trainer_employee_id ?? selectedTask.trainer_id;
                             return (
                                 <>
                                     <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -557,7 +625,15 @@ export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask
                                         <div className="flex items-center gap-3">
                                             <span className={`w-3 h-3 rounded-full ${c.dot}`} />
                                             <span className="text-sm font-semibold text-slate-900 truncate">{selectedTask.inspection_task_id}</span>
-                                            <span className={`ml-auto flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-medium ${c.bg} ${c.text} border ${c.border}`}>
+                                            {isPartnerTask(selectedTask) && (
+                                                <span className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-50 text-violet-600 border border-violet-200">
+                                                    <Handshake size={10} />
+                                                    {!!myUserId && (selectedTask.partner_trainer_ids ?? []).includes(myUserId) ? "คุณเป็นพาร์ทเนอร์" : "Partner"}
+                                                </span>
+                                            )}
+                                            <span className={`ml-auto flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-medium border ${isPartnerTask(selectedTask)
+                                                ? "bg-violet-50 text-violet-600 border-violet-200"
+                                                : `${c.bg} ${c.text} ${c.border}`}`}>
                                                 {TASK_STATUS_CONFIG[selectedTask.inspection_task_status ?? "open"]?.label ?? selectedTask.inspection_task_status}
                                             </span>
                                         </div>
@@ -598,6 +674,42 @@ export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask
                                                 <p className="text-[11px] text-slate-400 font-medium">ลูกค้า</p>
                                                 <p className="text-sm text-slate-900 font-medium">{selectedTask.client_name || "—"}</p>
                                             </div>
+                                        </div>
+                                        {/* พาร์ทเนอร์ — เพิ่ม/แก้ได้หลังสร้างงาน */}
+                                        <div className="p-3 rounded-xl bg-slate-50 space-y-2">
+                                            <div className="flex items-center gap-3">
+                                                <User size={16} className="text-slate-400 flex-shrink-0" />
+                                                <p className="text-[11px] text-slate-400 font-medium">พาร์ทเนอร์</p>
+                                            </div>
+                                            {onUpdatePartners ? (
+                                                <>
+                                                    <PartnerMultiSelect
+                                                        options={(createform?.trainer ?? [])
+                                                            .filter(u => u.employee_id !== ownerId)
+                                                            .map(u => ({
+                                                                value: u.employee_id,
+                                                                label: `${u.firstname} ${u.lastname}`,
+                                                            }))}
+                                                        selected={editPartners}
+                                                        onChangeSelected={setEditPartners}
+                                                    />
+                                                    {partnersChanged && (
+                                                        <button
+                                                            onClick={() => {
+                                                                onUpdatePartners(selectedTask.inspection_task_id, editPartners);
+                                                                closeDialog();
+                                                            }}
+                                                            className="w-full h-10 text-sm font-medium bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 active:bg-emerald-800 transition-colors"
+                                                        >
+                                                            บันทึกพาร์ทเนอร์
+                                                        </button>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <p className="text-sm text-slate-900 font-medium">
+                                                    {(selectedTask.partner_trainer_names ?? origPartners).join(", ") || "—"}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                     {/* Footer */}
@@ -655,8 +767,21 @@ export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1.5">เทรนเนอร์</label>
-                                      
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <label className="text-sm font-medium text-slate-700">เทรนเนอร์</label>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    // ซ่อนช่องแล้วเคลียร์ partner ที่เลือกไว้ด้วย
+                                                    if (showPartnerField) setNewTask(p => ({ ...p, partner_trainer_ids: [] }));
+                                                    setShowPartnerField(!showPartnerField);
+                                                }}
+                                                className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                                            >
+                                                {showPartnerField ? "ซ่อนพาร์ทเนอร์" : "ต้องการเพิ่มพาร์ทเนอร์?"}
+                                            </button>
+                                        </div>
+
                                             <ResponsiveSelect
                                                 options={(createform?.trainer ?? [])
                                                     .filter(u => !lockRole || u.position === "Safety Trainer")
@@ -667,13 +792,34 @@ export function CalendarTask({ tasks, createform, lockRole, myUserId, onMoveTask
                                             value={newTask.trainer_id || ""}
                                             onChange={(val) => {
                                                 if (lockRole) return;
-                                                setNewTask(p => ({ ...p, trainer_id: String(val) }));
+                                                // เปลี่ยนเจ้าของงานแล้วต้องตัดคนนั้นออกจาก partner ด้วย
+                                                setNewTask(p => ({
+                                                    ...p,
+                                                    trainer_id: String(val),
+                                                    partner_trainer_ids: (p.partner_trainer_ids ?? []).filter(id => id !== String(val)),
+                                                }));
                                             }}
                                             placeholder="เลือกเทรนเนอร์"
                                             disabled={lockRole}
                                         />
-                                      
+
                                     </div>
+
+                                    {showPartnerField && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1.5">พาร์ทเนอร์ (ไม่บังคับ)</label>
+                                            <PartnerMultiSelect
+                                                options={(createform?.trainer ?? [])
+                                                    .filter(u => u.employee_id !== newTask.trainer_id)
+                                                    .map(u => ({
+                                                        value: u.employee_id,
+                                                        label: `${u.firstname} ${u.lastname}`,
+                                                    }))}
+                                                selected={newTask.partner_trainer_ids ?? []}
+                                                onChangeSelected={(next) => setNewTask(p => ({ ...p, partner_trainer_ids: next }))}
+                                            />
+                                        </div>
+                                    )}
 
                                     <div>
                                         <label className="block text-sm font-medium text-slate-700 mb-1.5">ลูกค้า</label>

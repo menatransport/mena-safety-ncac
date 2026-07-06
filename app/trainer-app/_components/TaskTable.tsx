@@ -36,11 +36,15 @@ function fmtThaiDate(value: string | null | undefined): string {
 /* -------------------------------------------------------------------------- */
 /*  Status badge                                                              */
 /* -------------------------------------------------------------------------- */
-function StatusBadge({ status }: { status: string | null }) {
+function StatusBadge({ status, partner }: { status: string | null; partner?: boolean }) {
     const cfg = TASK_TABLE_STATUS[status ?? ""]
         ?? { label: status ?? "—", className: "bg-white/10 text-white/70 border-white/15" };
+    // งานที่เราเป็น partner → badge สถานะโทนม่วง
+    const className = partner
+        ? "bg-violet-500/20 text-violet-200 border-violet-400/30"
+        : cfg.className;
     return (
-        <span className={`inline-flex justify-center px-3 py-1 rounded-full text-xs font-medium text-center backdrop-blur-sm border ${cfg.className}`}>
+        <span className={`inline-flex justify-center px-3 py-1 rounded-full text-xs font-medium text-center backdrop-blur-sm border ${className}`}>
             {cfg.label}
         </span>
     );
@@ -57,12 +61,39 @@ interface TaskTableProps {
     onViewTask?: (taskId: string) => void;
     onDeleteTask?: (taskId: string) => void;
     lockRole?: boolean;
+    /** ชื่อเทรนเนอร์ในมุมมองปัจจุบัน (ตัวเองเมื่อ lockRole / เทรนเนอร์ที่กดกรอง) — ใช้บ่งชี้งาน partner */
+    partnerViewName?: string;
+}
+
+/** งานนี้เป็นงานที่เทรนเนอร์ในมุมมองปัจจุบันถูกแชร์เป็น partner หรือไม่ */
+function isPartnerView(task: Task, partnerViewName?: string): boolean {
+    return !!partnerViewName
+        && task.trainer_id !== partnerViewName
+        && (task.partner_trainer_names ?? []).includes(partnerViewName);
+}
+
+/* Chip บ่งชี้พาร์ทเนอร์: ม่วง "Partner" สำหรับมุมมองเทรนเนอร์ที่ถูกแชร์ / "+N" ถ้ามีพาร์ทเนอร์คนอื่น */
+function PartnerChip({ task, partnerViewName }: { task: Task; partnerViewName?: string }) {
+    const names = task.partner_trainer_names ?? [];
+    if (names.length === 0) return null;
+    const isMine = isPartnerView(task, partnerViewName);
+    return (
+        <span
+            title={`พาร์ทเนอร์: ${names.join(", ")}`}
+            className={`inline-flex px-1.5 py-0.5 rounded-md text-[10px] font-semibold border whitespace-nowrap ${isMine
+                ? "bg-violet-500/20 text-violet-200 border-violet-400/30"
+                : "bg-white/10 text-white/60 border-white/15"
+                }`}
+        >
+            {isMine ? "Partner" : `+${names.length}`}
+        </span>
+    );
 }
 
 /* -------------------------------------------------------------------------- */
 /*  Component                                                                 */
 /* -------------------------------------------------------------------------- */
-export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTableProps) {
+export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole, partnerViewName }: TaskTableProps) {
     const [sortField, setSortField] = useState<SortField>("plan_date");
     const [sortDir, setSortDir] = useState<SortDir>("desc");
     const [page, setPage] = useState(1);
@@ -388,10 +419,16 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
                                         {task.client_name || "—"}
                                     </td>
                                     <td className="px-2 py-3 text-xs text-white/70 whitespace-nowrap">
-                                        {task.trainer_id || "—"}
+                                        <div className="flex items-center gap-1.5">
+                                            <span>{task.trainer_id || "—"}</span>
+                                            <PartnerChip task={task} partnerViewName={partnerViewName} />
+                                        </div>
                                     </td>
                                     <td className="px-2 py-3">
-                                        <StatusBadge status={task.inspection_task_status} />
+                                        <StatusBadge
+                                            status={task.inspection_task_status}
+                                            partner={isPartnerView(task, partnerViewName)}
+                                        />
                                     </td>
                                     <td className="px-2 py-3 text-xs text-white/70 whitespace-nowrap">
                                         {fmtThaiDate(task.updated_at)}
@@ -449,7 +486,10 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
                                         วันที่ลงแผน {fmtThaiDate(task.plan_date)}
                                     </p>
                                 </div>
-                                <StatusBadge status={task.inspection_task_status} />
+                                <StatusBadge
+                                    status={task.inspection_task_status}
+                                    partner={isPartnerView(task, partnerViewName)}
+                                />
                             </div>
 
                             {/* Divider */}
@@ -471,9 +511,12 @@ export function TaskTable({ tasks, onViewTask, onDeleteTask, lockRole }: TaskTab
                                 </div>
                                 <div className="rounded-lg bg-white/[0.04] border border-white/10 px-2.5 py-2">
                                     <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">Trainer</p>
-                                    <p className="text-xs text-white/90 font-medium mt-0.5 truncate" title={task.trainer_id || "—"}>
-                                        {task.trainer_id || "—"}
-                                    </p>
+                                    <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                                        <p className="text-xs text-white/90 font-medium truncate" title={task.trainer_id || "—"}>
+                                            {task.trainer_id || "—"}
+                                        </p>
+                                        <PartnerChip task={task} partnerViewName={partnerViewName} />
+                                    </div>
                                 </div>
                                 <div className="rounded-lg bg-white/[0.04] border border-white/10 px-2.5 py-2">
                                     <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">วันดำเนินการ</p>

@@ -24,6 +24,12 @@ export interface Task {
     created_at: string;
     updated_at: string;
     inspection_task_status: TaskStatus | null;
+    /** partner ที่ถูกแชร์งาน — เก็บ employee_id ดิบเสมอ */
+    partner_trainer_ids?: string[] | null;
+    /** ชื่อ partner สำหรับแสดงผล/filter (map โดย trainerMapper) */
+    partner_trainer_names?: string[];
+    /** employee_id ดิบของเจ้าของงาน (mapper เขียนทับ trainer_id เป็นชื่อ) */
+    trainer_employee_id?: string;
 }
 
 export interface CreateTask {
@@ -34,6 +40,7 @@ export interface CreateTask {
     plan_date: string;
     action_date: string;
     inspection_task_status: string;
+    partner_trainer_ids?: string[];
 }
 
 /* -------------------------------------------------------------------------- */
@@ -119,13 +126,15 @@ export interface ProjectInfo {
 /* -------------------------------------------------------------------------- */
 export interface FormField {
     label: string;
-    type: "text" | "date" | "textarea" | "upload" | "dropdown" | "tags" | "checkbox";
+    type: "text" | "date" | "textarea" | "upload" | "dropdown" | "multi-dropdown" | "tags" | "checkbox";
     options?: { value: string; label: string }[];
     icon: string | React.ReactNode;
     fieldKey: string;
     value: string;
     values?: string[];
     readonly?: boolean;
+    /** ปุ่ม/ลิงก์เสริมที่มุมขวาของ label (เช่น "ต้องการเพิ่มพาร์ทเนอร์?") */
+    labelAction?: React.ReactNode;
 }
 
 /* -------------------------------------------------------------------------- */

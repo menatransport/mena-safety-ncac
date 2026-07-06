@@ -98,9 +98,11 @@ export const TaskFilter = forwardRef<TaskFilterRef, TaskFilterProps>(
                 result = result.filter((t) => t.inspection_task_status === status);
             }
 
-            // Trainer filter
+            // Trainer filter (เจ้าของงาน หรือถูกแชร์เป็น partner)
             if (trainerId) {
-                result = result.filter((t) => t.trainer_id === trainerId);
+                result = result.filter(
+                    (t) => t.trainer_id === trainerId || (t.partner_trainer_names ?? []).includes(trainerId)
+                );
             }
 
             // Client filter

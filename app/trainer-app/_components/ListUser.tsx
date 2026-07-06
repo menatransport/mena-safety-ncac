@@ -32,6 +32,13 @@ interface TrainerStats {
     cancel: number;
     completionRate: number;
     plants: string[];
+    /** จำนวนงานที่เทรนเนอร์คนนี้ถูกแชร์เป็น partner (ไม่ใช่เจ้าของงาน) */
+    partner: number;
+}
+
+/** งานที่ displayName ถูกแชร์เป็น partner (ไม่นับงานที่เป็นเจ้าของเอง) */
+function isPartnerOf(task: Task, displayName: string): boolean {
+    return task.trainer_id !== displayName && (task.partner_trainer_names ?? []).includes(displayName);
 }
 
 function getTrainerStats(tasks: Task[], displayName: string): TrainerStats {
@@ -42,7 +49,8 @@ function getTrainerStats(tasks: Task[], displayName: string): TrainerStats {
     const total = tt.length;
     const completionRate = total > 0 ? Math.round((done / total) * 100) : 0;
     const plants = [...new Set(tt.map(t => t.plant_name || t.plant_code).filter(Boolean))];
-    return { total, done, pending, cancel, completionRate, plants };
+    const partner = tasks.filter(t => isPartnerOf(t, displayName)).length;
+    return { total, done, pending, cancel, completionRate, plants, partner };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -203,7 +211,7 @@ export const ListUsers = ({
             <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
                 {users.map((person) => {
                     const displayName = `${person.firstname} ${person.lastname}`;
-                    const stats = statsMap.get(displayName) ?? { total: 0, done: 0, pending: 0, cancel: 0, completionRate: 0, plants: [] };
+                    const stats = statsMap.get(displayName) ?? { total: 0, done: 0, pending: 0, cancel: 0, completionRate: 0, plants: [], partner: 0 };
                     const isOpen = expandedId === person.id;
                     const isActive = selectedTrainer === displayName;
                     const perfData = perfMap.get(person.employee_id);
@@ -235,6 +243,11 @@ export const ListUsers = ({
                                         {stats.total > 0 && (
                                             <span className="text-[10px] text-white/60 bg-white/10 border border-white/10 px-1.5 py-0.5 rounded-md font-medium">
                                                 {stats.done}/{stats.total} งาน
+                                            </span>
+                                        )}
+                                        {stats.partner > 0 && (
+                                            <span className="text-[10px] text-violet-200 bg-violet-500/20 border border-violet-400/30 px-1.5 py-0.5 rounded-md font-medium whitespace-nowrap">
+                                                Partner {stats.partner} งาน
                                             </span>
                                         )}
                                     </div>
@@ -348,7 +361,8 @@ export const ListUsers = ({
 
                                     {/* Task list */}
                                     {(() => {
-                                        const trainerTasks = tasks.filter(t => t.trainer_id === displayName);
+                                        // รวมงานที่เป็นเจ้าของ + งานที่ถูกแชร์เป็น partner
+                                        const trainerTasks = tasks.filter(t => t.trainer_id === displayName || isPartnerOf(t, displayName));
                                         if (trainerTasks.length === 0) return (
                                             <div className="px-4 pb-4">
                                                 <p className="text-xs text-white/40 text-center py-3 bg-white/[0.03] rounded-xl border border-dashed border-white/15">
@@ -383,6 +397,11 @@ export const ListUsers = ({
                                                                         </span>
                                                                     </div>
                                                                 </div>
+                                                                {isPartnerOf(task, displayName) && (
+                                                                    <span className="px-1.5 py-0.5 rounded-md text-[9px] font-semibold bg-violet-500/20 text-violet-200 border border-violet-400/30 whitespace-nowrap">
+                                                                        Partner
+                                                                    </span>
+                                                                )}
                                                                 <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold whitespace-nowrap ${st.text}`}>
                                                                     สถานะ: {st.label}
                                                                 </span>

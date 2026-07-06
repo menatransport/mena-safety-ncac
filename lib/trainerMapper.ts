@@ -24,6 +24,11 @@ export function mapSingleTask(
         trainer_id: trainer
             ? `${trainer.firstname} ${trainer.lastname}`
             : task.trainer_id,
+        trainer_employee_id: task.trainer_id,
+        partner_trainer_names: (task.partner_trainer_ids ?? []).map((pid) => {
+            const u = users.find((v) => String(v.employee_id) === pid);
+            return u ? `${u.firstname} ${u.lastname}` : pid;
+        }),
     };
 }
 
@@ -49,6 +54,13 @@ export function mapTasksWithDropdowns(
             trainer_id: trainer
                 ? `${trainer.firstname} ${trainer.lastname}`
                 : task.trainer_id,
+            trainer_employee_id: task.trainer_id,
+            partner_trainer_names: (task.partner_trainer_ids ?? []).map((pid) => {
+                const u = hasUsers
+                    ? users.find((v) => String(v.employee_id) === pid)
+                    : undefined;
+                return u ? `${u.firstname} ${u.lastname}` : pid;
+            }),
         };
     });
 }

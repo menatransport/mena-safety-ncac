@@ -27,7 +27,7 @@ import { ImageGalleryDialog } from "@/components/ImageGalleryDialog";
 import { Separator } from "@/components/ui/separator";
 import {
     ArrowLeft, Presentation, Truck, User,
-    CalendarDays, ClipboardList, Users, ImagePlus, X, Eye,
+    CalendarDays, ClipboardList, Users, ImagePlus, X, Eye, Handshake,
 } from "lucide-react";
 
 
@@ -47,6 +47,17 @@ export default function TrainerApp_ID() {
     const [draggingMap, setDraggingMap] = useState<Record<string, boolean>>({});
     const [UserSafety, setUserSafety] = useState<UsersType[]>([]);
     const [galleryOpen, setGalleryOpen] = useState(false);
+    // แสดงช่องพาร์ทเนอร์เมื่อกด "ต้องการเพิ่มพาร์ทเนอร์?" (ถ้ามี partner อยู่แล้วแสดงเสมอ)
+    const [showPartnerField, setShowPartnerField] = useState(false);
+    // employee_id ของผู้ใช้ปัจจุบัน — ใช้บ่งชี้ว่างานนี้เราเป็น partner
+    const [myEmployeeId, setMyEmployeeId] = useState<string | null>(null);
+
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem("userData");
+            if (raw) setMyEmployeeId(JSON.parse(raw)?.employee_id ?? null);
+        } catch { /* ignore */ }
+    }, []);
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const router = useRouter();
 
@@ -174,6 +185,9 @@ export default function TrainerApp_ID() {
     }, [data?.task.inspection_task_status, data?.drivers, data?.task.action_date]);
 
 
+    const hasPartners = (data?.task.partner_trainer_ids?.length ?? 0) > 0;
+    const partnerVisible = showPartnerField || hasPartners;
+
     const taskFields = [
         {
             label: "เทรนเนอร์",
@@ -188,7 +202,32 @@ export default function TrainerApp_ID() {
                     label: `${u.firstname} ${u.lastname}`,
                 })),
             ],
+            // ไม่มี partner → ซ่อนช่องไว้ก่อน กดลิงก์นี้เพื่อเปิด
+            labelAction: !hasPartners ? (
+                <button
+                    type="button"
+                    onClick={() => setShowPartnerField((s) => !s)}
+                    className="text-xs font-medium text-teal-300 hover:text-teal-200 hover:underline whitespace-nowrap"
+                >
+                    {showPartnerField ? "ซ่อนพาร์ทเนอร์" : "ต้องการเพิ่มพาร์ทเนอร์?"}
+                </button>
+            ) : undefined,
         },
+        ...(partnerVisible ? [{
+            label: "พาร์ทเนอร์",
+            type: "multi-dropdown" as const,
+            icon: "user",
+            fieldKey: "partner_trainer_ids",
+            readonly: false,
+            value: "",
+            values: data?.task.partner_trainer_ids ?? [],
+            options: UserSafety
+                .filter((u) => String(u.employee_id) !== String(data?.task.trainer_id ?? ""))
+                .map((u) => ({
+                    value: String(u.employee_id),
+                    label: `${u.firstname} ${u.lastname}`,
+                })),
+        }] : []),
         {
             label: "ลูกค้า",
             type: "text" as const,
@@ -255,7 +294,19 @@ export default function TrainerApp_ID() {
     const handleFieldChange = (fieldKey: string, value: string) => {
         setData((prev) => {
             if (!prev) return prev;
-            return { ...prev, task: { ...prev.task, [fieldKey]: value } };
+            const task = { ...prev.task, [fieldKey]: value };
+            // เปลี่ยนเจ้าของงานแล้วต้องตัดคนนั้นออกจาก partner ด้วย
+            if (fieldKey === "trainer_id") {
+                task.partner_trainer_ids = (prev.task.partner_trainer_ids ?? []).filter((id) => id !== value);
+            }
+            return { ...prev, task };
+        });
+    };
+
+    const handleFieldChangeArray = (fieldKey: string, values: string[]) => {
+        setData((prev) => {
+            if (!prev) return prev;
+            return { ...prev, task: { ...prev.task, [fieldKey]: values } };
         });
     };
 
@@ -291,6 +342,7 @@ export default function TrainerApp_ID() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     trainer_id: task.trainer_id || null,
+                    partner_trainer_ids: task.partner_trainer_ids?.length ? task.partner_trainer_ids : null,
                     client_name: task.client_name || null,
                     action_date: task.action_date || null,
                     inspection_task_status: status,
@@ -411,17 +463,26 @@ export default function TrainerApp_ID() {
                         rightSlot={data ? (() => {
                             const statusKey = data.task.inspection_task_status === "completed" ? "completed" : (data.task.inspection_task_status ?? "open");
                             const cfg = TASK_TABLE_STATUS[statusKey] ?? TASK_TABLE_STATUS.open;
+                            // งานที่เราเป็น partner → ป้ายโทนม่วง + ไอคอน Handshake (ไม่ใช้ ping)
+                            const isPartnerHere = !!myEmployeeId && (data.task.partner_trainer_ids ?? []).includes(myEmployeeId);
                             const dotColor = statusKey === "open" ? "bg-blue-400" : statusKey === "pending" ? "bg-amber-400" : "bg-emerald-400";
                             return (
                                 <div className="flex items-center justify-center gap-10 mr-5 mt-2">
 
-                                    <div className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-2xl border backdrop-blur-sm shadow-lg text-base font-bold tracking-wide ${cfg.className}`}>
-                                        <span className="relative flex h-3 w-3">
-                                            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-60 ${dotColor}`} />
-                                            <span className={`relative inline-flex rounded-full h-3 w-3 ${dotColor}`} />
-                                        </span>
-                                        {cfg.label}
-                                    </div>
+                                    {isPartnerHere ? (
+                                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl border backdrop-blur-sm shadow-lg text-base font-bold tracking-wide bg-violet-500/20 text-violet-200 border-violet-400/30 whitespace-nowrap">
+                                            <Handshake size={16} />
+                                            {cfg.label}
+                                        </div>
+                                    ) : (
+                                        <div className={`inline-flex items-center gap-2.5 px-4 py-2 rounded-2xl border backdrop-blur-sm shadow-lg text-base font-bold tracking-wide ${cfg.className}`}>
+                                            <span className="relative flex h-3 w-3">
+                                                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-60 ${dotColor}`} />
+                                                <span className={`relative inline-flex rounded-full h-3 w-3 ${dotColor}`} />
+                                            </span>
+                                            {cfg.label}
+                                        </div>
+                                    )}
                                     <button
                                         type="button"
                                         onClick={() => setGalleryOpen(true)}
@@ -481,6 +542,7 @@ export default function TrainerApp_ID() {
                                 isSubmit={true}
                                 formData={taskFields}
                                 onChange={handleFieldChange}
+                                onChangeArray={handleFieldChangeArray}
                                 onSubmit={handleSubmit}
                             />
                         </div>

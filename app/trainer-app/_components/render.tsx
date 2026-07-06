@@ -57,6 +57,11 @@ export const FormRender = ({ title, details, icon, formData, isSubmit, onChange,
         onChange?.(fieldKey, value);
     }
 
+    const handleChangeArray = (fieldKey: string, values: string[]) => {
+        setIsSubmitting(true);
+        onChangeArray?.(fieldKey, values);
+    }
+
     return (
         <div className="h-full rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm shadow-lg shadow-black/10 overflow-hidden">
             {/* Section header */}
@@ -97,7 +102,11 @@ export const FormRender = ({ title, details, icon, formData, isSubmit, onChange,
                         : "p-6 flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-8";
                     const labelClass = dense
                         ? "flex items-center gap-2"
-                        : "flex items-center gap-2 sm:w-50 shrink-0 sm:pt-2";
+                        : `flex items-center gap-2 sm:w-50 shrink-0 sm:pt-2${field.labelAction ? " flex-wrap" : ""}`;
+                    // มือถือ: ลิงก์ชิดขวาบรรทัดเดียวกับ label / เดสก์ท็อป (คอลัมน์แคบ): ขึ้นบรรทัดใหม่ใต้ label
+                    const labelActionClass = dense
+                        ? "ml-auto"
+                        : "ml-auto sm:ml-0 sm:w-full sm:mt-0.5";
                     const labelTextClass = dense
                         ? "text-base sm:text-lg font-semibold text-white/85"
                         : "text-lg font-bold text-white/85";
@@ -107,6 +116,7 @@ export const FormRender = ({ title, details, icon, formData, isSubmit, onChange,
                             <div className={labelClass}>
                                 {typeof field.icon === "string" ? ICON_MAP[field.icon] ?? ICON_MAP["text"] : field.icon}
                                 <span className={labelTextClass}>{field.label}</span>
+                                {field.labelAction && <span className={labelActionClass}>{field.labelAction}</span>}
                             </div>
 
                             {/* Input */}
@@ -161,6 +171,36 @@ export const FormRender = ({ title, details, icon, formData, isSubmit, onChange,
                                         disabled={field.readonly}
                                         variant="dark"
                                     />
+                                ) : field.type === "multi-dropdown" ? (
+                                    (() => {
+                                        const selected = field.values ?? [];
+                                        const toggle = (v: string | number) => {
+                                            const id = String(v);
+                                            // ปุ่ม X ของ SearchableSelect ส่ง onChange("") = ล้างทั้งหมด
+                                            if (!id) {
+                                                handleChangeArray(field.fieldKey, []);
+                                                return;
+                                            }
+                                            handleChangeArray(
+                                                field.fieldKey,
+                                                selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]
+                                            );
+                                        };
+                                        return (
+                                            <SearchableSelect
+                                                options={field.options ?? []}
+                                                value={selected.join(",")}
+                                                onChange={toggle}
+                                                onAddFilter={(v) => {
+                                                    if (!selected.includes(String(v))) handleChangeArray(field.fieldKey, [...selected, String(v)]);
+                                                }}
+                                                onRemoveFilter={(v) => handleChangeArray(field.fieldKey, selected.filter(id => id !== String(v)))}
+                                                placeholder="-- เลือกได้หลายคน --"
+                                                disabled={field.readonly}
+                                                variant="dark"
+                                            />
+                                        );
+                                    })()
                                 ) : field.type === "checkbox" ? (
                                     <div className="space-y-2">
                                         <div className={dense ? "grid grid-cols-2 xl:grid-cols-3 gap-1.5" : "grid grid-cols-2 sm:grid-cols-4 gap-2"}>

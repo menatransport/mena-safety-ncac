@@ -21,6 +21,7 @@ import {
     Sparkles,
     BookAIcon,
     BookIcon,
+    Handshake,
 } from "lucide-react";
 
 import { NavComponent } from "@/components/Navbar";
@@ -184,6 +185,7 @@ export default function TrainerApp() {
                     plan_date: task.plan_date || null,
                     action_date: task.action_date || null,
                     inspection_task_status: task.inspection_task_status || 'open',
+                    partner_trainer_ids: task.partner_trainer_ids?.length ? task.partner_trainer_ids : null,
                 }),
             });
 
@@ -243,6 +245,28 @@ export default function TrainerApp() {
 
     }, [myuser]);
 
+    // บันทึก partner ที่แก้จาก View dialog — ส่งเฉพาะ partner_trainer_ids (ไม่แตะ trainer_id เจ้าของงาน)
+    const handleUpdatePartners = useCallback(async (taskId: string, partnerIds: string[]) => {
+        try {
+            const res = await fetch(`/api/task/${encodeURIComponent(taskId)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    partner_trainer_ids: partnerIds.length ? partnerIds : null,
+                }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                Swal.fire('ผิดพลาด', err.error || 'ไม่สามารถบันทึกพาร์ทเนอร์ได้', 'error');
+                return;
+            }
+            fetchData();
+            Swal.fire('สำเร็จ!', 'บันทึกพาร์ทเนอร์เรียบร้อยแล้ว', 'success');
+        } catch {
+            Swal.fire('ผิดพลาด', 'เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
+        }
+    }, []);
+
     const pendingCount = filteredTasks.filter(
         (t) => t.inspection_task_status === "pending"
     ).length;
@@ -253,6 +277,19 @@ export default function TrainerApp() {
         (t) => t.inspection_task_status === "open"
     ).length;
 
+    // ป้าย Partner บน stat card: แสดงเมื่อดูงานของเทรนเนอร์รายคน
+    // - lockRole (Safety Trainer) → นับงานที่ตัวเองถูกแชร์เป็น partner
+    // - หัวหน้า/ผู้จัดการกดกรองเทรนเนอร์ → นับงานที่เทรนเนอร์คนนั้นถูกแชร์เป็น partner
+    // - ไม่ได้กรองรายคน → ไม่แสดง
+    const partnerBadgeName = lockRole && myuser
+        ? `${myuser.firstname} ${myuser.lastname}`
+        : selectedTrainer;
+    const myPartnerCount = partnerBadgeName
+        ? filteredTasks.filter(
+            (t) => t.trainer_id !== partnerBadgeName && (t.partner_trainer_names ?? []).includes(partnerBadgeName)
+        ).length
+        : 0;
+
     const statCards = [
         {
             label: "ทั้งหมด",
@@ -262,6 +299,7 @@ export default function TrainerApp() {
             iconBorder: "border-stone-400/30",
             iconText: "text-stone-200",
             valueAccent: "text-white",
+            badge: myPartnerCount > 0 ? `มี Partner ${myPartnerCount} งาน` : undefined,
         },
         {
             label: "เปิด",
@@ -271,6 +309,7 @@ export default function TrainerApp() {
             iconBorder: "border-indigo-400/30",
             iconText: "text-indigo-200",
             valueAccent: "text-white",
+            badge: undefined,
         },
         {
             label: "รอดำเนินการ",
@@ -280,6 +319,7 @@ export default function TrainerApp() {
             iconBorder: "border-amber-400/30",
             iconText: "text-amber-200",
             valueAccent: "text-white",
+            badge: undefined,
         },
         {
             label: "เสร็จสิ้น",
@@ -289,6 +329,7 @@ export default function TrainerApp() {
             iconBorder: "border-teal-400/30",
             iconText: "text-teal-200",
             valueAccent: "text-white",
+            badge: undefined,
         },
     ];
 
@@ -375,6 +416,11 @@ export default function TrainerApp() {
                                         <div className={`flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br ${card.iconBg} border ${card.iconBorder} ${card.iconText} lg:backdrop-blur-sm transition-transform duration-300 group-hover:scale-110`}>
                                             <Icon size={20} />
                                         </div>
+                                        {card.badge && (
+                                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold bg-violet-500/20 text-violet-200 border border-violet-400/30 whitespace-nowrap">
+                                                <Handshake size={11} /> {card.badge}
+                                            </span>
+                                        )}
                                     </div>
                                     <p className={`relative text-3xl sm:text-4xl font-bold tabular-nums tracking-tight ${card.valueAccent}`}>
                                         {card.value}
@@ -428,6 +474,8 @@ export default function TrainerApp() {
                                             onAddTask={handleAddTask}
                                             onDeleteTask={handleDeleteTask}
                                             onViewTask={handleViewTask}
+                                            onUpdatePartners={handleUpdatePartners}
+                                            partnerViewName={partnerBadgeName}
                                         />
 
                                         {/* ประสิทธิภาพเทรนเนอร์ */}
@@ -453,7 +501,7 @@ export default function TrainerApp() {
                                         />
 
                                     </div>
-                                    <TaskTable tasks={filteredTasks} onViewTask={handleViewTask} onDeleteTask={handleDeleteTask} lockRole={lockRole} />
+                                    <TaskTable tasks={filteredTasks} onViewTask={handleViewTask} onDeleteTask={handleDeleteTask} lockRole={lockRole} partnerViewName={partnerBadgeName} />
                                 </>
                             )}
                         </div>
