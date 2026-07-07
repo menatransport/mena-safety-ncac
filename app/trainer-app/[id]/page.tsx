@@ -47,8 +47,6 @@ export default function TrainerApp_ID() {
     const [draggingMap, setDraggingMap] = useState<Record<string, boolean>>({});
     const [UserSafety, setUserSafety] = useState<UsersType[]>([]);
     const [galleryOpen, setGalleryOpen] = useState(false);
-    // แสดงช่องพาร์ทเนอร์เมื่อกด "ต้องการเพิ่มพาร์ทเนอร์?" (ถ้ามี partner อยู่แล้วแสดงเสมอ)
-    const [showPartnerField, setShowPartnerField] = useState(false);
     // employee_id ของผู้ใช้ปัจจุบัน — ใช้บ่งชี้ว่างานนี้เราเป็น partner
     const [myEmployeeId, setMyEmployeeId] = useState<string | null>(null);
 
@@ -185,9 +183,6 @@ export default function TrainerApp_ID() {
     }, [data?.task.inspection_task_status, data?.drivers, data?.task.action_date]);
 
 
-    const hasPartners = (data?.task.partner_trainer_ids?.length ?? 0) > 0;
-    const partnerVisible = showPartnerField || hasPartners;
-
     const taskFields = [
         {
             label: "เทรนเนอร์",
@@ -202,19 +197,9 @@ export default function TrainerApp_ID() {
                     label: `${u.firstname} ${u.lastname}`,
                 })),
             ],
-            // ไม่มี partner → ซ่อนช่องไว้ก่อน กดลิงก์นี้เพื่อเปิด
-            labelAction: !hasPartners ? (
-                <button
-                    type="button"
-                    onClick={() => setShowPartnerField((s) => !s)}
-                    className="text-xs font-medium text-teal-300 hover:text-teal-200 hover:underline whitespace-nowrap"
-                >
-                    {showPartnerField ? "ซ่อนพาร์ทเนอร์" : "ต้องการเพิ่มพาร์ทเนอร์?"}
-                </button>
-            ) : undefined,
         },
-        ...(partnerVisible ? [{
-            label: "พาร์ทเนอร์",
+        {
+            label: "พาร์ทเนอร์ (ไม่บังคับ)",
             type: "multi-dropdown" as const,
             icon: "user",
             fieldKey: "partner_trainer_ids",
@@ -227,7 +212,7 @@ export default function TrainerApp_ID() {
                     value: String(u.employee_id),
                     label: `${u.firstname} ${u.lastname}`,
                 })),
-        }] : []),
+        },
         {
             label: "ลูกค้า",
             type: "text" as const,
