@@ -127,7 +127,7 @@ export default function TrainerApp() {
 
     /* ── Role lock (อิงจากตำแหน่งของ user) ── */
     useEffect(() => {
-        if (myuser?.position === ROLE_SAFETY_TRAINER) {
+        if (myuser?.position === ROLE_SAFETY_TRAINER || myuser?.position.includes("trainer") || myuser?.position.includes("Trainer")) {
             setlockRole(true);
         }
     }, [myuser]);

@@ -157,7 +157,7 @@ export const TaskFilter = forwardRef<TaskFilterRef, TaskFilterProps>(
 
         // myuser
         useEffect(() => {
-            if (myuser && myuser.position === ROLE_SAFETY_TRAINER) {
+            if (myuser && (myuser.position === ROLE_SAFETY_TRAINER || myuser.position.includes("trainer") || myuser.position.includes("Trainer"))) {
                 setTrainerId(`${myuser.firstname} ${myuser.lastname}`);
                 setlockRole(true);
             }

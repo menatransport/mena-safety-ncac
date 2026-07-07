@@ -24,7 +24,7 @@ interface TrainerPerformanceProps {
 }
 
 export const TrainerPerformance = ({ user, tasks, selectedTrainer = "", filterYears = [], filterMonths = [], onViewTask, onDeleteTask, onSelectTrainer, lockRole }: TrainerPerformanceProps) => {
-    const allTrainers = user.filter(u => u.position === ROLE_SAFETY_TRAINER);
+    const allTrainers = user.filter(u => (u.position === ROLE_SAFETY_TRAINER ) || (u.position.includes("trainer") || u.position.includes("Trainer")));
     const trainers = selectedTrainer
         ? allTrainers.filter(t => `${t.firstname} ${t.lastname}` === selectedTrainer)
         : allTrainers;
