@@ -140,6 +140,10 @@ export const TaskFilter = forwardRef<TaskFilterRef, TaskFilterProps>(
             setTrainerFilter: (name: string) => {
                 setTrainerId(name);
             },
+            setPeriodFilter: (months: number[], year?: number) => {
+                if (year) setSelectedYears([year]);
+                setSelectedMonths(months);
+            },
         }), [handleReset]);
 
         // Apply on dropdown/date changes (and initial mount)

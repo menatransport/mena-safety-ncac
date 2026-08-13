@@ -5,8 +5,7 @@ import {
     ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
 import type { TaskFilterResult } from '../../../type';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+import { analyticsQuery } from './query';
 
 const MONTHS_TH_SHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 const fmtMonth = (v: string) => {
@@ -64,13 +63,7 @@ export const OverviewTab = ({ filters }: { filters: TaskFilterResult }) => {
     useEffect(() => {
         setLoading(true);
         setError(null);
-        const p = new URLSearchParams();
-        filters.selectedYears.forEach(y => p.append('year', String(y)));
-        filters.selectedMonths.forEach(m => p.append('month', String(m)));
-        if (filters.trainerId) p.set('trainer_id', filters.trainerId);
-        if (filters.clientName) p.set('client_name', filters.clientName);
-        if (filters.status && filters.status !== 'all') p.set('status', filters.status);
-        fetch(`${API_BASE}/inspection/report_inspection/summary?${p}`)
+        fetch(`/api/task/analytics/summary?${analyticsQuery(filters)}`)
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
             .then(setData)
             .catch(e => setError(e.message))

@@ -6,8 +6,7 @@ import {
 } from 'recharts';
 import { HardHat } from 'lucide-react';
 import type { TaskFilterResult } from '../../../type';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+import { analyticsQuery } from './query';
 
 interface PpeItem { field: string; label: string; pass: number; fail: number; pending: number; compliance_rate: number; }
 interface PpeData {
@@ -48,13 +47,7 @@ export const PpeTab = ({ filters }: { filters: TaskFilterResult }) => {
     useEffect(() => {
         setLoading(true);
         setError(null);
-        const p = new URLSearchParams();
-        filters.selectedYears.forEach(y => p.append('year', String(y)));
-        filters.selectedMonths.forEach(m => p.append('month', String(m)));
-        if (filters.trainerId) p.set('trainer_id', filters.trainerId);
-        if (filters.clientName) p.set('client_name', filters.clientName);
-        if (filters.status && filters.status !== 'all') p.set('status', filters.status);
-        fetch(`${API_BASE}/inspection/report_inspection/ppe?${p}`)
+        fetch(`/api/task/analytics/ppe?${analyticsQuery(filters)}`)
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
             .then(setData)
             .catch(e => setError(e.message))

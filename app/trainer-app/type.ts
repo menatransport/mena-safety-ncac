@@ -157,6 +157,8 @@ export interface TaskFilterResult {
 export interface TaskFilterRef {
     resetFilters: () => void;
     setTrainerFilter: (name: string) => void;
+    /** ตั้งช่วงเดือน/ปี จากภายนอก (เช่น กดแท็บวิเคราะห์ → เดือนล่าสุด) */
+    setPeriodFilter: (months: number[], year?: number) => void;
 }
 
 /* -------------------------------------------------------------------------- */

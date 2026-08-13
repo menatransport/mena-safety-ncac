@@ -361,8 +361,13 @@ export default function TrainerApp() {
                                         onClick={() => {
                                             if (t.href) {
                                                 window.open(t.href, "_blank", "noopener,noreferrer");
-                                            } else {
-                                                setActiveView(t.value);
+                                                return;
+                                            }
+                                            setActiveView(t.value);
+                                            // แท็บวิเคราะห์ → กรองเป็นเดือนล่าสุด (เดือนปัจจุบัน) อัตโนมัติ
+                                            if (t.value === "analytics") {
+                                                const now = new Date();
+                                                filterRef.current?.setPeriodFilter([now.getMonth() + 1], now.getFullYear());
                                             }
                                         }}
                                         className={`relative flex items-center gap-1.5 px-4 sm:px-5 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 ${isActive
