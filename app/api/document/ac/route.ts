@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
 
+/** base URL ที่มี "/" ท้าย จะทำให้ path กลายเป็น "//" แล้ว FastAPI ตอบ 404 Not Found */
+const acUrl = (suffix = '') => {
+  const base = (process.env.ac_url || '').replace(/\/+$/, '');
+  return suffix ? `${base}/${suffix}` : base;
+};
+
 /** ข้อความจริงจาก FastAPI (`detail`) ต้องถึงหน้าจอ ไม่งั้นทุกความผิดพลาดจะกลายเป็น 500 ลอย ๆ */
 const errorMessage = (data: any, fallback: string): string => {
   const detail = data?.detail ?? data?.error;
@@ -12,7 +18,7 @@ export async function POST(request: Request) {
   try {
     const data = await request.json();
 
-    const res = await fetch(process.env.ac_url!, {
+    const res = await fetch(acUrl(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -45,7 +51,7 @@ export async function PUT(request: Request) {
     const data = await request.json();
     const docId = data.document_no_ac;
     // console.log('Updating data:', data);
-    const res = await fetch(`${process.env.ac_url}/${docId}`, {
+    const res = await fetch(acUrl(encodeURIComponent(docId)), {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -77,7 +83,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const docid = searchParams.get('case_id');
-    const apiUrl = `${process.env.ac_url}/${docid}`;
+    const apiUrl = acUrl(encodeURIComponent(docid || ''));
 
     const res = await fetch(apiUrl, {
       method: 'GET',
