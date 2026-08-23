@@ -208,6 +208,35 @@ proxy เดิม `throw new Error(...)` ทุกกรณีที่ backend
 
 ---
 
+## ทดสอบ round-trip บน production — 2026-08-23
+
+กรอกผลการสอบสวนจริงผ่าน proxy ของ Vercel (เส้นทางเดียวกับผู้ใช้) บนเคส `AC-BP-2608-007` แล้วอ่านกลับเทียบทีละฟิลด์ จากนั้นลบทิ้งและคืนสถานะเคส
+
+**ผล: 62/63 ผ่าน** — ข้อที่ไม่ผ่านเป็นความคาดหวังที่เขียนผิดในสคริปต์ทดสอบเอง (ส่ง `employee_id: ""` แล้วคาดว่าจะได้ `null` กลับ แต่ได้ `""` ซึ่งถูกต้องอยู่แล้ว และ FE เช็คด้วย truthiness จึงไม่ต่างกัน)
+
+| กลุ่มที่ตรวจ | ผล |
+|---|---|
+| ฟิลด์ parent 10 ตัว (รวม `accident_types`, วันที่ประเมินความเสี่ยง) | ✅ |
+| `root_causes[].problem` / `id` / `seq` / `category` | ✅ |
+| `why_analysis[].root_cause_id` — **2 สาเหตุ × ชุด WHY แยกกัน (3 + 2 ข้อ)** | ✅ ไม่ยุบรวม |
+| `measures[]` ผูกกับสาเหตุถูกตัว + `action_completed_date` `""` → `null` | ✅ |
+| `investigators[].employee_id` | ✅ |
+| `is_complete` → ดัน `casestatus` เป็น Completed Investigate | ✅ |
+| DELETE แล้วข้อมูลหายจริง (`GET` → 404, list → `[]`) | ✅ |
+| คืน `casestatus` / `priority` / `damage_items` เท่าเดิม | ✅ |
+
+### 🔴 บั๊กที่เจอระหว่างทดสอบ — `ac_investigation_url` มี `/` ท้าย
+
+ค่าบน Vercel ตั้งเป็น `.../accident-case-investigate/` proxy จึงต่อ path ได้ `.../accident-case-investigate//AC-BP-2608-007` ซึ่ง FastAPI ไม่ match route ใดเลย ตอบ `404 {"detail":"Not Found"}`
+
+อาการที่ผู้ใช้เห็นคือ **ฟอร์มส่วนที่ 2 ดูปกติทุกอย่าง แต่กดบันทึกไม่เคยเข้า DB** แล้วโหลดกลับมาขึ้นเป็น "ยังไม่เคยสอบสวน" เพราะ GET handler แปลง 404 ทุกชนิดเป็น `null` เหมือนกันหมด แยก "ยังไม่เคยกรอก" ออกจาก "ยิงผิด URL" ไม่ได้
+
+> การยิง `GET` ผ่าน proxy แล้วได้ `404 null` **ไม่ได้พิสูจน์ว่า ENV ถูก** — ต้องยิง backend ตรง ๆ เทียบข้อความ `detail` ถึงจะแยกออก
+
+แก้แล้วใน `target()` / `acUrl()` — ตัด `/` ท้าย base URL ก่อนต่อ path ทั้ง `investigate/ac` และ `document/ac` (ตัวหลังเปราะแบบเดียวกัน) พร้อม `encodeURIComponent` เลขที่เอกสาร **ตอนนี้โค้ดทนกับ ENV ที่มี slash ท้ายแล้ว ไม่ต้องแก้ค่าบน Vercel**
+
+---
+
 ## ประเด็นที่เหลือ — ไม่บล็อก แต่ควรรู้
 
 **R3. `list_investigations()` โหลดเกินจำเป็น** — ใช้ `_base_query()` ที่ `selectinload` ตารางลูกครบทุกตัว ทั้งที่ response ต้องการแค่ `count` ยังไม่กระทบตอนนี้ (ข้อมูล 0 แถว) แต่จะช้าเมื่อโตขึ้น
