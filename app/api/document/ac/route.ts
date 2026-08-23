@@ -1,22 +1,36 @@
 import { NextResponse } from 'next/server';
 
+/** ข้อความจริงจาก FastAPI (`detail`) ต้องถึงหน้าจอ ไม่งั้นทุกความผิดพลาดจะกลายเป็น 500 ลอย ๆ */
+const errorMessage = (data: any, fallback: string): string => {
+  const detail = data?.detail ?? data?.error;
+  if (!detail) return fallback;
+  if (typeof detail === 'string') return detail;
+  return JSON.stringify(detail);
+};
+
 export async function POST(request: Request) {
   try {
     const data = await request.json();
 
     const res = await fetch(process.env.ac_url!, {
       method: 'POST',
-      headers: {  
+      headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(data),
     });
 
+    const responseData = await res.json().catch(() => null);
+
     if (!res.ok) {
-      throw new Error(`API responded with status: ${res.status}`);
+      console.log(`API responded with status: ${res.status}`);
+      return NextResponse.json(
+        { message: errorMessage(responseData, 'บันทึกข้อมูลไม่สำเร็จ') },
+        { status: res.status }
+      );
     }
 
-    return NextResponse.json(await res.json());
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error('POST DB API error:', error);
     return NextResponse.json(
@@ -33,17 +47,23 @@ export async function PUT(request: Request) {
     // console.log('Updating data:', data);
     const res = await fetch(`${process.env.ac_url}/${docId}`, {
       method: 'PUT',
-      headers: {  
+      headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(data),
     });
 
+    const responseData = await res.json().catch(() => null);
+
     if (!res.ok) {
-      throw new Error(`API responded with status: ${res.status}`);
+      console.log(`API responded with status: ${res.status}`);
+      return NextResponse.json(
+        { message: errorMessage(responseData, 'อัปเดตข้อมูลไม่สำเร็จ') },
+        { status: res.status }
+      );
     }
 
-    return NextResponse.json(await res.json());
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error('PUT DB API error:', error);
     return NextResponse.json(

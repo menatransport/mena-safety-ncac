@@ -4,6 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import Swal from "sweetalert2";
 import { useUiTheme } from "@/lib/useUiTheme";
+import { MASTER_CONFIGS } from "@/lib/masterData";
 import {
   LayoutDashboard,
   SquarePen,
@@ -18,7 +19,8 @@ import {
   Menu,
   X,
   Bell,
-  LogOut
+  LogOut,
+  Layers
 } from "lucide-react";
 
 const menuItems = [
@@ -60,6 +62,12 @@ const recordMenuItems = [
   }
 ];
 
+const masterMenuItems = MASTER_CONFIGS.map((item) => ({
+  title: item.label,
+  url: `/master-data/${item.storeKey}`,
+  icon: Layers
+}));
+
 const systemMenuItems = [
   {
     title: "Setting",
@@ -78,6 +86,7 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [formsExpanded, setFormsExpanded] = useState(false); // ปรับเป็น true เพื่อขยายเมนู Forms เริ่มต้น
   const [recordsExpanded, setRecordsExpanded] = useState(false); // ปรับเป็น true เพื่อขยายเมนู Records เริ่มต้น
+  const [masterExpanded, setMasterExpanded] = useState(false); // ปรับเป็น true เพื่อขยายเมนู Master Data เริ่มต้น
   const [showUserInfo, setShowUserInfo] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [userInfo, setUserInfo] = useState<any>(null);
@@ -129,6 +138,9 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
     }
     if (recordMenuItems.some(item => item.url === currentPath)) {
       setRecordsExpanded(true);
+    }
+    if (currentPath?.startsWith("/master-data")) {
+      setMasterExpanded(true);
     }
   }, [pathname]);
 
@@ -186,11 +198,11 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
       {/* Sidebar - Fixed */}
       <div className={`${sidebarHidden} ${isMobile
         ? `fixed inset-y-0 left-0 transform ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} w-64 z-50 transition-transform duration-300 ease-in-out`
-        : `${sidebarCollapsed ? 'w-16' : 'w-64'} fixed h-full z-30 transition-all duration-300`
-        } ${isDark ? 'bg-slate-900/90 border-white/10' : 'bg-white/95 border-slate-200/70'} backdrop-blur-xl border-r flex-shrink-0`}>
+        : `${sidebarCollapsed ? 'w-16' : 'w-64'} fixed inset-y-0 left-0 z-30 transition-all duration-300`
+        } ${isDark ? 'bg-slate-900/90 border-white/10' : 'bg-white/95 border-slate-200/70'} backdrop-blur-xl border-r flex-shrink-0 flex flex-col h-screen overflow-hidden`}>
 
         {/* Header */}
-        <div className={`p-4 border-b ${isDark ? 'border-white/10 bg-gradient-to-r from-white/5 to-transparent' : 'border-slate-200/70 bg-gradient-to-r from-emerald-50/70 to-white/80'}`}>
+        <div className={`flex-shrink-0 p-4 border-b ${isDark ? 'border-white/10 bg-gradient-to-r from-white/5 to-transparent' : 'border-slate-200/70 bg-gradient-to-r from-emerald-50/70 to-white/80'}`}>
           <div className="flex items-center justify-between">
             {(!sidebarCollapsed || isMobile) && (
               <div className="flex items-center space-x-3">
@@ -227,7 +239,7 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
           </div>
         </div>
 
-        <div className="p-4 space-y-6">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-6">
 
 
           <div>
@@ -353,10 +365,59 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                   </div>
                 )}
               </div>
+              {/* Master Data Group */}
+              <div>
+                <button
+                  onClick={() => {
+                    if (sidebarCollapsed && !isMobile) {
+                      setSidebarCollapsed(false);
+                      setMasterExpanded(true);
+                    } else {
+                      setMasterExpanded(!masterExpanded);
+                    }
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-300 group ${isDark ? 'text-white/60 hover:bg-white/10 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'}`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <Layers size={sidebarCollapsed && !isMobile ? 24 : 20} className={`transition-all duration-300 group-hover:scale-110 ${isDark ? 'text-white/40 group-hover:text-white' : 'text-slate-500 group-hover:text-emerald-600'}`} />
+                    {(!sidebarCollapsed || isMobile) && (
+                      <span className="font-semibold">Master Data</span>
+                    )}
+                  </div>
+                  {(!sidebarCollapsed || isMobile) && (
+                    masterExpanded ? (
+                      <ChevronDown size={16} className={`transition-transform duration-300 ${isDark ? 'text-white/30' : 'text-slate-400'}`} />
+                    ) : (
+                      <ChevronRight size={16} className={`transition-transform duration-300 ${isDark ? 'text-white/30' : 'text-slate-400'}`} />
+                    )
+                  )}
+                </button>
+
+                {/* Master Data Submenu */}
+                {masterExpanded && (!sidebarCollapsed || isMobile) && (
+                  <div className={`ml-6 mt-1.5 space-y-1 border-l-2 pl-3 ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
+                    {masterMenuItems.map((item) => (
+                      <button
+                        key={item.title}
+                        onClick={() => handleNavigation(item.url)}
+                        className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm transition-all duration-300 ${isActive(item.url)
+                          ? (isDark ? 'bg-indigo-500/20 text-indigo-300 font-semibold border-l-2 border-indigo-400 -ml-[13px] pl-[23px]' : 'bg-emerald-50 text-emerald-700 font-semibold border-l-2 border-emerald-500 -ml-[13px] pl-[23px]')
+                          : (isDark ? 'text-white/40 hover:bg-white/10 hover:text-white cursor-pointer' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700 cursor-pointer')
+                          }`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full transition-colors ${isActive(item.url) ? (isDark ? 'bg-indigo-400' : 'bg-emerald-500') : (isDark ? 'bg-white/20' : 'bg-slate-300')}`}></span>
+                        <span className="font-medium text-sm">{item.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </nav>
           </div>
 
-          <div className="absolute bottom-4 left-0 right-0 px-4">
+        </div>
+
+        <div className={`flex-shrink-0 border-t p-4 ${isDark ? 'border-white/10' : 'border-slate-200/70'}`}>
             <button
               onClick={handleLogout}
               className={`w-full cursor-pointer flex items-center ${sidebarCollapsed && !isMobile ? 'justify-center' : 'space-x-3'} px-3 py-3 rounded-xl transition-all duration-300 group ${isDark ? 'text-red-400 hover:bg-red-500/20 hover:text-red-300' : 'text-red-600 hover:bg-red-50 hover:text-red-700'}`}
@@ -369,13 +430,12 @@ export const NavComponent: React.FC<NavComponentProps> = ({ children }) => {
                 <span className="font-semibold text-sm">ออกจากระบบ</span>
               )}
             </button>
-          </div>
         </div>
 
       </div>
 
       {/* Main Content Area */}
-      <div className={`flex-1 flex flex-col ${isMobile
+      <div className={`flex-1 min-w-0 flex flex-col ${isMobile
         ? 'ml-0 w-full'
         : isSidebarHidden ? 'ml-0' : sidebarCollapsed ? 'ml-16' : 'ml-64'
         } transition-all duration-300`}>

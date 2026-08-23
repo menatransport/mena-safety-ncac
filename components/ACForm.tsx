@@ -4,13 +4,21 @@ import { DateTimePicker24h } from "./ui/datetime-picker";
 import { SearchableSelect } from "./ui/searchable-select";
 import { useSearchParams } from "next/navigation";
 import { useDropdownStore } from "@/lib/dropdownlist";
-import { caseReport_AC } from "@/lib/caseReport";
+import { caseReport_AC, investigate_AC } from "@/lib/caseReport";
+import {
+  ACInvestigateComponent,
+  MeasureFileMap,
+  MeasureExistingFileMap,
+  normalizeInvestigateData,
+} from "./ACInvestigate";
+import { FormActionBar, FormActionButton } from "./FormActionBar";
 import { FileUpload } from "./FileUpload";
+import { getMissingRequiredDocs } from "@/lib/attachment";
 import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import { useClipboard_ac } from "@/lib/clipboard";
 import { LoaderPage } from "./LoaderPage";
-import { Printer } from "lucide-react";
+import { Printer, Columns2, Rows2, CirclePlus, Trash2, Bug, Copy, X } from "lucide-react";
 import { printDocument_ac } from "@/lib/printDocument";
 import { sendErrorLog } from "@/lib/logError";
 import { documentRole } from "@/lib/documentRole";
@@ -28,6 +36,99 @@ interface FileWithId {
 interface CategoryFiles {
   [key: string]: FileWithId[];
 }
+
+// มุมมองกระดาษ: จำค่าที่ผู้ใช้เลือกไว้ใน localStorage
+type LayoutMode = "stack" | "split";
+const LAYOUT_STORAGE_KEY = "acFormLayoutMode";
+
+const readStoredLayout = (): LayoutMode => {
+  if (typeof window === "undefined") return "stack";
+  const stored = localStorage.getItem(LAYOUT_STORAGE_KEY);
+  return stored === "split" || stored === "stack" ? stored : "stack";
+};
+// รายการความเสียหาย: แยกเป็นกลุ่มสินค้า / รถและอื่นๆ กลุ่มละอย่างน้อย 1 แถว รวมกันสูงสุด 15 แถว
+type DamageCategory = "goods" | "vehicle";
+
+type DamageItem = {
+  damage_id: number;
+  /** กลุ่มของรายการ ใช้รวมยอดเข้า actual_goods / actual_vehicle */
+  damage_category: DamageCategory;
+  damage_detail: string;
+  damage_value: number;
+  responsible_party: string;
+};
+
+const DAMAGE_ITEM_MIN_ROWS_PER_GROUP = 1;
+const DAMAGE_ITEM_MAX_ROWS = 15;
+const RESPONSIBLE_PARTY_OPTIONS = ["บริษัท", "พจส", "คู่กรณี", "ประกัน"];
+
+/** นิยามกลุ่มความเสียหาย + ฟิลด์ยอดรวมจริง และเงื่อนไขที่ทำให้กลุ่มนี้แสดง */
+const DAMAGE_GROUPS: {
+  key: DamageCategory;
+  label: string;
+  totalField: "actual_goods_damage_value" | "actual_vehicle_damage_value";
+  damageFlag: "product_damage" | "truck_damage";
+}[] = [
+    {
+      key: "goods",
+      label: "ความเสียหายของสินค้า",
+      totalField: "actual_goods_damage_value",
+      damageFlag: "product_damage",
+    },
+    {
+      key: "vehicle",
+      label: "ความเสียหายของรถและอื่นๆ",
+      totalField: "actual_vehicle_damage_value",
+      damageFlag: "truck_damage",
+    },
+  ];
+
+const createDamageItem = (
+  id: number,
+  category: DamageCategory
+): DamageItem => ({
+  damage_id: id,
+  damage_category: category,
+  damage_detail: "",
+  damage_value: 0,
+  responsible_party: "",
+});
+
+const createEmptyDamageItems = (): DamageItem[] =>
+  DAMAGE_GROUPS.map((group, index) => createDamageItem(index + 1, group.key));
+
+// ข้อมูลจาก API อาจไม่มี damage_items หรือยังไม่มีกลุ่ม (ของเดิมถือเป็น "รถและอื่นๆ")
+const normalizeDamageItems = (items: any): DamageItem[] => {
+  const list = Array.isArray(items) ? items : [];
+  const normalized: DamageItem[] = list
+    .slice(0, DAMAGE_ITEM_MAX_ROWS)
+    .map((item: any, index: number) => ({
+      damage_id: index + 1,
+      damage_category:
+        item?.damage_category === "goods" ? "goods" : "vehicle",
+      damage_detail: item?.damage_detail || "",
+      damage_value: Number(item?.damage_value) || 0,
+      responsible_party: item?.responsible_party || "",
+    }));
+
+  // เติมให้ทุกกลุ่มมีอย่างน้อย 1 แถวเสมอ
+  DAMAGE_GROUPS.forEach((group) => {
+    const count = normalized.filter(
+      (item) => item.damage_category === group.key
+    ).length;
+    for (let i = count; i < DAMAGE_ITEM_MIN_ROWS_PER_GROUP; i++) {
+      normalized.push(
+        createDamageItem(
+          Math.max(0, ...normalized.map((item) => item.damage_id)) + 1,
+          group.key
+        )
+      );
+    }
+  });
+
+  return normalized;
+};
+
 export const ACFormComponent = () => {
   const router = useRouter();
 
@@ -62,7 +163,46 @@ export const ACFormComponent = () => {
     actual_goods_damage_value: 0,
     actual_vehicle_damage_value: 0,
     alcohol_test_result: 0,
+    damage_items: createEmptyDamageItems(),
   });
+
+  // Part 2 : Investigate Report (แสดงเมื่อมีเลขที่เอกสารแล้ว)
+  const [formInvestigate, setFormInvestigate] = useState<
+    Partial<investigate_AC>
+  >({
+    accident_types: [],
+    severity_level: "",
+    accident_description: "",
+    risk_assessment_completed: "",
+    risk_assessment_reviewed: "",
+    risk_assessment_result: "",
+    risk_assessment_team: "",
+    risk_assessment_attached: "",
+    avoidability: "",
+  });
+
+  const [isSavingForm, setIsSavingForm] = useState(false);
+  const [isSavingInvestigate, setIsSavingInvestigate] = useState(false);
+  // ระหว่างโหลดผลการสอบสวนเดิม ห้ามบันทึกทับ — POST เป็น upsert แบบแทนที่ทั้งชุด
+  const [isLoadingInvestigate, setIsLoadingInvestigate] = useState(false);
+
+  // ไฟล์แนบของแต่ละมาตรการ (ส่วนที่ 2)
+  const [measureFiles, setMeasureFiles] = useState<MeasureFileMap>({});
+  const [measureExistingFiles, setMeasureExistingFiles] =
+    useState<MeasureExistingFileMap>({});
+
+  // มุมมองกระดาษ: "stack" = เรียงลงมาทีละแผ่น, "split" = วางคู่กัน 2 คอลัมน์
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>(() =>
+    readStoredLayout()
+  );
+
+  const toggleLayoutMode = () => {
+    setLayoutMode((prev) => {
+      const next: LayoutMode = prev === "split" ? "stack" : "split";
+      localStorage.setItem(LAYOUT_STORAGE_KEY, next);
+      return next;
+    });
+  };
 
   const [isViewMode, setIsViewMode] = useState(false);
   const [isLoadingFormData, setIsLoadingFormData] = useState(false);
@@ -72,6 +212,10 @@ export const ACFormComponent = () => {
   const { theme } = useUiTheme();
 
   const searchParams = useSearchParams();
+
+  // ========== Dev Payload Log (ซ่อนไว้ เปิดด้วยปุ่ม / เห็นเฉพาะ dev หรือ ?debug=1) ==========
+  const [showPayload, setShowPayload] = useState(false);
+  const [copiedPayload, setCopiedPayload] = useState(false);
 
   const [filteredData, setFilteredData] = useState<{
     masterdrivers?: any[];
@@ -168,7 +312,10 @@ export const ACFormComponent = () => {
               // console.log('Fetched AC record data:', data);
               // console.log('Fetched newUserinfo:', newUserinfo);
               setIsViewMode(documentRole(data.department_name, data.reporter_name, newUserinfo.name, newUserinfo.department, data.site_name));
-              setFormData(data);
+              setFormData({
+                ...data,
+                damage_items: normalizeDamageItems(data.damage_items),
+              });
 
               await mapTextDataToIds(data);
 
@@ -198,6 +345,59 @@ export const ACFormComponent = () => {
     initializeForm();
   }, []);
 
+  // โหลดข้อมูลการสอบสวน (ส่วนที่ 2) เมื่อมีเลขเคสแล้ว
+  useEffect(() => {
+    const docNo = formData.document_no_ac;
+    if (!docNo) return;
+
+    let cancelled = false;
+
+    setFormInvestigate((prev) =>
+      prev.document_no_ac === docNo ? prev : { ...prev, document_no_ac: docNo }
+    );
+
+    const loadInvestigate = async () => {
+      setIsLoadingInvestigate(true);
+      try {
+        const res = await fetch(
+          `/api/investigate/ac?document_no=${encodeURIComponent(docNo)}`
+        );
+        if (cancelled) return;
+
+        // 404 = ยังไม่เคยสอบสวนเอกสารนี้ ถือว่าเป็นการกรอกใหม่ (ไม่ใช่ระบบพัง)
+        if (res.status === 404) return;
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+
+        const data = await res.json();
+        if (!data || cancelled) return;
+        setFormInvestigate((prev) => ({
+          ...prev,
+          ...normalizeInvestigateData(data),
+          document_no_ac: docNo,
+        }));
+      } catch (error) {
+        // โหลดไม่สำเร็จจริง ๆ ต้องเห็นใน log ไม่ใช่เงียบไปเหมือนยังไม่เคยกรอก
+        console.error("Load investigate data error:", error);
+        sendErrorLog(
+          "ACForm/loadInvestigate",
+          error instanceof Error ? error : String(error)
+        );
+      } finally {
+        if (!cancelled) setIsLoadingInvestigate(false);
+      }
+    };
+
+    loadInvestigate();
+    loadMeasureFiles(docNo);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.document_no_ac]);
+
   const processAttachmentData = (data: any) => {
     const categorizedFiles: CategoryFiles = {};
 
@@ -208,6 +408,9 @@ export const ACFormComponent = () => {
 
         if (parts.length >= 3) {
           const category = parts.slice(1, -1).join("_");
+
+          // ไฟล์แนบของมาตรการ (ส่วนที่ 2) แยกจัดการต่างหาก ไม่ปนกับไฟล์แนบส่วนที่ 1
+          if (category.startsWith("measure_")) return;
 
           if (!categorizedFiles[category]) {
             categorizedFiles[category] = [];
@@ -696,6 +899,7 @@ export const ACFormComponent = () => {
 
       printDocument_ac({
         formData: printFormData as caseReport_AC,
+        investigateData: formInvestigate,
         userinfo,
         attachedFiles
       });
@@ -809,6 +1013,281 @@ export const ACFormComponent = () => {
       [name]: value,
     });
   };
+
+  // ========== รายการความเสียหาย ==========
+  const damageItems = formData.damage_items || [];
+
+  const getDamageItemsByGroup = (category: DamageCategory) =>
+    damageItems.filter((item) => item.damage_category === category);
+
+  const sumDamageItems = (items: DamageItem[]) =>
+    items.reduce((sum, item) => sum + (Number(item.damage_value) || 0), 0);
+
+  const addDamageItem = (category: DamageCategory) => {
+    if (damageItems.length >= DAMAGE_ITEM_MAX_ROWS) {
+      Swal.fire({
+        icon: "warning",
+        title: `เพิ่มรายการความเสียหายได้สูงสุด ${DAMAGE_ITEM_MAX_ROWS} รายการ`,
+        confirmButtonText: "ตกลง",
+      });
+      return;
+    }
+    setFormData((prev) => {
+      const items = prev.damage_items || [];
+      const newId =
+        items.length > 0
+          ? Math.max(...items.map((item) => item.damage_id)) + 1
+          : 1;
+      return {
+        ...prev,
+        damage_items: [...items, createDamageItem(newId, category)],
+      };
+    });
+  };
+
+  const removeDamageItem = (id: number) => {
+    setFormData((prev) => {
+      const items = prev.damage_items || [];
+      const target = items.find((item) => item.damage_id === id);
+      if (!target) return prev;
+      // แต่ละกลุ่มต้องเหลืออย่างน้อย 1 แถว
+      const sameGroup = items.filter(
+        (item) => item.damage_category === target.damage_category
+      );
+      if (sameGroup.length <= DAMAGE_ITEM_MIN_ROWS_PER_GROUP) return prev;
+      return {
+        ...prev,
+        damage_items: items.filter((item) => item.damage_id !== id),
+      };
+    });
+  };
+
+  const handleDamageItemChange = (
+    id: number,
+    field: keyof DamageItem,
+    value: string
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      damage_items: (prev.damage_items || []).map((item) =>
+        item.damage_id === id
+          ? {
+            ...item,
+            [field]: field === "damage_value" ? Number(value) || 0 : value,
+          }
+          : item
+      ),
+    }));
+  };
+
+  const damageGroupTotals = {
+    goods: sumDamageItems(getDamageItemsByGroup("goods")),
+    vehicle: sumDamageItems(getDamageItemsByGroup("vehicle")),
+  };
+
+  /** กลุ่มนี้ถูกกรอกอะไรไว้บ้างหรือยัง — ใช้ตัดสินว่าจะซิงก์ยอดรวมเป็น 0 ได้ไหม */
+  const isDamageGroupTouched = (category: DamageCategory) =>
+    getDamageItemsByGroup(category).some(
+      (item) =>
+        (item.damage_detail || "").trim() !== "" ||
+        (item.responsible_party || "").trim() !== "" ||
+        Number(item.damage_value) > 0
+    );
+
+  // แสดงเฉพาะกลุ่มที่ระบุว่าเสียหายไว้แล้ว ผู้ใช้จึงไม่ต้องเลือกกลุ่มเอง
+  const visibleDamageGroups = DAMAGE_GROUPS.filter(
+    (group) => formData[group.damageFlag] === "yes"
+  );
+
+  const totalDamageValue = visibleDamageGroups.reduce(
+    (sum, group) => sum + damageGroupTotals[group.key],
+    0
+  );
+
+  /** ตารางรายการความเสียหาย 1 กลุ่ม (สินค้า / รถและอื่นๆ) */
+  const renderDamageGroup = (group: (typeof DAMAGE_GROUPS)[number]) => {
+    const items = getDamageItemsByGroup(group.key);
+    const total = damageGroupTotals[group.key];
+    const canRemoveRow = items.length > DAMAGE_ITEM_MIN_ROWS_PER_GROUP;
+    const canAddRow = !isViewMode && damageItems.length < DAMAGE_ITEM_MAX_ROWS;
+
+    return (
+      <div
+        key={group.key}
+        className="overflow-hidden rounded border border-gray-300"
+      >
+        {/* หัวกลุ่ม */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-300 bg-white px-3 py-2">
+          <span className="text-sm font-medium text-gray-800">
+            {group.label}
+          </span>
+          {canAddRow && (
+            <button
+              type="button"
+              onClick={() => addDamageItem(group.key)}
+              className="flex items-center gap-1 text-xs text-gray-600 transition-colors hover:text-gray-900"
+            >
+              <CirclePlus className="h-4 w-4" />
+              เพิ่มแถว
+            </button>
+          )}
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="w-14 border-b border-gray-300 px-3 py-2 text-center font-medium text-gray-700">
+                  ลำดับ
+                </th>
+                <th className="border-b border-gray-300 px-3 py-2 text-left font-medium text-gray-700">
+                  ความเสียหาย
+                </th>
+                <th className="w-48 whitespace-nowrap border-b border-gray-300 px-3 py-2 text-right font-medium text-gray-700">
+                  มูลค่า (บาท)
+                </th>
+                <th className="w-44 whitespace-nowrap border-b border-gray-300 px-3 py-2 text-left font-medium text-gray-700">
+                  ผู้รับผิดชอบ
+                </th>
+                {!isViewMode && (
+                  <th className="w-12 border-b border-gray-300 px-2 py-2"></th>
+                )}
+              </tr>
+            </thead>
+            <tbody className="bg-white">
+              {items.map((item, index) => (
+                <tr key={item.damage_id} className="border-b border-gray-200 last:border-b-0">
+                  <td className="px-3 py-2 text-center text-black">
+                    {index + 1}
+                  </td>
+                  <td className="px-3 py-2 text-black">
+                    <input
+                      type="text"
+                      value={item.damage_detail}
+                      onChange={(e) =>
+                        handleDamageItemChange(
+                          item.damage_id,
+                          "damage_detail",
+                          e.target.value
+                        )
+                      }
+                      disabled={isViewMode}
+                      className={`w-full rounded border border-gray-300 p-1 text-sm text-black focus:outline-none focus:ring-2 focus:ring-[#cfe5d0] ${isViewMode
+                        ? "cursor-not-allowed bg-gray-100 font-bold text-blue-600"
+                        : "bg-white"
+                        }`}
+                    />
+                  </td>
+                  <td className="px-3 py-2 text-black">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={item.damage_value || ""}
+                      onChange={(e) =>
+                        handleDamageItemChange(
+                          item.damage_id,
+                          "damage_value",
+                          e.target.value
+                        )
+                      }
+                      disabled={isViewMode}
+                      className={`w-full rounded border border-gray-300 p-1 text-right text-sm text-black focus:outline-none focus:ring-2 focus:ring-[#cfe5d0] ${isViewMode
+                        ? "cursor-not-allowed bg-gray-100 font-bold text-blue-600"
+                        : "bg-white"
+                        }`}
+                    />
+                  </td>
+                  <td className="px-3 py-2 text-black">
+                    <select
+                      value={item.responsible_party}
+                      onChange={(e) =>
+                        handleDamageItemChange(
+                          item.damage_id,
+                          "responsible_party",
+                          e.target.value
+                        )
+                      }
+                      disabled={isViewMode}
+                      className={`w-full rounded border border-gray-300 p-1 text-sm text-black focus:outline-none focus:ring-2 focus:ring-[#cfe5d0] ${isViewMode
+                        ? "cursor-not-allowed bg-gray-100 font-bold text-blue-600"
+                        : "bg-white"
+                        }`}
+                    >
+                      <option value=""></option>
+                      {RESPONSIBLE_PARTY_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  {!isViewMode && (
+                    <td className="px-2 py-2 text-center">
+                      <button
+                        type="button"
+                        onClick={() => removeDamageItem(item.damage_id)}
+                        disabled={!canRemoveRow}
+                        title={
+                          canRemoveRow
+                            ? "ลบแถวนี้"
+                            : `${group.label} ต้องมีอย่างน้อย 1 แถว`
+                        }
+                        className="text-gray-400 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:text-gray-400"
+                      >
+                        <Trash2 className="mx-auto h-4 w-4" />
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-gray-300 bg-gray-50">
+                <td
+                  colSpan={2}
+                  className="px-3 py-2 text-right text-sm text-gray-600"
+                >
+                  รวม{group.label}
+                </td>
+                <td className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
+                  {total.toLocaleString("th-TH")}
+                </td>
+                <td colSpan={isViewMode ? 1 : 2} className="px-3 py-2"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  // ยอดรวมของแต่ละกลุ่มคือค่าเสียหายจริง
+  // กลุ่มที่ยังไม่กรอกอะไรเลย = ไม่แตะค่าเดิม (ข้อมูลเก่าที่กรอกยอดรวมไว้ตรง ๆ ต้องไม่ถูกล้าง)
+  // แต่ถ้ากรอกรายการไว้แล้วลบยอดออกจนเป็น 0 ต้องซิงก์เป็น 0 ไม่ใช่ค้างยอดเดิมไว้
+  useEffect(() => {
+    setFormData((prev) => {
+      const next = { ...prev };
+      let changed = false;
+
+      visibleDamageGroups.forEach((group) => {
+        const total = damageGroupTotals[group.key];
+        if (total === 0 && !isDamageGroupTouched(group.key)) return;
+        if (Number(prev[group.totalField] ?? 0) !== total) {
+          next[group.totalField] = total;
+          changed = true;
+        }
+      });
+
+      return changed ? next : prev;
+    });
+  }, [
+    damageGroupTotals.goods,
+    damageGroupTotals.vehicle,
+    damageItems,
+    formData.product_damage,
+    formData.truck_damage,
+  ]);
 
   const validateRequiredFields = () => {
     const requiredFields = [
@@ -927,15 +1406,88 @@ export const ACFormComponent = () => {
       }
     }
 
-    // ตรวจสอบว่ามีการแนบรูปเหตุการณ์อย่างน้อย 1 รูป
-    if (!attachedFiles["event_img"] || attachedFiles["event_img"].length === 0) {
-      missingFields.push("รูปเหตุการณ์ (อย่างน้อย 1 รูป)");
-      if (!firstMissingField) {
-        firstMissingField = "event_img";
+    if (formData.truck_damage === "yes") {
+      const breakdownStatus = formData.breakdown_status;
+      if (!breakdownStatus || breakdownStatus.trim() === "") {
+        missingFields.push("รถวิ่งงานต่อได้หรือไม่");
+        if (!firstMissingField) {
+          firstMissingField = "breakdown_status";
+        }
       }
     }
 
+    // ตรวจเอกสารแนบตามเงื่อนไขใน lib/attachment
+    getMissingRequiredDocs("ac", attachedFiles).forEach((doc) => {
+      missingFields.push(doc.label);
+      if (!firstMissingField) {
+        firstMissingField = doc.value;
+      }
+    });
+
     return { missingFields, firstMissingField };
+  };
+
+  /** ตัวเลขที่ backend ต้องการเป็น number (ฟอร์มเก็บเป็น string) */
+  const toNumericFields = (source: Partial<caseReport_AC>) => ({
+    fatalities: Number(source.fatalities) || 0,
+    injured_hospitalized: Number(source.injured_hospitalized) || 0,
+    injured_not_hospitalized: Number(source.injured_not_hospitalized) || 0,
+    estimated_goods_damage_value: Number(source.estimated_goods_damage_value) || 0,
+    estimated_vehicle_damage_value: Number(source.estimated_vehicle_damage_value) || 0,
+    actual_goods_damage_value: Number(source.actual_goods_damage_value) || 0,
+    actual_vehicle_damage_value: Number(source.actual_vehicle_damage_value) || 0,
+  });
+
+  /**
+   * เก็บเฉพาะแถวของกลุ่มที่ระบุว่าเสียหายไว้จริง
+   * ถ้าผู้ใช้กรอกไว้แล้วเปลี่ยนใจเป็น "ไม่เสียหาย" แถวเดิมจะถูกซ่อนบนฟอร์ม
+   * ปล่อยให้ติดไปกับ payload จะกลายเป็นข้อมูลที่มองไม่เห็นแต่ยังขึ้นในใบพิมพ์
+   */
+  const payloadDamageItems = () =>
+    (formData.damage_items || []).filter((item) =>
+      visibleDamageGroups.some((group) => group.key === item.damage_category)
+    );
+
+  /** payload ของรายงานเบื้องต้น ใช้ทั้งตอนส่งจริงและตอนดู payload */
+  const buildInitialReportPayload = (mode: "create" | "update") => {
+    if (mode === "create") {
+      return {
+        ...formData,
+        incident_datetime: formData.incident_datetime,
+        record_datetime: new Date(),
+        ...toNumericFields(formData),
+        damage_items: payloadDamageItems(),
+        reporter_id: userinfo?.id,
+        docs: [docValue as any],
+      };
+    }
+
+    // อัปเดต: ตัดฟิลด์ที่ backend คำนวณ/join มาให้เองออก
+    const {
+      priority,
+      reporter_name,
+      record_datetime,
+      site_name,
+      driver_name,
+      client_name,
+      department_name,
+      driver_role_name,
+      origin_name,
+      vehicle_head_plate,
+      vehicle_tail_plate,
+      province_name,
+      district_name,
+      sub_district_name,
+      ...filteredFormData
+    } = formData;
+
+    return {
+      ...filteredFormData,
+      incident_datetime: filteredFormData.incident_datetime,
+      ...toNumericFields(filteredFormData),
+      damage_items: payloadDamageItems(),
+      docs: [docValue as any],
+    };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -956,6 +1508,7 @@ export const ACFormComponent = () => {
     }
 
     // console.log("AC Form submitted:", formData);
+    setIsSavingForm(true);
     try {
       if (!userinfo?.id) {
         alert("ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่");
@@ -964,18 +1517,8 @@ export const ACFormComponent = () => {
       }
 
       const submitData = {
-        ...formData,
-        incident_datetime: formData.incident_datetime,
-        record_datetime: new Date(),
-        fatalities: Number(formData.fatalities) || 0,
-        injured_hospitalized: Number(formData.injured_hospitalized) || 0,
-        injured_not_hospitalized: Number(formData.injured_not_hospitalized) || 0,
-        estimated_goods_damage_value: Number(formData.estimated_goods_damage_value) || 0,
-        estimated_vehicle_damage_value: Number(formData.estimated_vehicle_damage_value) || 0,
-        actual_goods_damage_value: Number(formData.actual_goods_damage_value) || 0,
-        actual_vehicle_damage_value: Number(formData.actual_vehicle_damage_value) || 0,
+        ...buildInitialReportPayload("create"),
         reporter_id: userinfo.id,
-        docs: [docValue as any]
       };
 
       const res = await fetch("/api/document/ac", {
@@ -1023,6 +1566,8 @@ export const ACFormComponent = () => {
         text: error instanceof Error ? error.message : "Unknown error",
         confirmButtonText: "ตกลง"
       });
+    } finally {
+      setIsSavingForm(false);
     }
   };
 
@@ -1040,69 +1585,44 @@ export const ACFormComponent = () => {
       return;
     }
 
-    const {
-      priority,
-      reporter_name,
-      record_datetime,
-      site_name,
-      driver_name,
-      client_name,
-      department_name,
-      driver_role_name,
-      origin_name,
-      vehicle_head_plate,
-      vehicle_tail_plate,
-      province_name,
-      district_name,
-      sub_district_name,
-      ...filteredFormData
-    } = formData;
+    const data = buildInitialReportPayload("update");
 
-    const data = {
-      ...filteredFormData,
-      incident_datetime: filteredFormData.incident_datetime,
-      fatalities: Number(filteredFormData.fatalities) || 0,
-      injured_hospitalized: Number(filteredFormData.injured_hospitalized) || 0,
-      injured_not_hospitalized: Number(filteredFormData.injured_not_hospitalized) || 0,
-      estimated_goods_damage_value: Number(filteredFormData.estimated_goods_damage_value) || 0,
-      estimated_vehicle_damage_value: Number(filteredFormData.estimated_vehicle_damage_value) || 0,
-      actual_goods_damage_value: Number(filteredFormData.actual_goods_damage_value) || 0,
-      actual_vehicle_damage_value: Number(filteredFormData.actual_vehicle_damage_value) || 0,
-      docs: [docValue as any]
-    };
-
-    const res = await fetch("/api/document/ac", {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
-    const responseData = await res.json();
-    if (res.ok) {
-      Swal.fire({
-        icon: "success",
-        title: "อัปเดตข้อมูลเรียบร้อย",
-        draggable: true,
-        confirmButtonText: "ตกลง",
-        allowOutsideClick: false,
+    setIsSavingForm(true);
+    try {
+      const res = await fetch("/api/document/ac", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
       });
-    } else {
-      sendErrorLog("ACForm/handleUpdate", `Update failed: ${responseData.message || 'Unknown error'}`);
-      Swal.fire({
-        icon: "error",
-        title: "เกิดข้อผิดพลาดในการอัปเดตข้อมูล",
-      });
+      const responseData = await res.json();
+      if (res.ok) {
+        Swal.fire({
+          icon: "success",
+          title: "อัปเดตข้อมูลเรียบร้อย",
+          draggable: true,
+          confirmButtonText: "ตกลง",
+          allowOutsideClick: false,
+        });
+      } else {
+        sendErrorLog("ACForm/handleUpdate", `Update failed: ${responseData.message || 'Unknown error'}`);
+        Swal.fire({
+          icon: "error",
+          title: "เกิดข้อผิดพลาดในการอัปเดตข้อมูล",
+        });
+      }
+      setFormData((prev) => ({
+        ...prev,
+        priority: responseData.priority,
+      }));
+      // console.log("Attached Files on Update:", attachedFiles);
+      if (responseData.document_no_ac !== "" && Object.keys(attachedFiles).length > 0) {
+        await attatchments_post(responseData.document_no_ac);
+      }
+    } finally {
+      setIsSavingForm(false);
     }
-    setFormData((prev) => ({
-      ...prev,
-      priority: responseData.priority,
-    }));
-    // console.log("Attached Files on Update:", attachedFiles);
-    if (responseData.document_no_ac !== "" && Object.keys(attachedFiles).length > 0) {
-      await attatchments_post(responseData.document_no_ac);
-    }
-    // }
   };
 
   const attatchments_post = async (document_no_ac: string) => {
@@ -1147,26 +1667,9 @@ export const ACFormComponent = () => {
         body: uploadFormData,
       });
 
-      if (res.ok) {
-        if (attachedFiles['investigate_report'] && attachedFiles['investigate_report'].length > 0) {
-          const statusRes = await fetch("/api/document/ac", {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              document_no_ac: document_no_ac,
-              casestatus: 'Completed Investigate',
-            }),
-          });
-          if (statusRes.ok) {
-            setFormData((prev) => ({
-              ...prev,
-              casestatus: 'Completed Investigate',
-            }));
-          }
-        }
-      } else {
+      // สถานะ "Completed Investigate" ถูกดันโดย backend เอง (_sync_case_status)
+      // เมื่อผลการสอบสวนส่วนที่ 2 กรอกครบ — ไม่ต้องอิงไฟล์แนบอีกต่อไป
+      if (!res.ok) {
         Swal.fire({
           icon: "error",
           title: "เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ",
@@ -1177,6 +1680,150 @@ export const ACFormComponent = () => {
       console.error("Error uploading attachments catch :", error);
       alert("เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ catch ");
       sendErrorLog("ACForm/attatchments_post", `เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ catch : ${error}`);
+    }
+  };
+
+  // ========== Investigate (Part 2) ==========
+  const loadMeasureFiles = async (document_no: string) => {
+    try {
+      const res = await fetch(
+        `/api/attachment?document_no=${encodeURIComponent(document_no)}`
+      );
+      if (!res.ok) return;
+      const { files } = await res.json();
+      const grouped: MeasureExistingFileMap = {};
+      (files || []).forEach((file: any) => {
+        const match = file.fileName?.match(/_measure_([a-z0-9]+)_/i);
+        if (match) {
+          const measureId = match[1];
+          if (!grouped[measureId]) grouped[measureId] = [];
+          grouped[measureId].push({
+            key: file.key,
+            fileName: file.fileName,
+            url: file.url,
+          });
+        }
+      });
+      setMeasureExistingFiles(grouped);
+    } catch (error) {
+      console.error("Load measure files error:", error);
+    }
+  };
+
+  const uploadMeasureFiles = async (document_no: string) => {
+    for (const [measureId, files] of Object.entries(measureFiles)) {
+      if (!files || files.length === 0) continue;
+      const uploadFormData = new FormData();
+      files.forEach((file) => {
+        const ext = file.name.split(".").pop();
+        const rand = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+        const newName = `${document_no}_measure_${measureId}_${rand}.${ext}`;
+        uploadFormData.append(
+          "files",
+          new File([file], newName, { type: file.type })
+        );
+        uploadFormData.append("categories", `measure_${measureId}`);
+      });
+      uploadFormData.append("document_no", document_no);
+      try {
+        await fetch("/api/attachment", {
+          method: "POST",
+          body: uploadFormData,
+        });
+      } catch (error) {
+        console.error("Upload measure files error:", error);
+        sendErrorLog(
+          "ACForm/uploadMeasureFiles",
+          error instanceof Error ? error : String(error)
+        );
+      }
+    }
+    setMeasureFiles({});
+    await loadMeasureFiles(document_no);
+  };
+
+  const handleSaveInvestigate = async () => {
+    const documentNo = formData.document_no_ac;
+    if (!documentNo) {
+      Swal.fire({
+        icon: "warning",
+        title: "ไม่พบเลขที่เอกสาร",
+        text: "กรุณาบันทึกรายงานอุบัติเหตุเบื้องต้น (ส่วนที่ 1) ก่อน",
+        confirmButtonText: "ตกลง",
+      });
+      return;
+    }
+
+    // ยังโหลดผลการสอบสวนเดิมไม่เสร็จ = ฟอร์มยังเป็นแถวเปล่าที่ seed ไว้
+    // ถ้าปล่อยให้บันทึกตอนนี้ POST (upsert) จะเขียนทับข้อมูลเดิมทั้งชุด
+    if (isLoadingInvestigate) {
+      Swal.fire({
+        icon: "info",
+        title: "กำลังโหลดผลการสอบสวนเดิม",
+        text: "กรุณารอสักครู่แล้วบันทึกอีกครั้ง",
+        confirmButtonText: "ตกลง",
+      });
+      return;
+    }
+
+    setIsSavingInvestigate(true);
+    try {
+      const isUpdate = !!formInvestigate.investigate_id;
+      const res = await fetch("/api/investigate/ac", {
+        method: isUpdate ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          document_no: documentNo,
+        },
+        body: JSON.stringify({ ...formInvestigate, document_no_ac: documentNo }),
+      });
+
+      const responseData = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          responseData?.error || `HTTP ${res.status}: ${res.statusText}`
+        );
+      }
+
+      if (responseData?.investigate_id) {
+        setFormInvestigate((prev) => ({
+          ...prev,
+          investigate_id: responseData.investigate_id,
+        }));
+      }
+
+      // backend ดัน casestatus ให้เองเมื่อผลการสอบสวนครบ — sync กลับมาแสดงทันที
+      if (responseData?.is_complete) {
+        setFormData((prev) => ({
+          ...prev,
+          casestatus: "Completed Investigate",
+        }));
+      }
+
+      await uploadMeasureFiles(documentNo);
+
+      Swal.fire({
+        icon: "success",
+        title: isUpdate
+          ? "อัปเดตผลการสอบสวนเรียบร้อย"
+          : "บันทึกผลการสอบสวนเรียบร้อย",
+        confirmButtonText: "ตกลง",
+        allowOutsideClick: false,
+      });
+    } catch (error) {
+      console.error("Error saving investigate:", error);
+      sendErrorLog(
+        "ACForm/handleSaveInvestigate",
+        error instanceof Error ? error : String(error)
+      );
+      Swal.fire({
+        icon: "error",
+        title: "เกิดข้อผิดพลาดในการบันทึกผลการสอบสวน",
+        text: error instanceof Error ? error.message : "Unknown error",
+        confirmButtonText: "ตกลง",
+      });
+    } finally {
+      setIsSavingInvestigate(false);
     }
   };
 
@@ -1216,6 +1863,54 @@ export const ACFormComponent = () => {
     }
   };
 
+  // ========== Dev Payload Log: payload ของ Initial AC Report ==========
+  const isDebugEnabled =
+    process.env.NODE_ENV !== "production" || searchParams.get("debug") === "1";
+  const payloadMode: "create" | "update" =
+    formData?.casestatus === "" ? "create" : "update";
+  const debugPayload = {
+    _endpoint:
+      payloadMode === "create"
+        ? "POST /api/document/ac"
+        : "PUT /api/document/ac",
+    ...buildInitialReportPayload(payloadMode),
+    _attachments: {
+      pending: Object.fromEntries(
+        Object.entries(attachedFiles).map(([category, files]) => [
+          category,
+          files
+            .filter((f) => f.updateData !== "existing")
+            .map((f) => f.file?.name ?? f.id),
+        ])
+      ),
+      uploaded: Object.fromEntries(
+        Object.entries(attachedFiles).map(([category, files]) => [
+          category,
+          files
+            .filter((f) => f.updateData === "existing")
+            .map((f) => f.file?.name ?? f.id),
+        ])
+      ),
+    },
+  };
+  const debugPayloadText = JSON.stringify(debugPayload, null, 2);
+
+  const copyInitialPayload = async () => {
+    try {
+      await navigator.clipboard.writeText(debugPayloadText);
+      setCopiedPayload(true);
+      setTimeout(() => setCopiedPayload(false), 1500);
+    } catch (err) {
+      console.error("Copy payload error:", err);
+    }
+  };
+
+  // ========== Paper Layout ==========
+  const hasInvestigateSection = !!formData?.document_no_ac;
+  const isSplitView = hasInvestigateSection && layoutMode === "split";
+  const paperClass =
+    "sm:w-full m-4 space-y-6 bg-white p-8 rounded-xl shadow-sm border border-gray-500 transition-all duration-300";
+
 
 
 
@@ -1234,29 +1929,63 @@ export const ACFormComponent = () => {
               reporter={formData.reporter_name}
             />
 
-            {/* Desktop: Fixed Print Button (Right) */}
+            {/* Desktop: Fixed Action Buttons (Right) */}
             <div className="
-                hidden md:flex md:flex-col md:items-center
-                fixed top-auto right-0 m-5 z-50 
+                hidden md:flex md:flex-col md:items-center md:gap-4
+                fixed top-auto right-0 m-2 z-50
               ">
-              <button
-                type="button"
-                onClick={handlePrintDocument}
-                title="Print Document"
-                className="bg-gray-500 hover:bg-gray-700 hover:scale-105 cursor-pointer text-white border border-white font-semibold p-3 rounded-lg shadow-lg hover:shadow-xl transition duration-300 flex flex-col items-center justify-center"
-              >
-                <Printer className="w-8 h-8" />
-              </button>
-              <span className="mt-1 text-sm font-medium text-gray-700">Print</span>
+              {/* สลับมุมมองกระดาษ (แสดงเมื่อมีส่วนที่ 2 แล้ว) */}
+              {hasInvestigateSection && (
+                <div className="hidden xl:flex xl:flex-col xl:items-center">
+                  <button
+                    type="button"
+                    onClick={toggleLayoutMode}
+                    title={
+                      isSplitView
+                        ? "แสดงทีละส่วน (เรียงลงมา)"
+                        : "แสดงส่วนที่ 1 และ 2 คู่กัน"
+                    }
+                    className={`hover:scale-105 cursor-pointer text-white border border-white font-semibold p-3 rounded-lg shadow-lg hover:shadow-xl transition duration-300 flex flex-col items-center justify-center ${isSplitView
+                      ? "bg-[#4a8a5c] hover:bg-[#3c7049]"
+                      : "bg-gray-500 hover:bg-gray-700"
+                      }`}
+                  >
+                    {isSplitView ? (
+                      <Rows2 className="w-8 h-8" />
+                    ) : (
+                      <Columns2 className="w-8 h-8" />
+                    )}
+                  </button>
+                  <span className="mt-1 text-sm font-medium text-gray-400">
+                    {isSplitView ? "รวมหน้า" : "แยกหน้า"}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex flex-col items-center">
+                <button
+                  type="button"
+                  onClick={handlePrintDocument}
+                  title="Print Document"
+                  className="bg-gray-500 hover:bg-gray-700 hover:scale-105 cursor-pointer text-white border border-white font-semibold p-3 rounded-lg shadow-lg hover:shadow-xl transition duration-300 flex flex-col items-center justify-center"
+                >
+                  <Printer className="w-8 h-8" />
+                </button>
+                <span className="mt-1 text-sm font-medium text-gray-400">พิมพ์</span>
+              </div>
             </div>
           </>
           }
 
           {/* Form Container */}
-          <div className="flex items-center justify-center">
+          <div
+            className={`flex flex-col items-center justify-center ${isSplitView ? "xl:flex-row xl:items-start" : ""
+              }`}
+          >
             <div
               id="printable-area"
-              className="md:w-4xl sm:w-full m-4 space-y-6 bg-white p-8 rounded-xl shadow-sm border border-gray-500"
+              className={`${paperClass} ${isSplitView ? "xl:w-[calc(50%-2rem)] xl:max-w-3xl" : "md:w-4xl"
+                }`}
             >
               <div className="text-center border-b border-gray-400 pb-4 mb-4">
                 <h2 className="text-xl font-bold text-gray-800">
@@ -1993,6 +2722,48 @@ export const ACFormComponent = () => {
 
                     {formData.truck_damage === "yes" && (
                       <div>
+                        {/* เลขที่แจ้งซ่อม (MR) input */}
+                        <div className="mb-4">
+                          <label className="block text-gray-700 font-medium mb-1 text-sm">
+                            เลขที่แจ้งซ่อม (MR):
+                            <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            name="repair_request_no"
+                            value={formData?.repair_request_no || ""}
+                            onChange={handleInputChange}
+                            disabled={isViewMode}
+                            placeholder=""
+                            className={`w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                              ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                              : ""
+                              }`}
+                          />
+                        </div>
+
+                        {/* รถวิ่งงานต่อได้หรือไม่ (แสดงเมื่อรถเสียหาย) */}
+                        <div className="mb-4">
+                          <label className="block text-gray-700 font-medium mb-1 text-sm">
+                            รถวิ่งงานต่อได้หรือไม่ : <span className="text-red-500">*</span>
+                          </label>
+                          <SearchableSelect
+                            options={["วิ่งต่อได้", "ไม่สามารถวิ่งต่อได้"].map((status) => ({
+                              value: status,
+                              label: status,
+                            }))}
+                            value={formData?.breakdown_status || ""}
+                            onChange={(value) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                breakdown_status: String(value),
+                              }))
+                            }
+                            className="w-full"
+                            disabled={isViewMode}
+                          />
+                        </div>
+
                         <label className="block text-gray-700 font-medium mb-1 text-sm">
                           รายละเอียดความเสียหายของรถ:{" "}
                           <span className="text-red-500">*</span>
@@ -2027,7 +2798,7 @@ export const ACFormComponent = () => {
                       </div>
                        )} */}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="hidden grid grid-cols-1 md:grid-cols-2 gap-6">
                     {formData.product_damage === "yes" && (
                       <div>
                         <label className="block text-gray-700 font-medium mb-1 text-sm">
@@ -2125,6 +2896,19 @@ export const ACFormComponent = () => {
                     </div>
                     )}
                   </div>
+
+                  {/* รายการความเสียหาย: แสดงเฉพาะกลุ่มที่ระบุว่าเสียหายไว้แล้ว */}
+                  {visibleDamageGroups.length > 0 && (
+                    <div className="mt-6">
+                      {/* <label className="mb-2 block text-sm font-medium text-gray-700">
+                        รายการความเสียหายและมูลค่า:
+                      </label> */}
+
+                      <div className="space-y-3">
+                        {visibleDamageGroups.map(renderDamageGroup)}
+                      </div>
+                    </div>
+                  )}
 
                 </div>
 
@@ -2376,60 +3160,144 @@ export const ACFormComponent = () => {
 
                 <div className="border-t border-gray-400 md:col-span-3"></div>
                 {/*แนบเอกสาร */}
-                <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 mb-3 text-sm md:col-span-3">
-                  <h3>แนบเอกสาร {formData?.casestatus === "" && <span className="text-red-500 text-[12px]">(ต้องแนบรูปเหตุการณ์อย่างน้อย 1 รูป ก่อนบันทึก)</span>}</h3>
-                  <p className="font-semibold text-xs text-gray-600">
-                    Document Attachments
-                  </p>
-                </div>
-                <div className="p-6 md:col-span-3">
+                <div className="md:col-span-3">
                   <FileUpload
                     onFilesChange={handleFilesFromUpload}
                     existingFiles={attachedFiles}
                     onChangedocs={(docs) => setDocValue(docs as any)}
                     docs={formData.docs?.[0]}
                     case="ac"
+                    requiredNote={
+                      formData?.casestatus === ""
+                        ? "ต้องแนบรูปเหตุการณ์อย่างน้อย 1 รูป ก่อนบันทึก"
+                        : undefined
+                    }
+                    reporterDepartment={
+                      departments?.find(
+                        (dept: any) => dept.department_id === formData?.department_id
+                      )?.department_name_th
+                    }
                   />
                 </div>
 
 
                 {/* Button Submit */}
-                <div className="flex justify-start p-2">
-                  <p className="text-sm text-gray-600">Form created by: {formData?.reporter_name || "N/A"}</p>
-                </div>
-                <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+                <FormActionBar
+                  mode={formData?.casestatus === "" ? "create" : "update"}
+                  submitFormId={
+                    formData?.casestatus === "" ? "ac-form" : undefined
+                  }
+                  onSave={handleUpdate}
+                  isSubmitting={isSavingForm}
+                  hidePrimary={formData?.casestatus === "Voided"}
+                  note={`Form created by: ${formData?.reporter_name || "N/A"}`}
+                >
                   {formData?.casestatus !== "" && (
-                    <button
-                      type="button"
-                      onClick={clipboard}
-                      className="py-2 px-4 cursor-pointer rounded-lg text-sm inline-block bg-gray-400 hover:bg-gray-500 focus:text-gray-600 focus:bg-gray-200 text-white font-semibold leading-loose transition duration-200"
-                    >
+                    <FormActionButton onClick={clipboard}>
                       คัดลอกข้อมูล
-                    </button>
+                    </FormActionButton>
                   )}
-                  {formData?.casestatus !== "" && formData?.casestatus !== "Voided" && (
-                    <button
-                      type="button"
-                      onClick={handleUpdate}
-                      className="py-2 px-4 cursor-pointer rounded-lg text-sm inline-block bg-gray-600 hover:bg-gray-700 focus:text-gray-600 focus:bg-gray-200 text-white font-semibold leading-loose transition duration-200"
-                    >
-                      อัปเดตข้อมูล
-                    </button>
-                  )}
-                  {formData?.casestatus == "" && (
-                    <button
-                      type="submit"
-                      className="py-2 px-4 cursor-pointer rounded-lg text-sm inline-block bg-gray-600 hover:bg-gray-700 focus:text-gray-600 focus:bg-gray-200 text-white font-semibold leading-loose transition duration-200"
-                    >
-                      บันทึกข้อมูล
-                    </button>
-                  )}
-                </div>
+                </FormActionBar>
               </form>
             </div>
+
+            {/* ===== Part 2 : Investigate Report — กระดาษแผ่นที่ 2 (แสดงเมื่อมีเลขที่เอกสารแล้ว) ===== */}
+            {hasInvestigateSection && (
+              <div
+                id="investigate-area"
+                className={`${paperClass} ${isSplitView ? "xl:w-1/2 xl:max-w-3xl" : "md:w-4xl"
+                  }`}
+              >
+                <div className="text-center border-b border-gray-400 pb-4 mb-4">
+                  <h2 className="text-xl font-bold text-gray-800">
+                    รายงานผลการสอบสวนอุบัติเหตุ
+                  </h2>
+                  <h3 className="text-lg text-gray-600">
+                    AC Investigation Report
+                  </h3>
+                </div>
+
+                <ACInvestigateComponent
+                  formInvestigate={formInvestigate}
+                  setFormInvestigate={setFormInvestigate}
+                  measureFiles={measureFiles}
+                  setMeasureFiles={setMeasureFiles}
+                  measureExistingFiles={measureExistingFiles}
+                  setMeasureExistingFiles={setMeasureExistingFiles}
+                  isViewMode={isViewMode}
+                />
+
+                <FormActionBar
+                  mode={formInvestigate.investigate_id ? "update" : "create"}
+                  onSave={handleSaveInvestigate}
+                  isSubmitting={isSavingInvestigate}
+                  disabled={isLoadingInvestigate}
+                  hidePrimary={isViewMode || formData?.casestatus === "Voided"}
+                  labels={{
+                    create: "บันทึกผลการสอบสวน",
+                    update: "อัปเดตผลการสอบสวน",
+                  }}
+                  note={`เอกสารเลขที่: ${formData?.document_no_ac || "-"}`}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* ========== Dev Payload Log — Initial Report (ซ่อนไว้) ========== */}
+      {isDebugEnabled && (
+        <div
+          className={`fixed z-[90] print:hidden ${hasInvestigateSection ? "bottom-16" : "bottom-4"
+            }`}
+        >
+          {!showPayload ? (
+            <button
+              type="button"
+              onClick={() => setShowPayload(true)}
+              title="ดู payload ของ Initial Report (dev only)"
+              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow-lg cursor-pointer transition duration-200 opacity-40 hover:opacity-100"
+            >
+              <Bug className="w-4 h-4" />
+              Initial Payload
+            </button>
+          ) : (
+            <div className="w-[min(92vw,480px)] max-h-[70vh] flex flex-col bg-slate-900 text-slate-100 rounded-lg shadow-2xl border border-slate-700 overflow-hidden">
+              <div className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-800 border-b border-slate-700">
+                <span className="flex items-center gap-1.5 text-xs font-semibold">
+                  <Bug className="w-4 h-4" />
+                  Initial Report Payload
+                  <span className="text-slate-400 font-normal">
+                    ({debugPayloadText.length.toLocaleString()} chars)
+                  </span>
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={copyInitialPayload}
+                    title="คัดลอก JSON"
+                    className="flex items-center gap-1 text-[11px] text-slate-300 hover:text-white px-1.5 py-1 rounded hover:bg-slate-700 cursor-pointer"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    {copiedPayload ? "คัดลอกแล้ว" : "คัดลอก"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowPayload(false)}
+                    title="ปิด"
+                    className="text-slate-300 hover:text-white p-1 rounded hover:bg-slate-700 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <pre className="flex-1 overflow-auto p-3 text-[11px] leading-relaxed whitespace-pre font-mono">
+                {debugPayloadText}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 };

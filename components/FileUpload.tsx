@@ -1,32 +1,46 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
 import {
-  Upload,
   X,
   Eye,
+  EyeOff,
   FileText,
-  Image as ImageIcon,
   ExternalLink,
   Trash,
+  Plus,
+  Check,
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import { sendErrorLog } from '@/lib/logError';
-
-interface FileWithId {
-  id: string;
-  file: File;
-  url: string;
-  updateData: string;
-  category: string;
-  uploadDate: Date;
-}
-
-interface CategoryFiles {
-  [key: string]: FileWithId[];
-}
-interface DocumentInfo {
-  [key: string]: string;
-}
+import {
+  CategoryFiles,
+  DocumentCategory,
+  DocumentInfo,
+  DOC_STATUS,
+  FileWithId,
+  HOVER_PREVIEW_SIZE,
+  countAttached,
+  countRequired,
+  countTotalFiles,
+  formatFileSize,
+  canSkipCategory,
+  getAcceptTypes,
+  getCategoriesByCase,
+  getCategory,
+  getDepartmentLabel,
+  getDocNoKey,
+  groupCategoriesByDepartment,
+  isImageCategory,
+  isMultipleCategory,
+  isImageFile,
+  isPdfFile,
+  isSkipped,
+  reindexDocNos,
+  resolveDocStatus,
+} from "@/lib/attachment";
 
 interface FileUploadProps {
   onFilesChange?: (files: CategoryFiles) => void;
@@ -34,146 +48,10 @@ interface FileUploadProps {
   case: string;
   onChangedocs?: (docs: DocumentInfo) => void;
   docs?: DocumentInfo;
+  reporterDepartment?: string;
+  /** ข้อความเตือนสีแดงท้ายหัวข้อ เช่น เงื่อนไขก่อนบันทึก */
+  requiredNote?: string;
 }
-
-const DOCUMENT_CATEGORIES = [
-  // ฝ่ายจัดส่ง (Delivery Department)
-  {
-    value: "event_img",
-    label: "รูปเหตุการณ์",
-    department: "📄ตามฝ่ายผู้แจ้ง",
-    case: "all",
-    no: false,
-    icon: ImageIcon,
-  },
-  {
-    value: "warning_doc",
-    label: "ใบเตือน",
-    department: "🚨Safety",
-    case: "all",
-    no: true,
-    icon: FileText,
-  },
-  {
-    value: "record_doc",
-    label: "บันทึกประจำวัน",
-    department: "📄ตามฝ่ายผู้แจ้ง",
-    case: "ac",
-    no: false,
-    icon: FileText,
-  },
-
-  // ฝ่ายความปลอดภัย (Safety Department)
-  {
-    value: "medical_doc",
-    label: "ใบรับรองแพทย์",
-    department: "📄ตามฝ่ายผู้แจ้ง",
-    case: "ac",
-    no: true,
-    icon: FileText,
-  },
-  {
-    value: "Insurance_claim_doc",
-    label: "ใบเคลมจากประกัน",
-    department: "ℹ️Compliance",
-    case: "all",
-    no: true,
-    icon: FileText,
-  },
-  {
-    value: "legal_doc",
-    label: "เอกสารคดีความ",
-    department: "ℹ️Compliance",
-    case: "ac",
-    no: false,
-    icon: FileText,
-  },
-
-  {
-    value: "writeoff_doc",
-    label: "ใบตัดจำหน่าย",
-    department: "📄ตามฝ่ายผู้แจ้ง",
-    case: "all",
-    no: false,
-    icon: FileText,
-  },
-
-  {
-    value: "debt_doc",
-    label: "ใบรับสภาพหนี้",
-    department: "📄ตามฝ่ายผู้แจ้ง",
-    case: "all",
-    no: true,
-    icon: FileText,
-  },
-  {
-    value: "quotation_doc",
-    label: "ใบเสนอราคา",
-    department: "📄ตามฝ่ายผู้แจ้ง",
-    case: "ac",
-    no: true,
-    icon: FileText,
-  },
-  {
-    value: "customer_invoice",
-    label: "ใบแจ้งหนี้ลูกค้า",
-    department: "📄ตามฝ่ายผู้แจ้ง",
-    case: "all",
-    no: true,
-    icon: FileText,
-  },
-  {
-    value: "damage_payment",
-    label: "หลักฐานการชำระค่าเสียหาย",
-    department: "💼การเงิน",
-    case: "all",
-    no: true,
-    icon: FileText,
-  },
-  {
-    value: "account_attachment_insurance",
-    label: "เอกสารแนบทางบัญชี > ประกัน",
-    department: "💼การเงิน",
-    case: "all",
-    no: false,
-    icon: FileText,
-  },
-  {
-    value: "account_attachment_pjs_pay",
-    label: "เอกสารแนบทางบัญชี > พจส. จ่าย",
-    department: "💼การเงิน",
-    case: "all",
-    no: false,
-    icon: FileText,
-  },
-  {
-    value: "account_attachment_company_pay",
-    label: "เอกสารแนบทางบัญชี > บริษัทจ่ายลูกค้า",
-    department: "💼การเงิน",
-    case: "all",
-    no: false,
-    icon: FileText,
-  },
-  {
-    value: "investigate_report",
-    label: "รายงานการสอบสวน",
-    department: "🚨Safety",
-    case: "ac",
-    no: false,
-    icon: FileText,
-  },
-];
-
-const DEPARTMENTS = [
-  { value: "📄ตามฝ่ายผู้แจ้ง", label: "📄ตามฝ่ายผู้แจ้ง", color: " text-gray-800" },
-  {
-    value: "🚨Safety",
-    label: "🚨Safety",
-    color: " text-red-800",
-  },
-  { value: "ℹ️Compliance", label: "ℹ️Compliance", color: " text-blue-800" },
-  { value: "💼การเงิน", label: "💼ฝ่ายการเงิน", color: " text-yellow-800" },
-];
 
 export const FileUpload = ({
   onFilesChange,
@@ -181,51 +59,56 @@ export const FileUpload = ({
   case: caseType,
   onChangedocs,
   docs = {},
+  reporterDepartment,
+  requiredNote,
 }: FileUploadProps) => {
   const [attachedFiles, setAttachedFiles] =
     useState<CategoryFiles>(existingFiles);
-  const [dragOver, setDragOver] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState(
-    DOCUMENT_CATEGORIES[0].value
-  );
+  const [dragOverCategory, setDragOverCategory] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<FileWithId | null>(null);
-  const [previewPosition, setPreviewPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [hoverPreview, setHoverPreview] = useState<{
+    url: string;
+    name: string;
+    top: number;
+    left: number;
+  } | null>(null);
   const [documentInfo, setDocumentInfo] = useState<DocumentInfo>(docs);
+  // ฝ่ายที่กำลังเปิดดูรายการเอกสารที่ระบุว่าไม่ต้องแนบ
+  const [openSkipList, setOpenSkipList] = useState<string | null>(null);
 
+  const getFilteredCategories = useCallback(
+    () => getCategoriesByCase(caseType),
+    [caseType]
+  );
+
+  const setSkipped = (categoryValue: string, skip: boolean) => {
+    const updated = {
+      ...documentInfo,
+      [categoryValue]: skip ? DOC_STATUS.skipped : DOC_STATUS.missing,
+    };
+    setDocumentInfo(updated);
+    onChangedocs?.(updated);
+  };
+
+  // อัปเดตสถานะเอกสารอัตโนมัติจากไฟล์ที่แนบ (คงค่า "ไม่ต้องแนบ" ที่ผู้ใช้เลือกไว้)
   useEffect(() => {
-    
-    const filteredCategories = DOCUMENT_CATEGORIES.filter(
-      (category) => category.case === caseType || category.case === "all"
-    );
-
-    const defaultDocInfo: DocumentInfo = { ...documentInfo };
+    const updated: DocumentInfo = { ...documentInfo };
     let hasChanges = false;
-    filteredCategories.forEach((doc) => {
-      // ตั้งค่าเริ่มต้น "มี" ถ้ายังไม่มีข้อมูล
-      if (!defaultDocInfo[doc.value]) {
-        defaultDocInfo[doc.value] = "มี";
-        hasChanges = true;
-      }
 
-      // ตั้งค่า remark เป็นค่าว่างถ้ายังไม่มี
-      if (!defaultDocInfo[`${doc.value}_remark`]) {
-        defaultDocInfo[`${doc.value}_remark`] = "";
-        hasChanges = true;
-      }
-
-      // ตั้งค่า number เป็นค่าว่างถ้ามี no และยังไม่มีข้อมูล
-      if (doc.no && !defaultDocInfo[`${doc.value}_no`]) {
-        defaultDocInfo[`${doc.value}_no`] = "";
+    getFilteredCategories().forEach((doc) => {
+      const hasFile = (attachedFiles[doc.value]?.length ?? 0) > 0;
+      const status = resolveDocStatus(hasFile, updated[doc.value]);
+      if (updated[doc.value] !== status) {
+        updated[doc.value] = status;
         hasChanges = true;
       }
     });
 
-    // อัปเดตเฉพาะเมื่อมีการเปลี่ยนแปลง
     if (hasChanges) {
-      setDocumentInfo(defaultDocInfo);
-      onChangedocs?.(defaultDocInfo);
+      setDocumentInfo(updated);
+      onChangedocs?.(updated);
     }
-  }, [caseType]); // เรียกใช้เมื่อ caseType เปลี่ยน
+  }, [attachedFiles, caseType]);
 
   const handleFilesChange = useCallback(
     (newFiles: CategoryFiles) => {
@@ -235,67 +118,60 @@ export const FileUpload = ({
     [onFilesChange]
   );
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    handleFiles(files);
-  };
+  const addFiles = (category: string, files: File[]) => {
+    if (files.length === 0) return;
 
-  const handleFiles = (files: File[]) => {
+    const isMultiple = isMultipleCategory(category);
+    const current = attachedFiles[category] ?? [];
 
-    if (!selectedCategory) {
-      alert("กรุณาเลือกชื่อเอกสารก่อนอัปโหลดไฟล์");
+    if (!isMultiple && current.length > 0) {
+      Swal.fire({
+        icon: "info",
+        title: "แนบได้ 1 ไฟล์",
+        text: "เอกสารนี้แนบได้ไฟล์เดียว หากต้องการเปลี่ยน กรุณาลบไฟล์เดิมก่อน",
+        timer: 2200,
+        showConfirmButton: false,
+      });
       return;
     }
 
-    const newFiles = files.map((file) => ({
+    const accepted = isMultiple ? files : files.slice(0, 1);
+
+    const newFiles = accepted.map((file) => ({
       id: Math.random().toString(36).substr(2, 9),
       file,
       url: URL.createObjectURL(file),
-      category: selectedCategory,
+      category,
       uploadDate: new Date(),
       updateData: "new",
     }));
 
-    const updatedFiles = { ...attachedFiles };
-    if (!updatedFiles[selectedCategory]) {
-      updatedFiles[selectedCategory] = [];
-    }
-    updatedFiles[selectedCategory] = [
-      ...updatedFiles[selectedCategory],
-      ...newFiles,
-    ];
-
-    handleFilesChange(updatedFiles);
-
-    // อัปเดต documentInfo เป็น "มี" เมื่อมีการแนบไฟล์
-    const updatedDocInfo = { ...documentInfo, [selectedCategory]: "มี" };
-    setDocumentInfo(updatedDocInfo);
-    onChangedocs?.(updatedDocInfo);
+    handleFilesChange({
+      ...attachedFiles,
+      [category]: [...current, ...newFiles],
+    });
   };
 
-  const handleDrop = (event: React.DragEvent) => {
+  const handleDrop = (category: string) => (event: React.DragEvent) => {
     event.preventDefault();
-    setDragOver(false);
-
-    const files = Array.from(event.dataTransfer.files);
-    handleFiles(files);
+    setDragOverCategory(null);
+    addFiles(category, Array.from(event.dataTransfer.files));
   };
 
-  const handleDragOver = (event: React.DragEvent) => {
+  const handleDragOver = (category: string) => (event: React.DragEvent) => {
     event.preventDefault();
-    setDragOver(true);
+    setDragOverCategory(category);
   };
 
-  const handleDragLeave = () => {
-    setDragOver(false);
-  };
+  const handleDragLeave = () => setDragOverCategory(null);
 
   const removeFile = async (category: string, fileId: string) => {
     const fileToRemove = attachedFiles[category]?.find((f) => f.id === fileId);
     if (!fileToRemove) return;
 
+    setHoverPreview(null);
     const isExistingFile = fileToRemove.updateData === "existing";
-    
+
     if (isExistingFile) {
       const result = await Swal.fire({
         title: 'ยืนยันการลบไฟล์',
@@ -311,14 +187,20 @@ export const FileUpload = ({
     }
 
     URL.revokeObjectURL(fileToRemove.url);
+    const removedIndex = attachedFiles[category].findIndex((f) => f.id === fileId);
     const updatedFiles = { ...attachedFiles };
     updatedFiles[category] = updatedFiles[category].filter((f) => f.id !== fileId);
-    
-    if (updatedFiles[category].length === 0) {
-      delete updatedFiles[category];
-      const updatedDocInfo = { ...documentInfo, [category]: "" };
+
+    // เอกสารที่มีเลขที่รายไฟล์ ต้องเลื่อนเลขขึ้นตามไฟล์ที่เหลือ
+    const config = getCategory(category);
+    if (config?.no && config.multiple) {
+      const updatedDocInfo = reindexDocNos(documentInfo, category, removedIndex);
       setDocumentInfo(updatedDocInfo);
       onChangedocs?.(updatedDocInfo);
+    }
+
+    if (updatedFiles[category].length === 0) {
+      delete updatedFiles[category];
     }
     handleFilesChange(updatedFiles);
 
@@ -329,11 +211,11 @@ export const FileUpload = ({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ key: fileToRemove.id }),
         });
-        
-        Swal.fire(res.ok ? 'ลบไฟล์สำเร็จ' : 'เกิดข้อผิดพลาด', 
+
+        Swal.fire(res.ok ? 'ลบไฟล์สำเร็จ' : 'เกิดข้อผิดพลาด',
           res.ok ? `ไฟล์ "${fileToRemove.file.name}" ถูกลบเรียบร้อยแล้ว.` : `ไม่สามารถลบไฟล์ได้ โปรดลองอีกครั้ง.`,
           res.ok ? 'success' : 'error');
-        
+
         if (!res.ok) sendErrorLog('FileUpload/removeFile', `Failed to delete: ${fileToRemove.id}`);
       } catch (error) {
         sendErrorLog('FileUpload/removeFile', error instanceof Error ? error : String(error));
@@ -341,113 +223,12 @@ export const FileUpload = ({
     }
   };
 
-  const getTotalFileCount = () => {
-    return Object.values(attachedFiles).reduce(
-      (total, files) => total + files.length,
-      0
-    );
-  };
+  const groupedCategories = groupCategoriesByDepartment(
+    getFilteredCategories()
+  );
 
-  const isImageFile = (file: File) => {
-    return file.type.startsWith("image/");
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-  };
-
-  const getCategoryLabel = (categoryValue: string) => {
-    return (
-      DOCUMENT_CATEGORIES.find((cat) => cat.value === categoryValue)?.label ||
-      categoryValue
-    );
-  };
-
-  const getCategoryDepartment = (categoryValue: string) => {
-    return (
-      DOCUMENT_CATEGORIES.find((cat) => cat.value === categoryValue)
-        ?.department || ""
-    );
-  };
-
-  const getDepartmentColor = (department: string) => {
-    return (
-      DEPARTMENTS.find((dept) => dept.value === department)?.color ||
-      "bg-gray-100 text-gray-800"
-    );
-  };
-
-  const getGroupedCategories = () => {
-    const grouped: { [key: string]: typeof DOCUMENT_CATEGORIES } = {};
-
-    // กรองเฉพาะ category ที่ตรงกับ case หรือ case เป็น "all"
-    const filteredCategories = DOCUMENT_CATEGORIES.filter(
-      (category) => category.case === caseType || category.case === "all"
-    );
-
-    filteredCategories.forEach((category) => {
-      const dept = category.department;
-      if (!grouped[dept]) {
-        grouped[dept] = [];
-      }
-      grouped[dept].push(category);
-    });
-
-    return grouped;
-  };
-
-  // ฟังก์ชันหาเอกสารที่ยังไม่ได้อัปโหลด
-  const getMissingDocuments = () => {
-    const filteredCategories = DOCUMENT_CATEGORIES.filter(
-      (category) => category.case === caseType || category.case === "all"
-    );
-    return filteredCategories.filter((category) => {
-      // ถ้ายังไม่มีไฟล์ในหมวดนี้เลย หรือมีแต่เป็นอาร์เรย์ว่าง
-      return (
-        !attachedFiles[category.value] ||
-        attachedFiles[category.value].length === 0
-      );
-    });
-  };
-  const formatDT = (dateTimeString?: string) => {
-    if (!dateTimeString) return "";
-    const date = new Date(dateTimeString);
-    if (isNaN(date.getTime())) return dateTimeString;
-
-    const options: Intl.DateTimeFormatOptions = {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    };
-    return new Intl.DateTimeFormat("en-GB", options).format(date);
-  };
-
-  const getSortedFiles = () => {
-    const allFiles: Array<{ category: string; fileItem: FileWithId }> = [];
-
-    Object.entries(attachedFiles).forEach(([category, files]) => {
-      files.forEach((fileItem) => {
-        allFiles.push({ category, fileItem });
-      });
-    });
-
-    return allFiles.sort((a, b) => a.category.localeCompare(b.category));
-  };
-
-  const handleOpenPreview = (fileItem: FileWithId, event: React.MouseEvent) => {
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    setPreviewPosition({
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2
-    });
-    setPreviewFile(fileItem);
-  };
+  const totalCategories = countRequired(getFilteredCategories(), documentInfo);
+  const totalCompleted = countAttached(getFilteredCategories(), attachedFiles);
 
   const handleOpenDocument = (fileItem: FileWithId) => {
     // เปิดไฟล์ในหน้าใหม่
@@ -467,24 +248,82 @@ export const FileUpload = ({
           </style>
         </head>
         <body>
-      
-           
+
+
             ${(fileItem.file.type === "application/pdf") || (fileItem.file.type === "image/jpeg") || (fileItem.file.type === "image/png")
           ? `<embed src="${fileItem.url}" type="application/pdf" class="document-viewer" />`
           : `<div style="text-align: center; padding: 50px;">
                 <p>ไม่สามารถแสดงตัวอย่างไฟล์ชื่อนี้ได้</p>
-                <a href="${fileItem.url}" download="${fileItem.file.name}" 
+                <a href="${fileItem.url}" download="${fileItem.file.name}"
                    style="background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
                    ดาวน์โหลดไฟล์
                 </a>
               </div>`
         }
-        
+
         </body>
         </html>
       `);
       newWindow.document.close();
     }
+  };
+
+  const openFile = (fileItem: FileWithId) => {
+    setHoverPreview(null);
+    if (isImageFile(fileItem.file)) {
+      setPreviewFile(fileItem);
+    } else {
+      handleOpenDocument(fileItem);
+    }
+  };
+
+  // รูปทั้งหมดในเอกสารเดียวกัน ใช้เลื่อนดูรูปถัดไป/ก่อนหน้าตอนเปิดเต็มจอ
+  const previewSiblings = previewFile
+    ? (attachedFiles[previewFile.category] ?? []).filter((item) =>
+      isImageFile(item.file)
+    )
+    : [];
+  const previewIndex = previewFile
+    ? previewSiblings.findIndex((item) => item.id === previewFile.id)
+    : -1;
+
+  const stepPreview = (step: number) => {
+    if (previewSiblings.length < 2 || previewIndex < 0) return;
+    const nextIndex =
+      (previewIndex + step + previewSiblings.length) % previewSiblings.length;
+    setPreviewFile(previewSiblings[nextIndex]);
+  };
+
+  // คีย์ลัดตอนเปิดรูปเต็มจอ: ←/→ เลื่อนรูป, Esc ปิด
+  useEffect(() => {
+    if (!previewFile) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPreviewFile(null);
+      if (event.key === "ArrowLeft") stepPreview(-1);
+      if (event.key === "ArrowRight") stepPreview(1);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+
+  // ขยายรูปเมื่อนำเมาส์ชี้ โดยวางไว้ด้านที่มีพื้นที่ว่างพอ
+  const showHoverPreview = (fileItem: FileWithId, event: React.MouseEvent) => {
+    if (!isImageFile(fileItem.file)) return;
+
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const fitsRight =
+      rect.right + HOVER_PREVIEW_SIZE + 16 < window.innerWidth;
+    const left = fitsRight
+      ? rect.right + 12
+      : Math.max(12, rect.left - HOVER_PREVIEW_SIZE - 12);
+    const top = Math.min(
+      Math.max(12, rect.top + rect.height / 2 - HOVER_PREVIEW_SIZE / 2),
+      Math.max(12, window.innerHeight - HOVER_PREVIEW_SIZE - 12)
+    );
+
+    setHoverPreview({ url: fileItem.url, name: fileItem.file.name, top, left });
   };
 
   const handleChanges = (
@@ -497,374 +336,402 @@ export const FileUpload = ({
     onChangedocs?.(updatedDocInfo);
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Category Selection */}
+  // ปุ่มแนบไฟล์ (แบบแถบเต็มความกว้าง และแบบช่องรูป)
+  const renderAddButton = (
+    category: DocumentCategory,
+    variant: "block" | "tile"
+  ) => {
+    const isDragging = dragOverCategory === category.value;
 
-      <div className="flex flex-row space-y-1">
-        <div className="w-1/2">
-          <label className="block text-gray-700 font-medium mb-2 text-sm">
-            ชื่อเอกสาร:
-          </label>
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black disabled:bg-gray-100"
-          >
-            <option value="">-- เลือกชื่อเอกสาร --</option>
-            {Object.entries(getGroupedCategories()).map(
-              ([department, categories]) => (
-                <optgroup
-                  key={department}
-                  label={`${DEPARTMENTS.find((dept) => dept.value === department)
-                      ?.label || department
-                    }`}
-                >
-                  {categories.map((category) => (
-                    <option key={category.value} value={category.value}>
-                      💠{category.label}
-                    </option>
-                  ))}
-                </optgroup>
-              )
-            )}
-          </select>
-        </div>
-        {/* <div className="w-1/2 ml-4">
-        <label className="block text-gray-700 font-medium mb-2 text-sm">
-          เลขที่เอกสาร (ถ้ามี):
-        </label>
-          <input 
-            type="text" 
-            id={selectedCategory+"_no"} 
-            onChange={handleChanges} 
-            className="w-full text-sm p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black disabled:bg-gray-100"
-          />
-        </div> */}
-      </div>
-
-
-      {/* File Upload Area */}
-
-      <div
-        className={`border-2 border-dashed rounded-lg p-6 transition-colors ${dragOver
-            ? "border-green-500 bg-green-50"
-            : "border-gray-400 bg-gray-50 hover:border-gray-500"
-          }`}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
+    return (
+      <label
+        onDrop={handleDrop(category.value)}
+        onDragOver={handleDragOver(category.value)}
         onDragLeave={handleDragLeave}
+        className={`flex cursor-pointer items-center justify-center gap-1.5 border border-dashed text-gray-500 transition-colors hover:border-gray-500 hover:text-gray-700 ${isDragging ? "border-gray-600 bg-gray-100 text-gray-700" : "border-gray-300"
+          } ${variant === "tile"
+            ? "h-[72px] w-full flex-col rounded-sm"
+            : "h-9 w-full rounded-sm"
+          }`}
       >
-        <div className="text-center">
-          <Upload
-            className={`mx-auto h-12 w-12 "text-gray-400"
-              `}
-          />
-          <p className="mt-2 text-sm text-gray-600">
-            ลากและวางไฟล์ที่นี่ หรือ
-          </p>
-          <label
-            className={`mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-gray-600 bg-gray-100 hover:bg-gray-200 cursor-pointer"
-              `}
-          >
-            เลือกไฟล์
-            <input
-              type="file"
-              className="hidden"
-              accept="image/*,.pdf,.doc,.docx"
-              multiple
-              onChange={handleFileSelect}
-            />
-          </label>
-          <p className="mt-2 text-xs text-gray-500">
-            รองรับไฟล์ภาพ, PDF (สูงสุด 10MB ต่อไฟล์)
-          </p>
+        <Plus className="h-4 w-4" />
+        <span className="text-xs">
+          {variant === "tile" ? "เพิ่มรูป" : "แนบไฟล์ หรือลากไฟล์มาวาง"}
+        </span>
+        <input
+          type="file"
+          className="hidden"
+          accept={getAcceptTypes(category.value)}
+          multiple={!!category.multiple}
+          onChange={(e) => {
+            addFiles(category.value, Array.from(e.target.files || []));
+            e.target.value = "";
+          }}
+        />
+      </label>
+    );
+  };
+
+  // ไอคอนแทนไฟล์ที่ไม่ใช่รูป — PDF ใช้ไอคอนเฉพาะ นอกนั้นใช้ไอคอนเอกสารทั่วไป
+  const renderFileIcon = (fileItem: FileWithId, sizeClass: string) =>
+    isPdfFile(fileItem.file) ? (
+      <img
+        src="/icon-pdf.svg"
+        alt="PDF"
+        draggable={false}
+        className={`${sizeClass} object-contain`}
+      />
+    ) : (
+      <FileText className={`${sizeClass} text-gray-400`} />
+    );
+
+  // ช่องรูป (ใช้กับรูปเหตุการณ์) — ชี้เมาส์เพื่อขยาย คลิกเพื่อดูเต็มจอ
+  const renderFileTile = (fileItem: FileWithId) => (
+    <div
+      key={fileItem.id}
+      className="group relative h-[72px] overflow-hidden rounded-sm border border-gray-200 bg-gray-50"
+      onMouseEnter={(e) => showHoverPreview(fileItem, e)}
+      onMouseLeave={() => setHoverPreview(null)}
+    >
+      {isImageFile(fileItem.file) ? (
+        <img
+          src={fileItem.url}
+          alt={fileItem.file.name}
+          className="h-full w-full cursor-zoom-in object-cover"
+          onClick={() => openFile(fileItem)}
+        />
+      ) : (
+        <div
+          className="flex h-full w-full cursor-pointer items-center justify-center"
+          onClick={() => openFile(fileItem)}
+        >
+          {renderFileIcon(fileItem, "h-12 w-12")}
         </div>
+      )}
+      <button
+        type="button"
+        onClick={() => removeFile(fileItem.category, fileItem.id)}
+        className="absolute right-0.5 top-0.5 rounded-sm bg-white/90 p-0.5 text-gray-500 opacity-0 transition-opacity hover:text-red-600 group-hover:opacity-100"
+        title="ลบไฟล์"
+      >
+        <Trash className="h-2.5 w-2.5" />
+      </button>
+    </div>
+  );
+
+  // แถวไฟล์ของเอกสาร (พร้อมช่องเลขที่เอกสารรายไฟล์ ถ้ามี)
+  const renderFileRow = (fileItem: FileWithId, docNoKey?: string) => (
+    <div key={fileItem.id} className="flex items-center gap-3">
+      <div
+        onClick={() => openFile(fileItem)}
+        onMouseEnter={(e) => showHoverPreview(fileItem, e)}
+        onMouseLeave={() => setHoverPreview(null)}
+        className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-sm border border-gray-200 bg-gray-50"
+        title="ดูไฟล์"
+      >
+        {isImageFile(fileItem.file) ? (
+          <img
+            src={fileItem.url}
+            alt={fileItem.file.name}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          renderFileIcon(fileItem, "h-7 w-7")
+        )}
       </div>
+      <div className="min-w-0 flex-1">
+        <p
+          className="truncate text-xs text-gray-800"
+          title={fileItem.file.name}
+        >
+          {fileItem.file.name}
+        </p>
+        <p className="text-[11px] text-gray-400">
+          {formatFileSize(fileItem.file.size)}
+        </p>
+      </div>
+      {docNoKey && (
+        <div className="flex shrink-0 items-center gap-2">
+          <label htmlFor={docNoKey} className="text-xs text-gray-500">
+            เลขที่
+          </label>
+          <input
+            type="text"
+            id={docNoKey}
+            value={documentInfo[docNoKey] || ""}
+            onChange={handleChanges}
+            placeholder="ระบุถ้ามี"
+            className="w-32 border-b border-gray-300 bg-transparent px-1 py-1 text-xs text-black placeholder-gray-400 focus:border-gray-700 focus:outline-none"
+          />
+        </div>
+      )}
+      {/* <button
+        type="button"
+        onClick={() => openFile(fileItem)}
+        className="rounded-sm p-1 text-gray-500 hover:text-gray-900"
+        title="ดูไฟล์"
+      >
+        {isImageFile(fileItem.file) ? (
+          <Eye className="h-4 w-4" />
+        ) : (
+          <ExternalLink className="h-4 w-4" />
+        )}
+      </button> */}
+      <button
+        type="button"
+        onClick={() => removeFile(fileItem.category, fileItem.id)}
+        className="rounded-sm p-1 text-gray-500 hover:text-red-600"
+        title="ลบไฟล์"
+      >
+        <Trash className="h-4 w-4" />
+      </button>
+    </div>
+  );
 
+  const renderDocumentRow = (category: DocumentCategory) => {
+    const files = attachedFiles[category.value] ?? [];
+    const isMulti = isMultipleCategory(category.value);
+    const isDone = files.length > 0;
+    const canAdd = isMulti || files.length === 0;
+    const isImageGrid = isImageCategory(category.value);
 
-      {/* Attached Files Display */}
-      {Object.keys(attachedFiles).length > 0 && (
-        <div className="space-y-4">
-          {Object.keys(attachedFiles).length > 0 && (
+    const canSkip = canSkipCategory(
+      category.value,
+      caseType,
+      attachedFiles,
+      documentInfo
+    );
+
+    return (
+      <div
+        key={category.value}
+        className="grid gap-2 py-4 sm:grid-cols-[15rem_1fr] sm:gap-8"
+      >
+        {/* ชื่อเอกสาร + สถานะ */}
+        <div>
+          <p className="text-sm font-medium text-gray-900">
+            {category.label}
+            {category.required && <span className="text-red-500"> *</span>}
+          </p>
+
+          {isDone ? (
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-700">
+              <Check className="h-3.5 w-3.5" />
+              แนบแล้ว
+            </p>
+          ) : (
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
+              {canSkip && (
+                <button
+                  type="button"
+                  onClick={() => setSkipped(category.value, true)}
+                  className="inline-flex items-center gap-1 text-[11px] text-gray-400 underline-offset-2 hover:text-gray-700 hover:underline"
+                  title="ซ่อนรายการนี้ออกจากหน้าจอ"
+                >
+                  <EyeOff className="h-3 w-3" />
+                  ไม่ต้องแนบ
+                </button>
+              )}
+            </p>
+          )}
+        </div>
+
+        {/* ไฟล์แนบ */}
+        <div className="space-y-2">
+          {isImageGrid ? (
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+              {files.map((fileItem) => renderFileTile(fileItem))}
+              {canAdd && renderAddButton(category, "tile")}
+            </div>
+          ) : (
             <>
-              <h4 className="text-sm font-medium text-gray-800">ไฟล์ที่แนบ:</h4>
-
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
-                          ตัวอย่าง
-                        </th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
-                          ชื่อไฟล์
-                        </th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                          ชื่อเอกสาร
-                        </th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                          ฝ่าย
-                        </th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                          เลขที่เอกสาร
-                        </th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
-                          จัดการ
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {getSortedFiles().map(({ category, fileItem }) => (
-                        <tr key={fileItem.id} className="hover:bg-gray-50">
-                          <td className="px-3 py-3 whitespace-nowrap">
-                            <div
-                              className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden cursor-pointer"
-                              onClick={(e) =>
-                                isImageFile(fileItem.file)
-                                  ? handleOpenPreview(fileItem, e)
-                                  : handleOpenDocument(fileItem)
-                              }
-                              title={
-                                isImageFile(fileItem.file)
-                                  ? "คลิกเพื่อดูรูปภาพขนาดใหญ่"
-                                  : "คลิกเพื่อเปิดเอกสาร"
-                              }
-                            >
-                              {isImageFile(fileItem.file) ? (
-                                <img
-                                  src={fileItem.url}
-                                  alt={fileItem.file.name}
-                                  className="w-full h-full object-cover hover:scale-110 transition-transform"
-                                />
-                              ) : (
-                                <div className="flex flex-col items-center justify-center">
-                                  <FileText className="w-6 h-6 text-gray-400 mb-1" />
-                                  <ExternalLink className="w-3 h-3 text-blue-500" />
-                                </div>
-                              )}
-                            </div>
-                          </td>
-
-                          <td className="px-3 py-3 whitespace-nowrap">
-                            <div className="flex flex-col">
-                              <div
-                                className="text-xs font-medium text-gray-900 max-w-32 truncate"
-                                title={fileItem.file.name}
-                              >
-                                {fileItem.file.name}
-                              </div>
-                              <div
-                                className="text-[10px] font-medium text-gray-500 max-w-24 truncate"
-                                title={formatDT(
-                                  fileItem.uploadDate.toISOString()
-                                )}
-                              >
-                                {formatDT(fileItem.uploadDate.toISOString())}
-                              </div>
-                              <div
-                                className="text-[10px] font-medium text-gray-500 max-w-24 truncate"
-                                title={fileItem.file.type}
-                              >
-                                {fileItem.file.type || "ไม่ทราบชื่อ"}
-                              </div>
-                            </div>
-                          </td>
-
-                          <td className="px-3 py-3 whitespace-nowrap">
-                            <span
-                              className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800 max-w-24 truncate"
-                              title={getCategoryLabel(fileItem.category)}
-                            >
-                              {getCategoryLabel(fileItem.category)}
-                            </span>
-                          </td>
-
-                          <td className="px-3 py-3 whitespace-nowrap">
-                            <span
-                              className={`inline-flex items-center py-1 rounded-md text-xs font-medium ${getDepartmentColor(
-                                getCategoryDepartment(fileItem.category)
-                              )}`}
-                            >
-                              {getCategoryDepartment(fileItem.category)}
-                            </span>
-                          </td>
-
-                          <td key={fileItem.id} className="px-2 py-3 whitespace-nowrap text-xs text-gray-500">
-                            <input
-                              type="text"
-                              id={fileItem.category + "_no"}
-                              value={
-                                documentInfo[`${fileItem.category}_no`] || ""
-                              }
-                              onChange={handleChanges}
-                              placeholder="เลขที่เอกสาร"
-                              className={`${DOCUMENT_CATEGORIES.find(
-                                (val) => val.value === fileItem.category
-                              )?.no
-                                  ? ""
-                                  : "hidden"
-                                } w-full text-xs px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black disabled:bg-gray-100`}
-                            />
-                          </td>
-
-                          <td className="px-3 py-3 whitespace-nowrap text-xs font-medium">
-                            <div className="flex items-center justify-center space-x-2">
-                              {/* ปุ่มดูไฟล์ */}
-                              <div
-                                onClick={(e) =>
-                                  isImageFile(fileItem.file)
-                                    ? handleOpenPreview(fileItem, e)
-                                    : handleOpenDocument(fileItem)
-                                }
-                                className="text-blue-600 hover:text-blue-800 cursor-pointer hover:bg-blue-50 p-1 rounded-md transition-colors"
-                                title={
-                                  isImageFile(fileItem.file)
-                                    ? "ดูรูปภาพ"
-                                    : "เปิดเอกสาร"
-                                }
-                              >
-                                {isImageFile(fileItem.file) ? (
-                                  <Eye className="w-4 h-4" />
-                                ) : (
-                                  <ExternalLink className="w-4 h-4" />
-                                )}
-                              </div>
-
-                              <div
-                                onClick={() =>
-                                  removeFile(fileItem.category, fileItem.id)
-                                }
-                                className="text-red-600 hover:text-red-800 hover:bg-red-100 bg-red-50 hover:scale-110 cursor-pointer p-1 rounded-md transition-colors"
-                                title="ลบไฟล์"
-                              >
-                                <Trash className="w-4 h-4" />
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Summary Footer */}
-                <div className="bg-gray-50 px-4 py-3 border-t border-gray-200">
-                  <div className="flex items-center justify-between text-sm text-gray-600">
-                    <span>รวมทั้งหมด {getTotalFileCount()} ไฟล์</span>
-                  </div>
-                </div>
-              </div>
+              {files.map((fileItem, index) =>
+                renderFileRow(
+                  fileItem,
+                  category.no
+                    ? isMulti
+                      ? getDocNoKey(category.value, index)
+                      : `${category.value}_no`
+                    : undefined
+                )
+              )}
+              {canAdd && renderAddButton(category, "block")}
             </>
           )}
+        </div>
+      </div>
+    );
+  };
 
-          {/* Missing Documents Table */}
-          {getMissingDocuments().length > 0 && (
-            <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-1/3">
-                        ชื่อเอกสาร
-                      </th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider w-32">
-                        สถานะเอกสาร
-                      </th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider w-40">
-                        เลขที่เอกสาร
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                        หมายเหตุ (ไม่บังคับ)
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {getMissingDocuments().map((doc, index) => (
-                      <tr key={doc.value} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center">
-                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-700 text-xs font-semibold mr-3">
-                              {index + 1}
-                            </span>
-                            <span className="text-sm font-medium text-gray-900">{doc.label}</span>
-                          </div>
-                        </td>
-                        
-                        <td className="px-4 py-3 text-center">
-                          <select
-                            id={doc.value}
-                            value={documentInfo[doc.value] || "มี"}
-                            onChange={handleChanges}
-                            className="w-full text-sm font-medium px-3 py-2 border border-gray-300 rounded-md bg-white text-center focus:ring-1 focus:ring-gray-300 focus:border-gray-300 focus:outline-none text-gray-900 cursor-pointer hover:border-gray-400 transition-colors"
-                          >
-                            <option value="มี">มี</option>
-                            <option value="ไม่มี">ไม่มี</option>
-                          </select>
-                        </td>
-                        
-                        <td className="px-4 py-3">
-                          {doc.no && documentInfo[doc.value] == "มี" ? (
-                            <input
-                              type="text"
-                              id={`${doc.value}_no`}
-                              value={documentInfo[`${doc.value}_no`] || ""}
-                              onChange={handleChanges}
-                              placeholder=""
-                              className="w-full text-sm px-3 py-2 border border-gray-300 rounded-md bg-white focus:ring-1 focus:ring-gray-300 focus:border-gray-300 focus:outline-none text-gray-900 placeholder-gray-400"
-                            />
-                          ) : (
-                            <span className="text-xs text-gray-400 italic"></span>
-                          )}
-                        </td>
-                        
-                        <td className="px-4 py-3">
-                          <input
-                            type="text"
-                            id={`${doc.value}_remark`}
-                            value={documentInfo[`${doc.value}_remark`] || ""}
-                            onChange={handleChanges}
-                            placeholder=""
-                            className="w-full text-sm px-3 py-2 border border-gray-300 rounded-md bg-white focus:ring-1 focus:ring-gray-300 focus:border-gray-300 focus:outline-none text-gray-900 placeholder-gray-400"
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+  return (
+    <div className="space-y-8">
+      {/* หัวข้อหลัก */}
+      <div className="flex flex-wrap items-end justify-between gap-2 bg-gray-200 p-2 text-sm font-bold text-gray-800">
+        <div className="flex flex-col">
+          <h3>
+            แนบเอกสาร{" "}
+            {requiredNote && (
+              <span className="text-[12px] font-normal text-red-500">
+                ({requiredNote})
+              </span>
+            )}
+          </h3>
+          <p className="text-xs font-semibold text-gray-600">
+            Document Attachments
+          </p>
+        </div>
+        <p className="shrink-0 text-xs font-normal text-gray-600">
+          แนบครบ {totalCompleted}/{totalCategories} รายการ · รวม{" "}
+          {countTotalFiles(attachedFiles)} ไฟล์
+        </p>
+      </div>
+
+      {/* รายการเอกสารแยกตามฝ่าย */}
+      {Object.entries(groupedCategories).map(([department, categories]) => {
+        // เอกสารบังคับแนบซ่อนไม่ได้ นอกนั้นซ่อนได้ถ้าระบุว่า "ไม่ต้องแนบ"
+        const visible = categories.filter(
+          (cat) => cat.required || !isSkipped(documentInfo, cat.value)
+        );
+        const skippedList = categories.filter((cat) => !visible.includes(cat));
+        const done = countAttached(categories, attachedFiles);
+        const isListOpen = openSkipList === department;
+
+        return (
+          <section key={department}>
+            <div className="flex items-baseline justify-between gap-3 border-b border-gray-300 pb-1.5">
+              <h4 className="text-base font-semibold text-gray-900">
+                {getDepartmentLabel(department, reporterDepartment)}
+              </h4>
+              <div className="flex shrink-0 items-center gap-3">
+                {skippedList.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenSkipList(isListOpen ? null : department)
+                    }
+                    className={`inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[11px] transition-colors ${isListOpen
+                      ? "border-gray-700 bg-gray-800 text-white"
+                      : "border-gray-300 text-gray-500 hover:border-gray-500 hover:text-gray-800"
+                      }`}
+                    title="เอกสารที่ระบุว่าไม่ต้องแนบ"
+                  >
+                    <EyeOff className="h-3 w-3" />
+                    {skippedList.length}
+                  </button>
+                )}
+                <span className="text-xs text-gray-500">
+                  {done}/{visible.length} รายการ
+                </span>
               </div>
             </div>
-          )}
+
+            {/* รายการที่ซ่อนไว้ — กดเพื่อนำกลับมาแนบ */}
+            {isListOpen && skippedList.length > 0 && (
+              <div className="mt-2 border border-gray-200 bg-gray-50 px-3 py-2">
+                <p className="mb-1.5 text-[11px] text-gray-500">
+                  เอกสารที่ระบุว่าไม่ต้องแนบ
+                </p>
+                <ul className="space-y-1">
+                  {skippedList.map((cat) => (
+                    <li
+                      key={cat.value}
+                      className="flex items-center justify-between gap-3 text-xs text-gray-600"
+                    >
+                      <span>{cat.label}</span>
+                      <button
+                        type="button"
+                        onClick={() => setSkipped(cat.value, false)}
+                        className="inline-flex shrink-0 items-center gap-1 text-[11px] text-gray-500 underline-offset-2 hover:text-gray-900 hover:underline"
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                        นำกลับมาแนบ
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="divide-y divide-gray-100">
+              {visible.map((category) => renderDocumentRow(category))}
+            </div>
+          </section>
+        );
+      })}
+
+      {/* รูปขยายเมื่อนำเมาส์ชี้ */}
+      {hoverPreview && (
+        <div
+          className="pointer-events-none fixed z-40 rounded-sm border border-gray-300 bg-white p-1 shadow-xl"
+          style={{ top: hoverPreview.top, left: hoverPreview.left }}
+        >
+          <img
+            src={hoverPreview.url}
+            alt={hoverPreview.name}
+            style={{
+              maxWidth: HOVER_PREVIEW_SIZE,
+              maxHeight: HOVER_PREVIEW_SIZE,
+            }}
+            className="object-contain"
+          />
         </div>
       )}
 
-      {/* Preview Modal */}
+      {/* ดูรูปเต็มจอ (เลื่อนดูรูปอื่นในเอกสารเดียวกันได้) */}
       {previewFile && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center"
-        // onClick={() => setPreviewFile(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75"
+          onClick={() => setPreviewFile(null)}
         >
           <div
-            className="relative max-w-[90vw] max-h-[90vh]"
-            style={{
-              animation: 'scaleIn 0.2s ease-out'
-            }}
+            className="relative max-h-[90vh] max-w-[90vw]"
+            style={{ animation: 'scaleIn 0.2s ease-out' }}
+            onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setPreviewFile(null)}
-              className="absolute -top-4 -right-4 z-50 p-2 bg-red-600 rounded-full text-white hover:bg-red-700 shadow-lg"
+              className="absolute -right-4 -top-4 z-50 rounded-full bg-gray-900 p-2 text-white shadow-lg hover:bg-black"
+              title="ปิด (Esc)"
             >
-              <X className="w-5 h-5" />
+              <X className="h-5 w-5" />
             </button>
+
+            {previewSiblings.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => stepPreview(-1)}
+                  title="รูปก่อนหน้า (←)"
+                  className="absolute left-2 top-1/2 z-50 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/80"
+                >
+                  <ChevronLeft className="h-6 w-6" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => stepPreview(1)}
+                  title="รูปถัดไป (→)"
+                  className="absolute right-2 top-1/2 z-50 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/80"
+                >
+                  <ChevronRight className="h-6 w-6" />
+                </button>
+              </>
+            )}
+
             <img
               src={previewFile.url}
               alt="Preview"
-              className="max-h-[85vh] max-w-[85vw] rounded-lg shadow-2xl object-contain"
+              className="max-h-[85vh] max-w-[85vw] rounded-sm object-contain shadow-2xl"
             />
-            <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-3 rounded-b-lg">
-              <p className="text-sm font-medium truncate">{previewFile.file.name}</p>
-              <p className="text-xs text-gray-300">{formatFileSize(previewFile.file.size)}</p>
+            <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between gap-3 bg-black/70 p-3 text-white">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{previewFile.file.name}</p>
+                <p className="text-xs text-gray-300">{formatFileSize(previewFile.file.size)}</p>
+              </div>
+              {previewSiblings.length > 1 && (
+                <p className="shrink-0 text-xs text-gray-300">
+                  {previewIndex + 1} / {previewSiblings.length}
+                </p>
+              )}
             </div>
           </div>
         </div>

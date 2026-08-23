@@ -1,4 +1,11 @@
-import { caseReport_AC, caseReport_NC } from './caseReport';
+import { caseReport_AC, caseReport_NC, investigate_AC } from './caseReport';
+import {
+  DOC_STATUS,
+  formatDocNos,
+  getCategoriesByCase,
+  getCategory,
+  getDepartmentPrintLabel,
+} from './attachment';
 
 interface NCFormData {
   document_no?: string;
@@ -25,6 +32,8 @@ interface NCFormData {
     product_name: string;
     amount: number;
     unit: string;
+    damage_value?: number;
+    responsible_party?: string;
   }>;
   docs?: Array<{
     [key: string]: string;
@@ -56,6 +65,7 @@ interface PrintDocumentData {
 
 interface PrintACDocumentData {
   formData: caseReport_AC;
+  investigateData?: Partial<investigate_AC>;
   userinfo?: any;
   attachedFiles?: { [key: string]: any[] };
 }
@@ -135,14 +145,28 @@ const getSharedStyles = () => `
       print-color-adjust: exact !important;
     }
     
+    /* ตารางครอบทั้งหน้า: tfoot จะถูกพิมพ์ซ้ำท้ายทุกหน้า และกันที่ให้อัตโนมัติ */
+    .page-wrap {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .page-wrap > tfoot {
+      display: table-footer-group;
+    }
+
+    .page-wrap > tbody > tr > td,
+    .page-wrap > tfoot > tr > td {
+      padding: 0;
+      border: none;
+      vertical-align: top;
+    }
+
     .page-footer {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
       font-size: 9px;
       color: #374151;
       background-color: white;
+      padding-top: 10px;
     }
     
     .page-footer table {
@@ -172,6 +196,14 @@ const getSharedStyles = () => `
   @media screen {
     .page-footer {
       display: none;
+    }
+
+    .page-wrap,
+    .page-wrap > tbody,
+    .page-wrap > tbody > tr,
+    .page-wrap > tbody > tr > td {
+      display: block;
+      width: 100%;
     }
   }
   
@@ -486,6 +518,86 @@ const getSharedStyles = () => `
     background-color: #fecaca;
     color: #991b1b;
   }
+
+  /* ภาพประกอบเหตุการณ์ */
+  .photo-group-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    margin: 10px 0 6px;
+    padding-bottom: 3px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .photo-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .photo-item {
+    width: calc(50% - 4px);
+    box-sizing: border-box;
+    border: 1px solid #d1d5db;
+    padding: 4px;
+    page-break-inside: avoid;
+  }
+
+  .photo-item img {
+    display: block;
+    width: 100%;
+    height: 55mm;
+    object-fit: contain;
+    background-color: #f9fafb;
+  }
+
+  .photo-caption {
+    margin-top: 3px;
+    font-size: 9px;
+    color: #6b7280;
+    word-break: break-all;
+  }
+
+  /* บล็อกวิเคราะห์สาเหตุ */
+  .analysis-block {
+    border: 1px solid #d1d5db;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+  }
+
+  .analysis-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 6px;
+  }
+
+  .analysis-sub {
+    font-size: 11px;
+    font-weight: 600;
+    color: #4b5563;
+    margin: 8px 0 4px;
+  }
+
+  /* กันหัวข้อค้างท้ายหน้า และกันแถวตารางถูกตัดครึ่ง */
+  .section-header,
+  .analysis-title,
+  .analysis-sub,
+  .form-label {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  .data-table thead {
+    display: table-header-group;
+  }
+
+  .data-table tr,
+  .form-group {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
 `;
 
 
@@ -525,7 +637,11 @@ const generateNCFormHTML = (formData: NCFormData, investigateData?: InvestigateD
       </style>
     </head>
     <body>
-      <!-- Fixed Footer สำหรับทุกหน้าเมื่อพิมพ์ -->
+      <table class="page-wrap">
+        <tfoot>
+          <tr>
+            <td>
+      <!-- Document Control: พิมพ์ซ้ำท้ายทุกหน้า -->
       <div class="page-footer">
         <table>
           <thead>
@@ -559,7 +675,12 @@ const generateNCFormHTML = (formData: NCFormData, investigateData?: InvestigateD
           </tbody>
         </table>
       </div>
-      
+            </td>
+          </tr>
+        </tfoot>
+        <tbody>
+          <tr>
+            <td>
       <div class="container">
         <!-- Header -->
         <div class="header" style="position: relative; text-align: center;">
@@ -698,10 +819,12 @@ const generateNCFormHTML = (formData: NCFormData, investigateData?: InvestigateD
           <table class="data-table" style="margin-bottom: 16px;">
             <thead>
               <tr>
-                <th style="width: 10%;" class="text-center">ลำดับ</th>
-                <th style="width: 50%;">สินค้า</th>
-                <th style="width: 20%;" class="text-center">จำนวน</th>
-                <th style="width: 20%;">หน่วย</th>
+                <th style="width: 8%;" class="text-center">ลำดับ</th>
+                <th style="width: 34%;">สินค้า</th>
+                <th style="width: 12%;" class="text-center">จำนวน</th>
+                <th style="width: 12%;">หน่วย</th>
+                <th style="width: 19%;" class="text-center">มูลค่าความเสียหาย (บาท)</th>
+                <th style="width: 15%;">ผู้รับผิดชอบ</th>
               </tr>
             </thead>
             <tbody>
@@ -713,6 +836,8 @@ const generateNCFormHTML = (formData: NCFormData, investigateData?: InvestigateD
                   <td>${product?.product_name || ''}</td>
                   <td class="text-right">${product?.amount || ''}</td>
                   <td>${product?.unit || ''}</td>
+                  <td class="text-right">${product?.damage_value ? Number(product.damage_value).toLocaleString('th-TH') : ''}</td>
+                  <td>${product?.responsible_party || ''}</td>
                 </tr>
               `}).join('')}
             </tbody>
@@ -848,41 +973,31 @@ const generateNCFormHTML = (formData: NCFormData, investigateData?: InvestigateD
               </tr>
             </thead>
             <tbody>
-              ${[
-                { value: 'event_img', label: 'รูปเหตุการณ์', department: 'ตามฝ่ายผู้แจ้ง', no: false },
-                { value: 'warning_doc', label: 'ใบเตือน', department: 'Safety', no: true },
-                { value: 'Insurance_claim_doc', label: 'ใบเคลมจากประกัน', department: 'Compliance', no: true },
-                { value: 'writeoff_doc', label: 'ใบตัดจำหน่าย', department: 'ตามฝ่ายผู้แจ้ง', no: false },
-                { value: 'debt_doc', label: 'ใบรับสภาพหนี้', department: 'ตามฝ่ายผู้แจ้ง', no: true },
-                { value: 'customer_invoice', label: 'ใบแจ้งหนี้ลูกค้า', department: 'ตามฝ่ายผู้แจ้ง', no: true },
-                { value: 'damage_payment', label: 'หลักฐานการชำระค่าเสียหาย', department: 'บัญชี', no: true },
-                { value: 'account_attachment_sell', label: 'เอกสารแนบทางบัญชี > ขายสินค้า', department: 'บัญชี', no: false },
-                { value: 'account_attachment_insurance', label: 'เอกสารแนบทางบัญชี > ประกัน', department: 'บัญชี', no: false },
-                { value: 'account_attachment_pjs_pay', label: 'เอกสารแนบทางบัญชี > พจส. จ่าย', department: 'บัญชี', no: false },
-                { value: 'account_attachment_company_pay', label: 'เอกสารแนบทางบัญชี > บริษัทจ่ายลูกค้า', department: 'บัญชี', no: false },
-              ].map((doc, index) => {
+              ${getCategoriesByCase('nc').map((doc, index) => {
                 const docInfo = formData.docs?.[0] || {};
                 const hasAttachment = attachedFiles && attachedFiles[doc.value] && attachedFiles[doc.value].length > 0;
-                const docStatus = docInfo[doc.value] || 'มี';
-                
-                // กำหนดสถานะ: แนบแล้ว > มี > ไม่มี
+                const docStatus = docInfo[doc.value] || DOC_STATUS.attached;
+
+                // กำหนดสถานะ: แนบแล้ว > ไม่ต้องแนบ > มี > ไม่มี
                 let status = docStatus;
                 let statusColor = '';
-                
+
                 if (hasAttachment) {
                   status = 'แนบแล้ว';
-                } else if (docStatus === 'มี') {
+                } else if (docStatus === DOC_STATUS.skipped) {
+                  status = DOC_STATUS.skipped;
+                } else if (docStatus === DOC_STATUS.attached) {
                 } else {
-                  status = 'ไม่มี';
+                  status = DOC_STATUS.missing;
                 }
-                
-                const docNo = doc.no ? (docInfo[`${doc.value}_no`] || '') : '';
+
+                const docNo = doc.no ? formatDocNos(docInfo, doc.value) : '';
                 const remark = docInfo[`${doc.value}_remark`] || '';
                 return `
                 <tr>
                   <td class="text-center">${index + 1}</td>
                   <td style="font-size: 11px;">${doc.label}</td>
-                  <td style="font-size: 11px;">${doc.department}</td>
+                  <td style="font-size: 11px;">${getDepartmentPrintLabel(doc.department, formData.department_name)}</td>
                   <td class="text-center">
                     <span style="background-color: ${statusColor}; border-radius: 4px; font-size: 11px;">${status}</span>
                   </td>
@@ -914,6 +1029,10 @@ const generateNCFormHTML = (formData: NCFormData, investigateData?: InvestigateD
           
         </div>
       </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </body>
     </html>
   `;
@@ -921,10 +1040,307 @@ const generateNCFormHTML = (formData: NCFormData, investigateData?: InvestigateD
 
 // ==================== Print AC Document Function ====================
 
+// ==================== AC Part 2 (Investigate) & Photo Helpers ====================
+
+const AC_ACCIDENT_TYPE_LABELS: { [key: string]: string } = {
+  near_miss: 'เกือบจะเกิดอุบัติเหตุ (Near Miss)',
+  injury_illness: 'มีการบาดเจ็บ / เจ็บป่วย (Injury / Illness)',
+  motor_vehicle: 'อุบัติเหตุทางยานพาหนะ (Motor Vehicle Incident)',
+  drug_alcohol: 'การตรวจพบสารเสพติดและ/หรือแอลกอฮอล์ (D&A Non-Negative)',
+  property_damage: 'ทรัพย์สินสูญหาย / เสียหาย (Property loss / damage)',
+  environment: 'ผลกระทบต่อสิ่งแวดล้อม (Environment)',
+  security: 'อุบัติเหตุเกี่ยวกับการรักษาความปลอดภัย (Security Incident)',
+  public_complaint: 'การร้องเรียนจากสาธารณะ (Public Complaint)',
+};
+
+const AC_SEVERITY_LABELS: { [key: string]: string } = {
+  L1: 'L1 - เล็กน้อย (Low)',
+  L2: 'L2 - เล็กน้อย (Low)',
+  L3: 'L3 - เล็กน้อย (Low)',
+  L4: 'L4 - ปานกลาง (Moderate)',
+  L5: 'L5 - สูงมาก (High)',
+};
+
+const AC_CAUSE_CATEGORY_LABELS: { [key: string]: string } = {
+  man: 'คน (Man)',
+  machine: 'เครื่องจักร/ยานพาหนะ (Machine)',
+  material: 'วัสดุ/สินค้า (Material)',
+  method: 'วิธีการ/ขั้นตอนงาน (Method)',
+  measurement: 'การวัด/การตรวจสอบ (Measurement)',
+  environment: 'สภาพแวดล้อม (Environment)',
+};
+
+const AC_AVOIDABILITY_LABELS: { [key: string]: string } = {
+  avoidable: 'หลีกเลี่ยงได้ (Avoidable)',
+  unavoidable: 'หลีกเลี่ยงไม่ได้ (Unavoidable)',
+};
+
+const AC_YES_NO_NA_LABELS: { [key: string]: string } = {
+  yes: 'ใช่ (Yes)',
+  no: 'ไม่ (No)',
+  na: 'ไม่เกี่ยวข้อง (NA)',
+};
+
+const AC_RISK_RESULT_LABELS: { [key: string]: string } = {
+  required_revise: 'ต้องดำเนินการปรับแก้ (Required to be revised)',
+  not_required_revise: 'ไม่ต้องดำเนินการปรับแก้ (Not required to be revised)',
+};
+
+const labelOf = (map: { [key: string]: string }, value?: string) =>
+  (value && map[value]) || value || ' ';
+
+/** ส่วนที่ 2: รายงานผลการสอบสวน (แสดงเมื่อมีข้อมูลการสอบสวนแล้ว) */
+const generateACInvestigateHTML = (investigateData?: Partial<investigate_AC>): string => {
+  if (!investigateData) return '';
+
+  const rootCauses = investigateData.root_causes || [];
+  const whys = investigateData.why_analysis || [];
+  const measures = investigateData.measures || [];
+  const investigators = (investigateData.investigators || []).filter(
+    (person) => (person?.name || '').trim() !== ''
+  );
+  const accidentTypes = investigateData.accident_types || [];
+
+  const hasContent =
+    !!investigateData.investigate_id ||
+    !!investigateData.accident_description ||
+    accidentTypes.length > 0 ||
+    rootCauses.length > 0;
+  if (!hasContent) return '';
+
+  const analysisHTML = rootCauses
+    .map((rootCause, index) => {
+      const groupWhys = whys
+        .filter((why) => why.root_cause_id === rootCause.id)
+        .sort((a, b) => (a.seq || 0) - (b.seq || 0));
+      const groupMeasures = measures
+        .filter((measure) => measure.root_cause_id === rootCause.id)
+        .sort((a, b) => (a.seq || 0) - (b.seq || 0));
+
+      return `
+          <div class="analysis-block">
+            <div class="analysis-title">ชุดวิเคราะห์ที่ ${index + 1}</div>
+            <div class="grid-2">
+              <div class="form-group col-span-2">
+                <label class="form-label">ประเด็นปัญหา (Problem):</label>
+                <div class="form-value">${rootCause.problem || ' '}</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">รากของปัญหา (Root Cause):</label>
+                <div class="form-value">${rootCause.root_cause || ' '}</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">ประเภทสาเหตุ (5M1E):</label>
+                <div class="form-value">${labelOf(AC_CAUSE_CATEGORY_LABELS, rootCause.category)}</div>
+              </div>
+            </div>
+
+            <div class="analysis-sub">Why-Why Analysis</div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width: 8%;" class="text-center">WHY</th>
+                  <th style="width: 46%;">ประเด็น</th>
+                  <th style="width: 46%;">เพราะ</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(groupWhys.length > 0 ? groupWhys : [null]).map((why: any, i: number) => `
+                  <tr>
+                    <td class="text-center">${why?.seq || i + 1}</td>
+                    <td>${why?.problem || ''}</td>
+                    <td>${why?.cause || ''}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+
+            <div class="analysis-sub">มาตรการป้องกัน / แก้ไข (Preventive / Corrective Actions)</div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width: 6%;" class="text-center">ลำดับ</th>
+                  <th style="width: 44%;">มาตรการ</th>
+                  <th style="width: 20%;">ผู้รับผิดชอบ</th>
+                  <th style="width: 15%;" class="text-center">กำหนดแล้วเสร็จ</th>
+                  <th style="width: 15%;" class="text-center">แล้วเสร็จจริง</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(groupMeasures.length > 0 ? groupMeasures : [null]).map((measure: any, i: number) => `
+                  <tr>
+                    <td class="text-center">${i + 1}</td>
+                    <td>${measure?.measure || ''}</td>
+                    <td>${measure?.pic_contract || ''}</td>
+                    <td class="text-center">${measure?.plan_date ? formatShortDate(measure.plan_date) : ''}</td>
+                    <td class="text-center">${measure?.action_completed_date ? formatShortDate(measure.action_completed_date) : ''}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>`;
+    })
+    .join('');
+
+  return `
+        <div class="page-break"></div>
+
+        <div class="part-header">
+          <p>Part 2: AC Investigation Report - Root cause analysis and corrective actions</p>
+          <p>ส่วนที่ 2: รายงานผลการสอบสวนอุบัติเหตุ - การวิเคราะห์สาเหตุและมาตรการแก้ไข</p>
+        </div>
+
+        <div class="section-header">
+          <h3>การจำแนกอุบัติเหตุ</h3>
+          <p>Accident Classification</p>
+        </div>
+        <div class="section-content">
+          <div class="grid-2">
+            <div class="form-group col-span-2">
+              <label class="form-label">ประเภทอุบัติเหตุ:</label>
+              <div class="form-value">${accidentTypes.length > 0
+      ? accidentTypes.map((type) => labelOf(AC_ACCIDENT_TYPE_LABELS, type)).join(' / ')
+      : ' '
+    }</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">ระดับความรุนแรง:</label>
+              <div class="form-value">${labelOf(AC_SEVERITY_LABELS, investigateData.severity_level)}</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">ลักษณะการหลีกเลี่ยง:</label>
+              <div class="form-value">${labelOf(AC_AVOIDABILITY_LABELS, investigateData.avoidability)}</div>
+            </div>
+            <div class="form-group col-span-2">
+              <label class="form-label">รายละเอียดการสอบสวน:</label>
+              <div class="text-area">${investigateData.accident_description || ' '}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="section-header">
+          <h3>การวิเคราะห์สาเหตุและมาตรการ</h3>
+          <p>Why-Why Analysis / Root Cause (5M1E) / Corrective Actions</p>
+        </div>
+        <div class="section-content">
+          ${analysisHTML || '<div class="form-value">ยังไม่มีการวิเคราะห์สาเหตุ</div>'}
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="section-header">
+          <h3>การประเมินความเสี่ยง</h3>
+          <p>Risk Assessment</p>
+        </div>
+        <div class="section-content">
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label">มีการประเมินความเสี่ยงสำหรับกิจกรรมนี้:</label>
+              <div class="form-value">${labelOf(AC_YES_NO_NA_LABELS, investigateData.risk_assessment_completed)}</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">ทบทวนการประเมินหลังเกิดอุบัติเหตุ:</label>
+              <div class="form-value">${labelOf(AC_YES_NO_NA_LABELS, investigateData.risk_assessment_reviewed)}</div>
+            </div>
+            <div class="form-group col-span-2">
+              <label class="form-label">ผลการทบทวนการประเมินความเสี่ยง:</label>
+              <div class="form-value">${labelOf(AC_RISK_RESULT_LABELS, investigateData.risk_assessment_result)}</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">วันที่ประเมิน / ทบทวน:</label>
+              <div class="form-value">${investigateData.risk_assessment_date ? formatShortDate(investigateData.risk_assessment_date) : ' '}</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">ประเมินโดย (Assessment team):</label>
+              <div class="form-value">${investigateData.risk_assessment_team || ' '}</div>
+            </div>
+            <div class="form-group col-span-2">
+              <label class="form-label">แนบเอกสารการประเมินความเสี่ยง:</label>
+              <div class="form-value">${labelOf(AC_YES_NO_NA_LABELS, investigateData.risk_assessment_attached)}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="section-header">
+          <h3>ผู้เข้าร่วมสอบสวน</h3>
+          <p>Investigators</p>
+        </div>
+        <div class="section-content">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 8%;" class="text-center">ลำดับ</th>
+                <th style="width: 46%;">ชื่อ - สกุล</th>
+                <th style="width: 46%;">ตำแหน่ง</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(investigators.length > 0 ? investigators : [null, null]).map((person: any, i: number) => `
+                <tr>
+                  <td class="text-center">${i + 1}</td>
+                  <td>${person?.name || ''}</td>
+                  <td>${person?.position || ''}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>`;
+};
+
+/** ภาพประกอบเหตุการณ์จากไฟล์แนบ (เฉพาะไฟล์รูป) */
+const generateACPhotosHTML = (attachedFiles?: { [key: string]: any[] }): string => {
+  if (!attachedFiles) return '';
+
+  const isImage = (item: any) => {
+    const type = item?.file?.type || '';
+    if (type.startsWith('image/')) return true;
+    const name = (item?.file?.name || item?.url || '').toLowerCase();
+    return /\.(png|jpe?g|gif|webp|bmp)(\?|$)/.test(name);
+  };
+
+  const groups = Object.entries(attachedFiles)
+    .map(([category, files]) => ({
+      category,
+      label: getCategory(category)?.label || category,
+      images: (Array.isArray(files) ? files : []).filter(isImage),
+    }))
+    .filter((group) => group.images.length > 0);
+
+  if (groups.length === 0) return '';
+
+  const groupsHTML = groups
+    .map((group) => `
+          <p class="photo-group-title">${group.label} (${group.images.length} รูป)</p>
+          <div class="photo-grid">
+            ${group.images.map((item: any, i: number) => `
+              <div class="photo-item">
+                <img src="${item.url}" alt="${group.label} ${i + 1}" />
+                <div class="photo-caption">${i + 1}. ${item?.file?.name || ''}</div>
+              </div>
+            `).join('')}
+          </div>`)
+    .join('');
+
+  return `
+        <div class="page-break"></div>
+
+        <div class="section-header">
+          <h3>ภาพประกอบเหตุการณ์</h3>
+          <p>Photographic Evidence</p>
+        </div>
+        <div class="section-content">
+          ${groupsHTML}
+        </div>`;
+};
+
 export const printDocument_ac = (data: PrintACDocumentData) => {
   console.log("printDocument_ac data:", data);
-  const { formData, userinfo, attachedFiles } = data;
-  const htmlContent = generateACFormHTML(formData, userinfo, attachedFiles);
+  const { formData, investigateData, userinfo, attachedFiles } = data;
+  const htmlContent = generateACFormHTML(formData, investigateData, userinfo, attachedFiles);
   const printWindow = window.open('', '', 'width=800,height=600');
   
   if (printWindow) {
@@ -939,10 +1355,96 @@ export const printDocument_ac = (data: PrintACDocumentData) => {
   }
 };
 
-const generateACFormHTML = (formData: caseReport_AC, userinfo?: any, attachedFiles?: { [key: string]: any[] }): string => {
-  // คำนวณค่าเสียหายรวม
-  const totalEstimated = (Number(formData.estimated_goods_damage_value) || 0) + (Number(formData.estimated_vehicle_damage_value) || 0);
-  const totalActual = (Number(formData.actual_goods_damage_value) || 0) + (Number(formData.actual_vehicle_damage_value) || 0);
+const generateACFormHTML = (formData: caseReport_AC, investigateData?: Partial<investigate_AC>, userinfo?: any, attachedFiles?: { [key: string]: any[] }): string => {
+  // ค่าเสียหาย: แสดงเฉพาะกลุ่มที่มีข้อมูล (สินค้า / รถและอื่นๆ) ในตารางเดียว
+  const damageItems = Array.isArray(formData.damage_items) ? formData.damage_items : [];
+  const baht = (value: any) => Number(value) ? Number(value).toLocaleString('th-TH') : '';
+
+  const damageGroups = [
+    {
+      key: 'goods',
+      label: 'ความเสียหายของสินค้า',
+      shown: formData.product_damage === 'yes',
+      estimated: Number(formData.estimated_goods_damage_value) || 0,
+      actual: Number(formData.actual_goods_damage_value) || 0,
+      rows: damageItems.filter((item: any) => item?.damage_category === 'goods'),
+    },
+    {
+      key: 'vehicle',
+      label: 'ความเสียหายของรถและอื่นๆ',
+      shown: formData.truck_damage === 'yes',
+      estimated: Number(formData.estimated_vehicle_damage_value) || 0,
+      actual: Number(formData.actual_vehicle_damage_value) || 0,
+      rows: damageItems.filter((item: any) => item?.damage_category === 'vehicle'),
+    },
+  ]
+    .map((group) => {
+      // เก็บเฉพาะแถวที่กรอกข้อมูลจริง
+      const rows = group.rows.filter(
+        (item: any) => (item?.damage_detail || '').trim() !== '' || Number(item?.damage_value) > 0
+      );
+      const rowsTotal = rows.reduce((sum: number, item: any) => sum + (Number(item?.damage_value) || 0), 0);
+      return { ...group, rows: group.shown ? rows : [], total: group.shown ? (rowsTotal || group.actual) : group.actual };
+    })
+    // กลุ่มที่ระบุว่า "ไม่เสียหาย" จะขึ้นเฉพาะเมื่อมียอดค้างจากข้อมูลเดิม ไม่เอาแถวที่ถูกซ่อนมาพิมพ์
+    .filter((group) => group.shown || group.estimated > 0 || group.actual > 0);
+
+  const totalEstimated = damageGroups.reduce((sum, group) => sum + group.estimated, 0);
+  const totalActual = damageGroups.reduce((sum, group) => sum + group.total, 0);
+
+  const damageTableHTML = damageGroups.length === 0 ? '' : `
+          <table class="data-table" style="margin-bottom: 16px;">
+            <thead>
+              <tr>
+                <th style="width: 8%;" class="text-center">ลำดับ</th>
+                <th style="width: 47%;">รายการความเสียหาย</th>
+                <th style="width: 25%;" class="text-right">มูลค่า (บาท)</th>
+                <th style="width: 20%;">ผู้รับผิดชอบ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${damageGroups.map((group) => `
+                <tr style="background-color: #f3f4f6; font-weight: 600;">
+                  <td colspan="4">
+                    ${group.label}${group.estimated ? ` <span style="font-weight: 400; color: #6b7280;">(ประมาณการ ${baht(group.estimated)} บาท)</span>` : ''}
+                  </td>
+                </tr>
+                ${group.rows.length > 0
+      ? group.rows.map((item: any, i: number) => `
+                    <tr>
+                      <td class="text-center">${i + 1}</td>
+                      <td>${item?.damage_detail || ''}</td>
+                      <td class="text-right">${baht(item?.damage_value)}</td>
+                      <td>${item?.responsible_party || ''}</td>
+                    </tr>
+                  `).join('')
+      : `
+                    <tr>
+                      <td colspan="4" style="color: #6b7280;">ไม่มีรายการย่อย</td>
+                    </tr>
+                  `}
+                <tr>
+                  <td colspan="2" class="text-right" style="font-weight: 600;">รวม${group.label}</td>
+                  <td class="text-right" style="font-weight: 600;">${baht(group.total) || '0'}</td>
+                  <td></td>
+                </tr>
+              `).join('')}
+              ${damageGroups.length > 1 ? `
+                <tr style="font-weight: 700; background-color: #e5e7eb;">
+                  <td colspan="2" class="text-right">รวมค่าเสียหายจริงทั้งหมด</td>
+                  <td class="text-right">${baht(totalActual) || '0'}</td>
+                  <td></td>
+                </tr>
+              ` : ''}
+              ${totalEstimated ? `
+                <tr>
+                  <td colspan="2" class="text-right" style="color: #6b7280;">รวมประมาณการทั้งหมด</td>
+                  <td class="text-right" style="color: #6b7280;">${baht(totalEstimated)}</td>
+                  <td></td>
+                </tr>
+              ` : ''}
+            </tbody>
+          </table>`;
   
   return `
     <!DOCTYPE html>
@@ -956,7 +1458,11 @@ const generateACFormHTML = (formData: caseReport_AC, userinfo?: any, attachedFil
       </style>
     </head>
     <body>
-      <!-- Fixed Footer สำหรับทุกหน้าเมื่อพิมพ์ -->
+      <table class="page-wrap">
+        <tfoot>
+          <tr>
+            <td>
+      <!-- Document Control: พิมพ์ซ้ำท้ายทุกหน้า -->
       <div class="page-footer">
         <table>
           <thead>
@@ -990,7 +1496,12 @@ const generateACFormHTML = (formData: caseReport_AC, userinfo?: any, attachedFil
           </tbody>
         </table>
       </div>
-      
+            </td>
+          </tr>
+        </tfoot>
+        <tbody>
+          <tr>
+            <td>
       <div class="container">
         <!-- Header -->
         <div class="header" style="position: relative; text-align: center;">
@@ -1268,6 +1779,10 @@ const generateACFormHTML = (formData: caseReport_AC, userinfo?: any, attachedFil
             </div>
             ${formData.truck_damage === 'yes' ? `
             <div class="form-group col-span-2">
+              <label class="form-label">เลขที่แจ้งซ่อม (MR):</label>
+              <div class="form-value">${formData.repair_request_no || ' '}</div>
+            </div>
+            <div class="form-group col-span-2">
               <label class="form-label">รายละเอียดความเสียหายของรถ:</label>
               <div class="text-area">${formData.truck_damage_details || ' '}</div>
             </div>
@@ -1280,34 +1795,14 @@ const generateACFormHTML = (formData: caseReport_AC, userinfo?: any, attachedFil
             ` : ''}
           </div>
           
-          <table class="data-table" style="margin-bottom: 16px;">
-            <thead>
-              <tr>
-                <th style="width: 40%;">รายการ</th>
-                <th style="width: 30%;" class="text-right">ประมาณการ (บาท)</th>
-                <th style="width: 30%;" class="text-right">จริง (บาท)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>ความเสียหายของสินค้า</td>
-                <td class="text-right">${formData.estimated_goods_damage_value ? Number(formData.estimated_goods_damage_value).toLocaleString('th-TH') : '-'}</td>
-                <td class="text-right">${formData.actual_goods_damage_value ? Number(formData.actual_goods_damage_value).toLocaleString('th-TH') : '-'}</td>
-              </tr>
-              <tr>
-                <td>ความเสียหายของยานพาหนะ</td>
-                <td class="text-right">${formData.estimated_vehicle_damage_value ? Number(formData.estimated_vehicle_damage_value).toLocaleString('th-TH') : '-'}</td>
-                <td class="text-right">${formData.actual_vehicle_damage_value ? Number(formData.actual_vehicle_damage_value).toLocaleString('th-TH') : '-'}</td>
-              </tr>
-              <tr style="font-weight: 700; background-color: #f3f4f6;">
-                <td>รวมทั้งหมด</td>
-                <td class="text-right" style="color: #2563eb;">${totalEstimated ? totalEstimated.toLocaleString('th-TH') : '-'}</td>
-                <td class="text-right" style="color: #dc2626;">${totalActual ? totalActual.toLocaleString('th-TH') : '-'}</td>
-              </tr>
-            </tbody>
-          </table>
+          ${damageTableHTML}
         </div>
         
+        <div class="divider"></div>
+
+        <!-- ส่วนที่ 2: ผลการสอบสวน -->
+        ${generateACInvestigateHTML(investigateData)}
+
         <div class="divider"></div>
         <div class="page-break"></div>
         
@@ -1329,42 +1824,27 @@ const generateACFormHTML = (formData: caseReport_AC, userinfo?: any, attachedFil
               </tr>
             </thead>
             <tbody>
-              ${[
-                { value: 'event_img', label: 'รูปเหตุการณ์', department: 'ตามฝ่ายผู้แจ้ง', no: false },
-                { value: 'warning_doc', label: 'ใบเตือน', department: 'Safety', no: true },
-                { value: 'record_doc', label: 'บันทึกประจำวัน', department: 'ตามฝ่ายผู้แจ้ง', no: false },
-                { value: 'medical_doc', label: 'ใบรับรองแพทย์', department: 'ตามฝ่ายผู้แจ้ง', no: true },
-                { value: 'Insurance_claim_doc', label: 'ใบเคลมจากประกัน', department: 'Compliance', no: true },
-                { value: 'legal_doc', label: 'เอกสารคดีความ', department: 'Compliance', no: false },
-                { value: 'writeoff_doc', label: 'ใบตัดจำหน่าย', department: 'ตามฝ่ายผู้แจ้ง', no: false },
-                { value: 'debt_doc', label: 'ใบรับสภาพหนี้', department: 'ตามฝ่ายผู้แจ้ง', no: true },
-                { value: 'quotation_doc', label: 'ใบเสนอราคา', department: 'ตามฝ่ายผู้แจ้ง', no: true },
-                { value: 'customer_invoice', label: 'ใบแจ้งหนี้ลูกค้า', department: 'ตามฝ่ายผู้แจ้ง', no: true },
-                { value: 'damage_payment', label: 'หลักฐานการชำระค่าเสียหาย', department: 'บัญชี', no: true },
-                { value: 'account_attachment_sell', label: 'เอกสารแนบทางบัญชี > ขายสินค้า', department: 'บัญชี', no: false },
-                { value: 'account_attachment_insurance', label: 'เอกสารแนบทางบัญชี > ประกัน', department: 'บัญชี', no: false },
-                { value: 'account_attachment_pjs_pay', label: 'เอกสารแนบทางบัญชี > พจส. จ่าย', department: 'บัญชี', no: false },
-                { value: 'account_attachment_company_pay', label: 'เอกสารแนบทางบัญชี > บริษัทจ่ายลูกค้า', department: 'บัญชี', no: false },
-                { value: 'investigate_report', label: 'รายงานการสอบสวน', department: 'Safety', no: false },
-              ].map((doc, index) => {
+              ${getCategoriesByCase('ac').map((doc, index) => {
                 const docInfo = formData.docs?.[0] || {};
                 const hasAttachment = attachedFiles && attachedFiles[doc.value] && attachedFiles[doc.value].length > 0;
-                const docStatus = docInfo[doc.value] || 'มี';
-                
+                const docStatus = docInfo[doc.value] || DOC_STATUS.attached;
+
                 let status = docStatus;
                 if (hasAttachment) {
                   status = 'แนบแล้ว';
-                } else if (docStatus !== 'มี') {
-                  status = 'ไม่มี';
+                } else if (docStatus === DOC_STATUS.skipped) {
+                  status = DOC_STATUS.skipped;
+                } else if (docStatus !== DOC_STATUS.attached) {
+                  status = DOC_STATUS.missing;
                 }
-                
-                const docNo = doc.no ? (docInfo[`${doc.value}_no`] || '') : '';
+
+                const docNo = doc.no ? formatDocNos(docInfo, doc.value) : '';
                 const remark = docInfo[`${doc.value}_remark`] || '';
                 return `
                 <tr>
                   <td class="text-center">${index + 1}</td>
                   <td style="font-size: 11px;">${doc.label}</td>
-                  <td style="font-size: 11px;">${doc.department}</td>
+                  <td style="font-size: 11px;">${getDepartmentPrintLabel(doc.department, formData.department_name)}</td>
                   <td class="text-center">
                     <span style="border-radius: 4px; font-size: 11px;">${status}</span>
                   </td>
@@ -1375,6 +1855,9 @@ const generateACFormHTML = (formData: caseReport_AC, userinfo?: any, attachedFil
             </tbody>
           </table>
         </div>
+
+        <!-- ภาพประกอบเหตุการณ์ -->
+        ${generateACPhotosHTML(attachedFiles)}
 
         <!-- Footer -->
         <div class="footer">
@@ -1394,6 +1877,10 @@ const generateACFormHTML = (formData: caseReport_AC, userinfo?: any, attachedFil
           </div>
         </div>
       </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </body>
     </html>
   `;

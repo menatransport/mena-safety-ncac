@@ -42,3 +42,7 @@ next-env.d.ts
 
 # agent
 /.agents
+/.claude
+
+# สเปกฟอร์มฉบับร่าง (ไม่ใช่ route ของ Next.js)
+/app/ac-form/investigate.md

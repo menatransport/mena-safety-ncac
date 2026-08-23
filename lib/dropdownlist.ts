@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-interface DropdownlistData {
+export interface DropdownlistData {
   sites?: any[];
   departments?: any[];
   clients?: any[];

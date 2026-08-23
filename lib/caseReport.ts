@@ -38,7 +38,9 @@ export interface caseReport_NC {
       product_id: number,
       product_name: string,
       amount: number,
-      unit: string
+      unit: string,
+      damage_value: number,
+      responsible_party: string
     }
   ],
  docs?: Array<{
@@ -90,6 +92,7 @@ export interface caseReport_AC {
     drug_test: string,
     truck_damage: string,
     truck_damage_details: string,
+    breakdown_status: string,
     product_damage: string,
     product_damage_details: string,
     injured_not_hospitalized: number,
@@ -119,9 +122,77 @@ export interface caseReport_AC {
     accident_case_id: number,
     document_no_ac: string,
     incident_cause: string,  // เพิ่ม field สาเหตุ
+    repair_request_no: string,  // เลขที่แจ้งซ่อม (MR) กรอกเมื่อรถเสียหาย
+    damage_items: Array<{
+      damage_id: number,
+      damage_category: "goods" | "vehicle",  // สินค้า | รถและอื่นๆ (รวมยอดเข้า actual_goods / actual_vehicle)
+      damage_detail: string,
+      damage_value: number,
+      responsible_party: string
+    }>,
     docs?: Array<{
     [key: string]: string;
   }>;
+}
+
+// ===== AC Investigation (Part 2) =====
+export interface acWhyItem {
+  id: string,
+  seq: number,          // ลำดับ WHY ภายในชุดวิเคราะห์ (1..n)
+  root_cause_id: string, // ชุดวิเคราะห์ที่ WHY นี้สังกัด
+  problem: string,      // ประเด็นที่ถาม (WHY1 = ประเด็นตั้งต้น, ถัดไป = คำตอบของ WHY ก่อนหน้า)
+  cause: string         // คำตอบ "เพราะ ..."
+}
+
+export interface acRootCauseItem {
+  id: string,
+  seq: number,
+  problem: string,   // ประเด็นปัญหาตั้งต้นของชุดวิเคราะห์ (จุดเริ่มของ Why-Why)
+  root_cause: string,
+  category: string   // 5M1E: man | machine | material | method | measurement | environment
+}
+
+export interface acMeasureItem {
+  id: string,
+  seq: number,
+  root_cause_id: string,
+  measure: string,
+  pic_contract: string,
+  plan_date: string,
+  action_completed_date: string
+}
+
+export interface acMeasureExistingFile {
+  key: string,
+  fileName: string,
+  url: string
+}
+
+export interface acInvestigatorItem {
+  id: string,
+  seq: number,
+  employee_id?: string,  // รหัสพนักงานที่เลือกจากทะเบียนพนักงาน (Active)
+  name: string,
+  position: string
+}
+
+export interface investigate_AC {
+  investigate_id?: number,
+  document_no_ac: string,
+  accident_types: string[],          // multi-select
+  severity_level: string,            // L1 - L5
+  accident_description: string,
+  why_analysis: acWhyItem[],
+  root_causes: acRootCauseItem[],
+  measures: acMeasureItem[],
+  risk_assessment_completed: string,   // yes | no
+  risk_assessment_reviewed: string,    // yes | no | na
+  risk_assessment_result: string,      // required_revise | not_required_revise
+  risk_assessment_date: string,
+  risk_assessment_team: string,
+  risk_assessment_attached: string,    // yes | no | na
+  investigators: acInvestigatorItem[],
+  avoidability: string                 // avoidable | unavoidable
 }
 
 export interface investigate_NC {

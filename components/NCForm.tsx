@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { DateTimePicker24h } from "./ui/datetime-picker";
 import { SearchableSelect } from "./ui/searchable-select";
 import { FileUpload } from "./FileUpload";
+import { getMissingRequiredDocs } from "@/lib/attachment";
 import { caseReport_NC, investigate_NC } from "@/lib/caseReport";
 import { useDropdownStore } from "@/lib/dropdownlist";
 import { CirclePlus, CircleMinus, Printer, Paperclip, X, Eye } from "lucide-react";
@@ -66,12 +67,23 @@ export const NCFormComponent = () => {
     reporter_name: userinfo?.name || "",
     casestatus: "",
     record_date: new Date().toISOString(),
-    products: [{ product_id: 1, product_name: "", amount: 0, unit: "" }] as [
+    products: [
+      {
+        product_id: 1,
+        product_name: "",
+        amount: 0,
+        unit: "",
+        damage_value: 0,
+        responsible_party: "",
+      },
+    ] as [
       {
         product_id: number;
         product_name: string;
         amount: number;
         unit: string;
+        damage_value: number;
+        responsible_party: string;
         casestatus: string;
       }
     ],
@@ -956,7 +968,14 @@ export const NCFormComponent = () => {
       ...formData,
       products: [
         ...items,
-        { product_id: newId, product_name: "", amount: 0, unit: "" },
+        {
+          product_id: newId,
+          product_name: "",
+          amount: 0,
+          unit: "",
+          damage_value: 0,
+          responsible_party: "",
+        },
       ] as any,
     });
   };
@@ -980,7 +999,13 @@ export const NCFormComponent = () => {
       ...formData,
       products: formData.products.map((item) =>
         item.product_id === id
-          ? { ...item, [field]: field === "amount" ? Number(value) : value }
+          ? {
+            ...item,
+            [field]:
+              field === "amount" || field === "damage_value"
+                ? Number(value)
+                : value,
+          }
           : item
       ) as any,
     });
@@ -1178,13 +1203,13 @@ export const NCFormComponent = () => {
       }
     });
 
-    // ตรวจสอบว่ามีการแนบรูปเหตุการณ์อย่างน้อย 1 รูป
-    if (!attachedFiles["event_img"] || attachedFiles["event_img"].length === 0) {
-      missingFields.push("รูปเหตุการณ์ (อย่างน้อย 1 รูป)");
+    // ตรวจเอกสารแนบตามเงื่อนไขใน lib/attachment
+    getMissingRequiredDocs("nc", attachedFiles).forEach((doc) => {
+      missingFields.push(doc.label);
       if (!firstMissingField) {
-        firstMissingField = "event_img";
+        firstMissingField = doc.value;
       }
-    }
+    });
 
     return { missingFields, firstMissingField };
   };
@@ -1949,10 +1974,10 @@ export const NCFormComponent = () => {
 
                         <div>
                           <label className="block text-gray-700 font-medium mb-1 text-sm">
-                            สถานะ breakdown : <span className="text-red-500">*</span>
+                           รถวิ่งงานต่อได้หรือไม่ : <span className="text-red-500">*</span>
                           </label>
                           <SearchableSelect
-                            options={["มี breakdown", "ไม่มี breakdown"].map((status) => ({
+                            options={["วิ่งต่อได้", "ไม่สามารถวิ่งต่อได้"].map((status) => ({
                               value: status,
                               label: status,
                             }))}
@@ -2263,6 +2288,12 @@ export const NCFormComponent = () => {
                                 <th className="border border-gray-300 px-3 py-2 text-left font-medium text-gray-700">
                                   หน่วย
                                 </th>
+                                {/* <th className="border border-gray-300 px-3 py-2 text-right font-medium text-gray-700 whitespace-nowrap">
+                                  มูลค่าความเสียหายจริง (บาท)
+                                </th>
+                                <th className="border border-gray-300 px-3 py-2 text-left font-medium text-gray-700 whitespace-nowrap">
+                                  ผู้รับผิดชอบ
+                                </th> */}
                               </tr>
                             </thead>
                             <tbody className="bg-white">
@@ -2338,6 +2369,49 @@ export const NCFormComponent = () => {
                                       <option value="บาท">บาท</option>
                                     </select>
                                   </td>
+                                  {/* <td className="border border-gray-300 px-3 py-2 text-black">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={item.damage_value || ""}
+                                      onChange={(e) =>
+                                        handleProductItemChange(
+                                          item.product_id,
+                                          "damage_value",
+                                          e.target.value
+                                        )
+                                      }
+                                      className={`w-full text-sm p-1 text-right border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                                        ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                        : "bg-white"
+                                        }`}
+                                      disabled={isViewMode}
+                                    />
+                                  </td>
+                                  <td className="border border-gray-300 px-3 py-2 text-black">
+                                    <select
+                                      value={item.responsible_party || ""}
+                                      onChange={(e) =>
+                                        handleProductItemChange(
+                                          item.product_id,
+                                          "responsible_party",
+                                          e.target.value
+                                        )
+                                      }
+                                      disabled={isViewMode}
+                                      className={`w-full text-sm p-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#cfe5d0] focus:outline-none text-black ${isViewMode
+                                        ? "cursor-not-allowed bg-gray-100 text-blue-600 font-bold"
+                                        : "bg-white"
+                                        }`}
+                                    >
+                                      <option value=""></option>
+                                      <option value="บริษัท">บริษัท</option>
+                                      <option value="พจส">พจส</option>
+                                      <option value="คู่กรณี">คู่กรณี</option>
+                                      <option value="ประกัน">ประกัน</option>
+                                    </select>
+                                  </td> */}
                                 </tr>
                               ))}
                             </tbody>
@@ -2401,19 +2475,19 @@ export const NCFormComponent = () => {
                 {thisform === "initial" && (
                   <>
                     <div className="border-t border-gray-400 md:col-span-3"></div>
-                    <div className="flex flex-col p-2 bg-gray-200 font-bold text-gray-800 mb-3 text-sm md:col-span-3">
-                      <h3>แนบเอกสาร {formData?.casestatus === "" && <span className="text-red-500 text-[12px]">(ต้องแนบรูปเหตุการณ์อย่างน้อย 1 รูป ก่อนบันทึก)</span>}</h3>
-                      <p className="font-semibold text-xs text-gray-600">
-                        Document Attachments
-                      </p>
-                    </div>
-                    <div className="p-6 md:col-span-3">
+                    
+                    <div className="md:col-span-3">
                       <FileUpload
                         onFilesChange={handleFilesFromUpload}
                         existingFiles={attachedFiles}
                         onChangedocs={(docs) => setDocValue(docs as any)}
                         docs={formData.docs?.[0]}
                         case="nc"
+                        reporterDepartment={
+                          departments?.find(
+                            (dept: any) => dept.department_id === formData?.department_id
+                          )?.department_name_th
+                        }
                       />
                     </div>
                   </>

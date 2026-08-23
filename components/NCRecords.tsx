@@ -638,6 +638,8 @@ export const NCRecordsComponent = () => {
         'ชื่อสินค้า': product.product_name || '',
         'จำนวน': product.amount || '',
         'หน่วย': product.unit || '',
+        'มูลค่าความเสียหาย (บาท)': product.damage_value != null ? Number(product.damage_value) : null,
+        'ผู้รับผิดชอบ': product.responsible_party || '',
         'สถานะรายงาน': record.status,
       })) || [];
     });
