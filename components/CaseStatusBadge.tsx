@@ -46,6 +46,14 @@ const STATUS_MAP: Record<string, StatusToken> = {
         ring: "ring-emerald-200/70",
         dot: "bg-emerald-500",
     },
+    "Completed Investigate": {
+        label: "เสร็จสิ้น",
+        Icon: CheckCircle2,
+        accent: "text-emerald-600",
+        soft: "bg-emerald-50",
+        ring: "ring-emerald-200/70",
+        dot: "bg-emerald-500",
+    },
     Voided: {
         label: "ยกเลิก",
         Icon: XCircle,

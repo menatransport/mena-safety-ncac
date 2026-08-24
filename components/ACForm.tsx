@@ -13,12 +13,17 @@ import {
 } from "./ACInvestigate";
 import { FormActionBar, FormActionButton } from "./FormActionBar";
 import { FileUpload } from "./FileUpload";
-import { getMissingRequiredDocs } from "@/lib/attachment";
+import {
+  getMissingRequiredDocs,
+  getCaseClosingDocLabel,
+  hasCaseClosingDoc,
+  skipEmptyDocs,
+} from "@/lib/attachment";
 import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import { useClipboard_ac } from "@/lib/clipboard";
 import { LoaderPage } from "./LoaderPage";
-import { Printer, Columns2, Rows2, CirclePlus, Trash2, Bug, Copy, X } from "lucide-react";
+import { Printer, Columns2, Rows2, CirclePlus, Trash2, Bug, Copy, X, CircleCheckBig } from "lucide-react";
 import { printDocument_ac } from "@/lib/printDocument";
 import { sendErrorLog } from "@/lib/logError";
 import { documentRole } from "@/lib/documentRole";
@@ -36,6 +41,18 @@ interface FileWithId {
 interface CategoryFiles {
   [key: string]: FileWithId[];
 }
+
+/**
+ * เปิด/ปิดฟอร์มสอบสวน (ส่วนที่ 2)
+ *
+ * ระหว่างที่ยังไม่เปิดใช้ ให้ใช้การแนบ "เอกสารสอบสวน" ในส่วนเอกสารแนบแทน
+ * แนบแล้วจึงจะกดปิดเคสได้ (CASE_CLOSING_DOC ใน lib/attachment.ts)
+ * เปิดกลับมาเมื่อไหร่ก็แค่เปลี่ยนเป็น true — โค้ดส่วนที่ 2 ยังอยู่ครบ
+ */
+const SHOW_INVESTIGATE_SECTION = false;
+
+/** สถานะที่ถือว่าเคสถูกปิดแล้ว (ACRecords แสดงผลเป็น "Completed") */
+const CASE_CLOSED_STATUS = "Completed Investigate";
 
 // มุมมองกระดาษ: จำค่าที่ผู้ใช้เลือกไว้ใน localStorage
 type LayoutMode = "stack" | "split";
@@ -183,6 +200,7 @@ export const ACFormComponent = () => {
 
   const [isSavingForm, setIsSavingForm] = useState(false);
   const [isSavingInvestigate, setIsSavingInvestigate] = useState(false);
+  const [isClosingCase, setIsClosingCase] = useState(false);
   // ระหว่างโหลดผลการสอบสวนเดิม ห้ามบันทึกทับ — POST เป็น upsert แบบแทนที่ทั้งชุด
   const [isLoadingInvestigate, setIsLoadingInvestigate] = useState(false);
 
@@ -349,6 +367,8 @@ export const ACFormComponent = () => {
   useEffect(() => {
     const docNo = formData.document_no_ac;
     if (!docNo) return;
+    // ส่วนที่ 2 ถูกซ่อนอยู่ ไม่ต้องยิง API ที่ไม่ได้ใช้
+    if (!SHOW_INVESTIGATE_SECTION) return;
 
     let cancelled = false;
 
@@ -1625,11 +1645,91 @@ export const ACFormComponent = () => {
     }
   };
 
-  const attatchments_post = async (document_no_ac: string) => {
+  // ========== ปิดเคส ==========
+  // เงื่อนไข: ต้องแนบเอกสารสอบสวนแล้ว (ใช้แทนการกรอกฟอร์มสอบสวนส่วนที่ 2)
+  const handleCloseCase = async () => {
+    const documentNo = formData.document_no_ac;
+    if (!documentNo) return;
+
+    if (!hasClosingDoc) {
+      Swal.fire({
+        icon: "warning",
+        title: `ต้องแนบ${getCaseClosingDocLabel()}ก่อนปิดเคส`,
+        text: "กรุณาแนบเอกสารในหัวข้อเอกสารแนบ แล้วลองอีกครั้ง",
+        confirmButtonText: "ตกลง",
+      });
+      return;
+    }
+
+    const confirmed = await Swal.fire({
+      icon: "question",
+      title: "ยืนยันปิดเคส",
+      html: `เอกสารเลขที่ <b>${documentNo}</b> จะถูกเปลี่ยนสถานะเป็น <b>Completed</b>`,
+      showCancelButton: true,
+      confirmButtonText: "ปิดเคส",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#4b5563",
+      allowOutsideClick: false,
+    });
+    if (!confirmed.isConfirmed) return;
+
+    setIsClosingCase(true);
+    try {
+      // อัปโหลดไฟล์ที่ยังค้างอยู่ก่อน ไม่งั้นปิดเคสไปทั้งที่เอกสารยังไม่ขึ้นระบบ
+      const uploaded = await attatchments_post(documentNo);
+      if (!uploaded) return; // แจ้งเตือนไปแล้วใน attatchments_post — ยังไม่ปิดเคส
+
+      // เคสปิดแล้วเอกสารที่ยังว่างจะถูกซ่อนบนหน้าจอ — บันทึกสถานะเดียวกันลง DB
+      // ไปในรอบนี้เลย ไม่งั้นใบพิมพ์กับหน้าจอจะไม่ตรงกัน
+      const currentDocs = Array.isArray(docValue)
+        ? ((formData.docs?.[0] as any) ?? {})
+        : (docValue as any);
+
+      const res = await fetch("/api/document/ac", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          document_no_ac: documentNo,
+          casestatus: CASE_CLOSED_STATUS,
+          docs: [skipEmptyDocs("ac", attachedFiles, currentDocs)],
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+
+      setFormData((prev) => ({ ...prev, casestatus: CASE_CLOSED_STATUS }));
+
+      Swal.fire({
+        icon: "success",
+        title: "ปิดเคสเรียบร้อย",
+        confirmButtonText: "ตกลง",
+        allowOutsideClick: false,
+      });
+    } catch (error) {
+      console.error("Error closing case:", error);
+      sendErrorLog(
+        "ACForm/handleCloseCase",
+        error instanceof Error ? error : String(error)
+      );
+      Swal.fire({
+        icon: "error",
+        title: "เกิดข้อผิดพลาดในการปิดเคส",
+        text: error instanceof Error ? error.message : "Unknown error",
+        confirmButtonText: "ตกลง",
+      });
+    } finally {
+      setIsClosingCase(false);
+    }
+  };
+
+  /** @returns true = ไม่มีอะไรค้าง หรืออัปโหลดครบแล้ว, false = อัปโหลดไม่สำเร็จ */
+  const attatchments_post = async (document_no_ac: string): Promise<boolean> => {
     if (!document_no_ac) {
       console.error("Document number is required for attachments upload.");
       alert("ไม่พบเลขที่เอกสารสำหรับการอัปโหลดไฟล์แนบ");
-      return;
+      return false;
     }
     try {
       const uploadFormData = new FormData();
@@ -1659,7 +1759,7 @@ export const ACFormComponent = () => {
 
       if (uploadFormData.getAll("files").length === 0) {
         console.log("No new files to upload.");
-        return;
+        return true;
       }
 
       const res = await fetch("/api/attachment", {
@@ -1675,11 +1775,15 @@ export const ACFormComponent = () => {
           title: "เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ",
         });
         sendErrorLog("ACForm/attatchments_post", `เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ : ${res}`);
+        return false;
       }
+
+      return true;
     } catch (error) {
       console.error("Error uploading attachments catch :", error);
       alert("เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ catch ");
       sendErrorLog("ACForm/attatchments_post", `เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ catch : ${error}`);
+      return false;
     }
   };
 
@@ -1906,7 +2010,17 @@ export const ACFormComponent = () => {
   };
 
   // ========== Paper Layout ==========
-  const hasInvestigateSection = !!formData?.document_no_ac;
+  const hasInvestigateSection =
+    SHOW_INVESTIGATE_SECTION && !!formData?.document_no_ac;
+
+  // ========== ปิดเคส (ใช้แทนฟอร์มสอบสวนระหว่างที่ส่วนที่ 2 ยังปิดอยู่) ==========
+  const isCaseClosed = formData?.casestatus === CASE_CLOSED_STATUS;
+  const hasClosingDoc = hasCaseClosingDoc(attachedFiles);
+  const canShowCloseCase =
+    !isViewMode &&
+    !!formData?.document_no_ac &&
+    formData?.casestatus !== "Voided" &&
+    !isCaseClosed;
   const isSplitView = hasInvestigateSection && layoutMode === "split";
   const paperClass =
     "sm:w-full m-4 space-y-6 bg-white p-8 rounded-xl shadow-sm border border-gray-500 transition-all duration-300";
@@ -3167,10 +3281,13 @@ export const ACFormComponent = () => {
                     onChangedocs={(docs) => setDocValue(docs as any)}
                     docs={formData.docs?.[0]}
                     case="ac"
+                    autoSkipEmpty={isCaseClosed}
                     requiredNote={
                       formData?.casestatus === ""
                         ? "ต้องแนบรูปเหตุการณ์อย่างน้อย 1 รูป ก่อนบันทึก"
-                        : undefined
+                        : canShowCloseCase
+                          ? `แนบ${getCaseClosingDocLabel()}แล้วจึงจะปิดเคสได้`
+                          : undefined
                     }
                     reporterDepartment={
                       departments?.find(
@@ -3195,6 +3312,16 @@ export const ACFormComponent = () => {
                   {formData?.casestatus !== "" && (
                     <FormActionButton onClick={clipboard}>
                       คัดลอกข้อมูล
+                    </FormActionButton>
+                  )}
+
+                  {canShowCloseCase && (
+                    <FormActionButton
+                      onClick={handleCloseCase}
+                      disabled={!hasClosingDoc || isClosingCase}
+                      icon={<CircleCheckBig className="w-4 h-4" />}
+                    >
+                      {isClosingCase ? "กำลังปิดเคส..." : "ปิดเคส"}
                     </FormActionButton>
                   )}
                 </FormActionBar>

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   X,
   Eye,
@@ -40,6 +40,7 @@ import {
   isSkipped,
   reindexDocNos,
   resolveDocStatus,
+  skipEmptyDocs,
 } from "@/lib/attachment";
 
 interface FileUploadProps {
@@ -51,6 +52,11 @@ interface FileUploadProps {
   reporterDepartment?: string;
   /** ข้อความเตือนสีแดงท้ายหัวข้อ เช่น เงื่อนไขก่อนบันทึก */
   requiredNote?: string;
+  /**
+   * เคสถูกปิดแล้ว — ระบุ "ไม่ต้องแนบ" ให้เอกสารที่ยังไม่มีไฟล์อัตโนมัติ
+   * ทำครั้งเดียวตอนเปลี่ยนเป็นปิด ผู้ใช้ยังกด "นำกลับมาแนบ" ได้ตามปกติ
+   */
+  autoSkipEmpty?: boolean;
 }
 
 export const FileUpload = ({
@@ -61,6 +67,7 @@ export const FileUpload = ({
   docs = {},
   reporterDepartment,
   requiredNote,
+  autoSkipEmpty = false,
 }: FileUploadProps) => {
   const [attachedFiles, setAttachedFiles] =
     useState<CategoryFiles>(existingFiles);
@@ -90,9 +97,14 @@ export const FileUpload = ({
     onChangedocs?.(updated);
   };
 
+  // เคสปิดแล้วต้องซ่อนเอกสารที่ยังว่าง "ครั้งเดียว" ไม่งั้นพอกด "นำกลับมาแนบ"
+  // effect จะซ่อนกลับทันทีจนกดไม่ได้เลย
+  const autoSkippedRef = useRef(false);
+
   // อัปเดตสถานะเอกสารอัตโนมัติจากไฟล์ที่แนบ (คงค่า "ไม่ต้องแนบ" ที่ผู้ใช้เลือกไว้)
+  // รวมไว้ effect เดียวกับการซ่อนตอนปิดเคส — แยกกันแล้วสอง effect จะเขียนทับกันเอง
   useEffect(() => {
-    const updated: DocumentInfo = { ...documentInfo };
+    let updated: DocumentInfo = { ...documentInfo };
     let hasChanges = false;
 
     getFilteredCategories().forEach((doc) => {
@@ -104,11 +116,26 @@ export const FileUpload = ({
       }
     });
 
+    if (!autoSkipEmpty) {
+      autoSkippedRef.current = false; // เปิดเคสกลับมา → พร้อมทำใหม่รอบหน้า
+    } else if (!autoSkippedRef.current) {
+      autoSkippedRef.current = true;
+      const skipped = skipEmptyDocs(caseType, attachedFiles, updated);
+      if (
+        getFilteredCategories().some(
+          (cat) => skipped[cat.value] !== updated[cat.value]
+        )
+      ) {
+        updated = skipped;
+        hasChanges = true;
+      }
+    }
+
     if (hasChanges) {
       setDocumentInfo(updated);
       onChangedocs?.(updated);
     }
-  }, [attachedFiles, caseType]);
+  }, [attachedFiles, caseType, autoSkipEmpty]);
 
   const handleFilesChange = useCallback(
     (newFiles: CategoryFiles) => {

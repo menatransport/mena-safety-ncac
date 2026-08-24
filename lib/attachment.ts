@@ -153,7 +153,14 @@ export const DOCUMENT_CATEGORIES: DocumentCategory[] = [
 
 
   // ฝ่ายมาตรฐานความปลอดภัย
-  
+  {
+    value: "investigate_report",
+    label: "เอกสารสอบสวน",
+    department: "🚨Safety",
+    case: "ac",
+    no: false,
+    multiple: true,
+  },
   {
     value: "warning_doc",
     label: "ใบเตือน",
@@ -171,7 +178,7 @@ export const DOCUMENT_CATEGORIES: DocumentCategory[] = [
     no: false,
   },
   {
-    value: "legal_doc",
+    value: "insurance_settlement_doc",
     label: "เอกสารประณีประนอมจากประกัน",
     department: "ℹ️Compliance",
     case: "all",
@@ -394,6 +401,45 @@ export const getMissingRequiredDocs = (
   getCategoriesByCase(caseType)
     .filter((cat) => cat.required && (files[cat.value]?.length ?? 0) === 0)
     .map((cat) => ({ value: cat.value, label: cat.label }));
+
+// ---------- การปิดเคส ----------
+
+/**
+ * เอกสารที่ต้องแนบก่อนจึงจะปิดเคสได้
+ *
+ * ระหว่างที่ยังไม่เปิดใช้ฟอร์มสอบสวน (ส่วนที่ 2) ให้ใช้การแนบเอกสารสอบสวน
+ * เป็นเงื่อนไขปิดเคสแทน — แนบแล้วถือว่าสอบสวนเสร็จ
+ */
+export const CASE_CLOSING_DOC = "investigate_doc";
+
+export const getCaseClosingDocLabel = () =>
+  getCategory(CASE_CLOSING_DOC)?.label ?? "เอกสารสอบสวน";
+
+/** แนบเอกสารสอบสวนแล้วหรือยัง (ใช้เป็นเงื่อนไขเปิดปุ่มปิดเคส) */
+export const hasCaseClosingDoc = (files: CategoryFiles) =>
+  (files[CASE_CLOSING_DOC]?.length ?? 0) > 0;
+
+/**
+ * ระบุ "ไม่ต้องแนบ" ให้เอกสารที่ยังไม่มีไฟล์ — ใช้ตอนเคสถูกปิด
+ *
+ * เคสที่ปิดแล้วไม่มีใครมาแนบเอกสารเพิ่มอีก รายการที่ยังว่างจึงเป็นแค่ noise
+ * ซ่อนออกไปให้เหลือเฉพาะเอกสารที่มีจริง (ยังกด "นำกลับมาแนบ" ได้ตลอด)
+ *
+ * เอกสารบังคับแนบ (required) ไม่แตะ — ต้องเห็นว่ายังขาดอยู่เสมอ
+ */
+export const skipEmptyDocs = (
+  caseType: string,
+  files: CategoryFiles,
+  docs: DocumentInfo
+): DocumentInfo => {
+  const updated = { ...docs };
+  getCategoriesByCase(caseType).forEach((cat) => {
+    if (cat.required) return;
+    if ((files[cat.value]?.length ?? 0) > 0) return;
+    updated[cat.value] = DOC_STATUS.skipped;
+  });
+  return updated;
+};
 
 // ---------- ตัวช่วยเกี่ยวกับไฟล์ ----------
 
