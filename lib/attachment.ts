@@ -410,7 +410,7 @@ export const getMissingRequiredDocs = (
  * ระหว่างที่ยังไม่เปิดใช้ฟอร์มสอบสวน (ส่วนที่ 2) ให้ใช้การแนบเอกสารสอบสวน
  * เป็นเงื่อนไขปิดเคสแทน — แนบแล้วถือว่าสอบสวนเสร็จ
  */
-export const CASE_CLOSING_DOC = "investigate_doc";
+export const CASE_CLOSING_DOC = "investigate_report";
 
 export const getCaseClosingDocLabel = () =>
   getCategory(CASE_CLOSING_DOC)?.label ?? "เอกสารสอบสวน";
