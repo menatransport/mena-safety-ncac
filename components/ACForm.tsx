@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { DateTimePicker24h } from "./ui/datetime-picker";
 import { SearchableSelect } from "./ui/searchable-select";
 import { useSearchParams } from "next/navigation";
@@ -23,7 +23,7 @@ import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import { useClipboard_ac } from "@/lib/clipboard";
 import { LoaderPage } from "./LoaderPage";
-import { Printer, Columns2, Rows2, CirclePlus, Trash2, Bug, Copy, X, CircleCheckBig } from "lucide-react";
+import { Printer, Columns2, Rows2, CirclePlus, Trash2, Bug, Copy, X, CircleCheckBig, ClipboardList } from "lucide-react";
 import { printDocument_ac } from "@/lib/printDocument";
 import { sendErrorLog } from "@/lib/logError";
 import { documentRole } from "@/lib/documentRole";
@@ -43,13 +43,13 @@ interface CategoryFiles {
 }
 
 /**
- * เปิด/ปิดฟอร์มสอบสวน (ส่วนที่ 2)
+ * ฟอร์มสอบสวน (ส่วนที่ 2) — ผู้ใช้เปิด/ปิดเองได้จากปุ่มบนหน้าฟอร์ม
  *
- * ระหว่างที่ยังไม่เปิดใช้ ให้ใช้การแนบ "เอกสารสอบสวน" ในส่วนเอกสารแนบแทน
- * แนบแล้วจึงจะกดปิดเคสได้ (CASE_CLOSING_DOC ใน lib/attachment.ts)
- * เปิดกลับมาเมื่อไหร่ก็แค่เปลี่ยนเป็น true — โค้ดส่วนที่ 2 ยังอยู่ครบ
+ * ค่าเริ่มต้นคือ "ปิด" เพราะช่วงนี้ใช้การแนบ "เอกสารสอบสวน" ในส่วนเอกสารแนบแทน
+ * (แนบแล้วจึงจะกดปิดเคสได้ — CASE_CLOSING_DOC ใน lib/attachment.ts)
+ * ใครอยากกรอกฟอร์มเต็มก็เปิดเองได้ และระบบจะจำค่าไว้ให้
  */
-const SHOW_INVESTIGATE_SECTION = false;
+const INVESTIGATE_STORAGE_KEY = "acFormShowInvestigate";
 
 /** สถานะที่ถือว่าเคสถูกปิดแล้ว (ACRecords แสดงผลเป็น "Completed") */
 const CASE_CLOSED_STATUS = "Completed Investigate";
@@ -222,6 +222,22 @@ export const ACFormComponent = () => {
     });
   };
 
+  // ฟอร์มสอบสวน (ส่วนที่ 2): เริ่มต้นปิดเสมอ แล้วค่อยอ่านค่าที่จำไว้ตอน mount
+  // (อ่าน localStorage ตอน initial state จะทำให้ฝั่ง server กับ client เรนเดอร์ไม่ตรงกัน)
+  const [showInvestigate, setShowInvestigate] = useState(false);
+
+  useEffect(() => {
+    setShowInvestigate(localStorage.getItem(INVESTIGATE_STORAGE_KEY) === "on");
+  }, []);
+
+  const toggleInvestigate = () => {
+    setShowInvestigate((prev) => {
+      const next = !prev;
+      localStorage.setItem(INVESTIGATE_STORAGE_KEY, next ? "on" : "off");
+      return next;
+    });
+  };
+
   const [isViewMode, setIsViewMode] = useState(false);
   const [isLoadingFormData, setIsLoadingFormData] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<CategoryFiles>({});
@@ -363,12 +379,19 @@ export const ACFormComponent = () => {
     initializeForm();
   }, []);
 
-  // โหลดข้อมูลการสอบสวน (ส่วนที่ 2) เมื่อมีเลขเคสแล้ว
+  // เอกสารที่โหลดข้อมูลการสอบสวนไปแล้ว — กันการดึงทับของที่ผู้ใช้กำลังกรอกอยู่
+  // เวลาปิดแล้วเปิดฟอร์มสอบสวนใหม่
+  const loadedInvestigateDocRef = useRef<string | null>(null);
+
+  // โหลดข้อมูลการสอบสวน (ส่วนที่ 2) เมื่อมีเลขเคส และผู้ใช้เปิดฟอร์มสอบสวนไว้
   useEffect(() => {
     const docNo = formData.document_no_ac;
     if (!docNo) return;
-    // ส่วนที่ 2 ถูกซ่อนอยู่ ไม่ต้องยิง API ที่ไม่ได้ใช้
-    if (!SHOW_INVESTIGATE_SECTION) return;
+    // ฟอร์มสอบสวนถูกปิดอยู่ ไม่ต้องยิง API ที่ไม่ได้ใช้
+    if (!showInvestigate) return;
+    // โหลดเอกสารนี้ไปแล้ว ไม่ต้องดึงซ้ำให้ทับสิ่งที่กรอกค้างไว้
+    if (loadedInvestigateDocRef.current === docNo) return;
+    loadedInvestigateDocRef.current = docNo;
 
     let cancelled = false;
 
@@ -416,7 +439,7 @@ export const ACFormComponent = () => {
     return () => {
       cancelled = true;
     };
-  }, [formData.document_no_ac]);
+  }, [formData.document_no_ac, showInvestigate]);
 
   const processAttachmentData = (data: any) => {
     const categorizedFiles: CategoryFiles = {};
@@ -919,7 +942,8 @@ export const ACFormComponent = () => {
 
       printDocument_ac({
         formData: printFormData as caseReport_AC,
-        investigateData: formInvestigate,
+        // ใบพิมพ์ตามที่เห็นบนหน้าจอ — ปิดฟอร์มสอบสวนไว้ก็ไม่ต้องมีส่วนที่ 2
+        investigateData: hasInvestigateSection ? formInvestigate : undefined,
         userinfo,
         attachedFiles
       });
@@ -2010,8 +2034,9 @@ export const ACFormComponent = () => {
   };
 
   // ========== Paper Layout ==========
-  const hasInvestigateSection =
-    SHOW_INVESTIGATE_SECTION && !!formData?.document_no_ac;
+  // ปุ่มสลับจะขึ้นเมื่อมีเลขที่เอกสารแล้ว ส่วนตัวฟอร์มขึ้นเมื่อผู้ใช้เปิดไว้
+  const canShowInvestigateToggle = !!formData?.document_no_ac;
+  const hasInvestigateSection = canShowInvestigateToggle && showInvestigate;
 
   // ========== ปิดเคส (ใช้แทนฟอร์มสอบสวนระหว่างที่ส่วนที่ 2 ยังปิดอยู่) ==========
   const isCaseClosed = formData?.casestatus === CASE_CLOSED_STATUS;
@@ -2048,7 +2073,31 @@ export const ACFormComponent = () => {
                 hidden md:flex md:flex-col md:items-center md:gap-4
                 fixed top-auto right-0 m-2 z-50
               ">
-              {/* สลับมุมมองกระดาษ (แสดงเมื่อมีส่วนที่ 2 แล้ว) */}
+              {/* เปิด/ปิดฟอร์มสอบสวน (ส่วนที่ 2) — ค่าเริ่มต้นคือปิด */}
+              {canShowInvestigateToggle && (
+                <div className="flex flex-col items-center">
+                  <button
+                    type="button"
+                    onClick={toggleInvestigate}
+                    title={
+                      showInvestigate
+                        ? "ซ่อนฟอร์มสอบสวน (ส่วนที่ 2)"
+                        : "แสดงฟอร์มสอบสวน (ส่วนที่ 2)"
+                    }
+                    className={`hover:scale-105 cursor-pointer text-white border border-white font-semibold p-3 rounded-lg shadow-lg hover:shadow-xl transition duration-300 flex flex-col items-center justify-center ${showInvestigate
+                      ? "bg-[#4a8a5c] hover:bg-[#3c7049]"
+                      : "bg-gray-500 hover:bg-gray-700"
+                      }`}
+                  >
+                    <ClipboardList className="w-8 h-8" />
+                  </button>
+                  <span className="mt-1 text-sm font-medium text-gray-400">
+                    {showInvestigate ? "ซ่อนสอบสวน" : "สอบสวน"}
+                  </span>
+                </div>
+              )}
+
+              {/* สลับมุมมองกระดาษ (แสดงเมื่อเปิดส่วนที่ 2 แล้ว) */}
               {hasInvestigateSection && (
                 <div className="hidden xl:flex xl:flex-col xl:items-center">
                   <button
@@ -2840,7 +2889,6 @@ export const ACFormComponent = () => {
                         <div className="mb-4">
                           <label className="block text-gray-700 font-medium mb-1 text-sm">
                             เลขที่แจ้งซ่อม (MR):
-                            <span className="text-red-500">*</span>
                           </label>
                           <input
                             type="text"
