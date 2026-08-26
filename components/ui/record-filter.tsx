@@ -11,20 +11,10 @@ export interface RecordFilterResult {
     start_date: string;
     end_date: string;
     document_no?: string;
-    department_id?: string;
-    site_id?: string;
-    client_id?: string;
-    driver_id?: string;
-    casestatus?: string;
-    priority?: string;
     vehicle_plate?: string;
 }
 
 export interface DropdownData {
-    sites: Array<{ site_id: string | number; site_name: string; site_name_th?: string }>;
-    drivers: Array<{ driver_id: string | number; first_name: string; last_name: string }>;
-    departments: Array<{ department_id: string | number; department_name: string; department_name_th?: string }>;
-    clients: Array<{ client_id: string | number; client_name: string }>;
     plates?: Array<{ plate_no: string }>;
 }
 
@@ -40,8 +30,6 @@ interface RecordFilterProps {
     dropdownData: DropdownData;
     className?: string;
     autoSearch?: boolean; // auto search on mount, default true
-    onLoadDrivers?: () => void;
-    onLoadClients?: () => void;
     onLoadPlates?: () => void;
 }
 
@@ -97,8 +85,6 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
             dropdownData,
             className = "",
             autoSearch = true,
-            onLoadDrivers,
-            onLoadClients,
             onLoadPlates,
         },
         ref
@@ -111,12 +97,6 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
 
         // Other filter states
         const [documentNo, setDocumentNo] = useState("");
-        const [departmentId, setDepartmentId] = useState("");
-        const [siteId, setSiteId] = useState("");
-        const [clientId, setClientId] = useState("");
-        const [driverId, setDriverId] = useState("");
-        const [caseStatus, setCaseStatus] = useState("");
-        const [priority, setPriority] = useState("");
         const [vehiclePlate, setVehiclePlate] = useState("");
 
         // UI state
@@ -131,15 +111,9 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
             return {
                 ...dateRange,
                 ...(documentNo && { document_no: documentNo }),
-                ...(departmentId && { department_id: departmentId }),
-                ...(clientId && { client_id: clientId }),
-                ...(siteId && { site_id: siteId }),
-                ...(driverId && { driver_id: driverId }),
-                ...(caseStatus && { casestatus: caseStatus }),
-                ...(priority && { priority: priority }),
                 ...(vehiclePlate && { vehicle_plate: vehiclePlate }),
             };
-        }, [selectedYears, selectedMonths, documentNo, departmentId, siteId, clientId, driverId, caseStatus, priority, vehiclePlate]);
+        }, [selectedYears, selectedMonths, documentNo, vehiclePlate]);
 
         const handleApply = useCallback(() => {
             onFilter(buildFilterResult());
@@ -149,12 +123,6 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
             setSelectedYears([currentYear]);
             setSelectedMonths([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
             setDocumentNo("");
-            setDepartmentId("");
-            setSiteId("");
-            setClientId("");
-            setDriverId("");
-            setCaseStatus("");
-            setPriority("");
             setVehiclePlate("");
 
             const dateRange = getDateRangeFromSelection([currentYear], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
@@ -167,7 +135,7 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
             triggerSearch: handleApply,
             resetFilters: handleReset,
         }), [handleApply, handleReset]);
-        
+
         useEffect(() => {
             if (!isInitialized && autoSearch) {
                 handleApply();
@@ -178,7 +146,7 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
         useEffect(() => {
             if (!isInitialized) return;
             handleApply();
-        }, [selectedYears, selectedMonths, departmentId, siteId, clientId, driverId, caseStatus, priority, vehiclePlate]);
+        }, [selectedYears, selectedMonths, vehiclePlate]);
 
         useEffect(() => {
             if (!isInitialized) return;
@@ -289,7 +257,7 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
                         </button>
 
                         {showAdvancedFilters && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 p-4 bg-slate-50/80 rounded-xl border border-slate-100">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-slate-50/80 rounded-xl border border-slate-100">
                                 {/* Document Number */}
                                 <div>
                                     <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
@@ -301,80 +269,6 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
                                         value={documentNo}
                                         onChange={(e) => setDocumentNo(e.target.value)}
                                         placeholder="พิมพ์เลขที่เอกสาร..."
-                                    />
-                                </div>
-
-                                {/* Department */}
-                                <div>
-                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
-                                        ฝ่าย
-                                    </label>
-                                    <SearchableSelect
-                                        options={
-                                            dropdownData.departments?.map((department) => ({
-                                                value: department.department_id?.toString() || "",
-                                                label: department.department_name_th || department.department_name || "ไม่ระบุชื่อ",
-                                            })) || []
-                                        }
-                                        value={departmentId}
-                                        onChange={(value) => setDepartmentId(value.toString())}
-                                        placeholder="เลือกฝ่าย..."
-                                    />
-                                </div>
-
-                                {/* Site */}
-                                <div>
-                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
-                                        สำนักงาน / ศูนย์ปฏิบัติการ
-                                    </label>
-                                    <SearchableSelect
-                                        options={
-                                            dropdownData.sites?.map((site) => ({
-                                                value: site.site_id?.toString() || "",
-                                                label: site.site_name_th || site.site_name || "ไม่ระบุชื่อ",
-                                            })) || []
-                                        }
-                                        value={siteId}
-                                        onChange={(value) => setSiteId(value.toString())}
-                                        placeholder="เลือกศูนย์..."
-                                    />
-                                </div>
-
-                                {/* Client */}
-                                <div>
-                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
-                                        ลูกค้า
-                                    </label>
-                                    <SearchableSelect
-                                        options={
-                                            dropdownData.clients?.map((client) => ({
-                                                value: client.client_id?.toString() || "",
-                                                label: client.client_name || "ไม่ระบุชื่อ",
-                                            })) || []
-                                        }
-                                        value={clientId}
-                                        onChange={(value) => setClientId(value.toString())}
-                                        onOpen={onLoadClients}
-                                        placeholder="เลือกลูกค้า..."
-                                    />
-                                </div>
-
-                                {/* Driver */}
-                                <div>
-                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
-                                        พนักงานขับรถ
-                                    </label>
-                                    <SearchableSelect
-                                        options={
-                                            dropdownData.drivers?.map((driver) => ({
-                                                value: driver.driver_id?.toString() || "",
-                                                label: `${driver.first_name || ""} ${driver.last_name || ""}`.trim() || "ไม่ระบุชื่อ",
-                                            })) || []
-                                        }
-                                        value={driverId}
-                                        onChange={(value) => setDriverId(value.toString())}
-                                        onOpen={onLoadDrivers}
-                                        placeholder="เลือกพนักงาน..."
                                     />
                                 </div>
 
@@ -396,40 +290,6 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
                                         placeholder="เลือกทะเบียนรถ..."
                                     />
                                 </div>
-
-                                {/* Status */}
-                                <div>
-                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
-                                        สถานะ
-                                    </label>
-                                    <SearchableSelect
-                                        options={[
-                                            { value: "Pending", label: "🟡 Pending" },
-                                            { value: "Completed Investigate", label: "🟢 Completed" },
-                                            { value: "Voided", label: "🔴 Voided" },
-                                        ]}
-                                        value={caseStatus}
-                                        onChange={(value) => setCaseStatus(value.toString())}
-                                        placeholder="เลือกสถานะ..."
-                                    />
-                                </div>
-
-                                {/* Priority */}
-                                <div>
-                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
-                                        ระดับความรุนแรง
-                                    </label>
-                                    <SearchableSelect
-                                        options={[
-                                            { value: "Minor", label: "🟡 Minor" },
-                                            { value: "Major", label: "🟠 Major" },
-                                            { value: "Crisis", label: "🔴 Crisis" },
-                                        ]}
-                                        value={priority}
-                                        onChange={(value) => setPriority(value.toString())}
-                                        placeholder="เลือกระดับ..."
-                                    />
-                                </div>                            
                             </div>
                         )}
                     </div>

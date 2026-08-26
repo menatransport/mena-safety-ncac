@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 
 import { LordIcon } from "./LordIcon";
 import {
@@ -9,6 +9,7 @@ import {
   ArrowDown,
 } from "lucide-react";
 import { RecordFilter, RecordFilterResult, RecordFilterRef } from "./ui/record-filter";
+import { ColumnFilterDropdown, ColumnFilterOption } from "./ui/column-filter-dropdown";
 import Swal from "sweetalert2";
 import { sendErrorLog } from '@/lib/logError';
 import { documentRole } from "@/lib/documentRole";
@@ -55,37 +56,62 @@ interface FilterCriteria {
   start_date?: string;
   end_date?: string;
   document_no?: string;
-  department_id?: string;
-  site_id?: string;
-  client_id?: string;
-  driver_id?: string;
-  casestatus?: string;
-  priority?: string;
   vehicle_plate?: string;
 }
 
-type SortConfig = {
-  key: keyof ACRecord | null;
-  direction: "asc" | "desc";
+interface ColumnFilters {
+  casestatus: string[];
+  priority: string[];
+  site_id: string[];
+  department_id: string[];
+  driver_id: string[];
+  client_id: string[];
+}
+
+const EMPTY_COLUMN_FILTERS: ColumnFilters = {
+  casestatus: [],
+  priority: [],
+  site_id: [],
+  department_id: [],
+  driver_id: [],
+  client_id: [],
 };
+
+const STATUS_OPTIONS: ColumnFilterOption[] = [
+  { value: "Pending", label: "🟡 Pending" },
+  { value: "Completed Investigate", label: "🟢 Completed" },
+  { value: "Voided", label: "🔴 Voided" },
+];
+
+const PRIORITY_OPTIONS: ColumnFilterOption[] = [
+  { value: "Minor", label: "🟡 Minor" },
+  { value: "Major", label: "🟠 Major" },
+  { value: "Crisis", label: "🔴 Crisis" },
+];
 
 export const ACRecordsComponent = () => {
   const [records, setRecords] = useState<ACRecord[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const recordsPerPage = 10;
+  const [isExporting, setIsExporting] = useState(false);
   const filterRef = useRef<RecordFilterRef>(null);
   const { theme } = useUiTheme();
 
-  // Sort state
-  const [sortConfig, setSortConfig] = useState<SortConfig>({
-    key: "date",
-    direction: "desc",
-  });
+  // Pagination / sorting state (server-side now)
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [sortBy, setSortBy] = useState("record_datetime");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   // Filter states
   const [filterCriteria, setFilterCriteria] = useState<FilterCriteria>({});
+  const [columnFilters, setColumnFilters] = useState<ColumnFilters>(EMPTY_COLUMN_FILTERS);
+  const prevFilterKeyRef = useRef<string>("");
+  // RecordFilter applies its default date range on mount; skip the very first
+  // fetch until that lands, so we don't briefly fetch/show an unfiltered page.
+  const [filterReady, setFilterReady] = useState(false);
+
   const [dropdownData, setDropdownData] = useState<{
     sites: any[];
     drivers: any[];
@@ -99,6 +125,36 @@ export const ACRecordsComponent = () => {
     clients: [],
     plates: [],
   });
+
+  const loadDrivers = useCallback(async () => {
+    if (dropdownData.drivers.length > 0) return;
+    try {
+      const res = await fetch("/api/list", { headers: { "X-Api-Path": "/masterdrivers" } });
+      const data = await res.json();
+      const sorted = data.sort((a: any, b: any) => {
+        const nameA = `${a.first_name || ""} ${a.last_name || ""}`.trim().toLowerCase();
+        const nameB = `${b.first_name || ""} ${b.last_name || ""}`.trim().toLowerCase();
+        return nameA.localeCompare(nameB, 'th');
+      });
+      setDropdownData((prev) => ({ ...prev, drivers: sorted }));
+    } catch (error) {
+      console.error("Error fetching drivers:", error);
+    }
+  }, [dropdownData.drivers.length]);
+
+  const loadClients = useCallback(async () => {
+    if (dropdownData.clients.length > 0) return;
+    try {
+      const res = await fetch("/api/list", { headers: { "X-Api-Path": "/clients" } });
+      const data = await res.json();
+      const sorted = (data || []).filter((c: any) => c.client_id !== 0).sort((a: any, b: any) => {
+        return (a.client_name || "").localeCompare(b.client_name || "", 'th');
+      });
+      setDropdownData((prev) => ({ ...prev, clients: sorted }));
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+    }
+  }, [dropdownData.clients.length]);
 
   useEffect(() => {
     const fetchDropdownData = async () => {
@@ -145,42 +201,23 @@ export const ACRecordsComponent = () => {
     };
 
     fetchDropdownData();
+    // Column filter dropdowns need options up-front (no lazy onOpen), so load eagerly on mount.
+    loadDrivers();
+    loadClients();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadDrivers = async () => {
-    if (dropdownData.drivers.length > 0) return;
-    try {
-      const res = await fetch("/api/list", { headers: { "X-Api-Path": "/masterdrivers" } });
-      const data = await res.json();
-      const sorted = data.sort((a: any, b: any) => {
-        const nameA = `${a.first_name || ""} ${a.last_name || ""}`.trim().toLowerCase();
-        const nameB = `${b.first_name || ""} ${b.last_name || ""}`.trim().toLowerCase();
-        return nameA.localeCompare(nameB, 'th');
-      });
-      setDropdownData((prev) => ({ ...prev, drivers: sorted }));
-    } catch (error) {
-      console.error("Error fetching drivers:", error);
-    }
-  };
-
-  const loadClients = async () => {
-    if (dropdownData.clients.length > 0) return;
-    try {
-      const res = await fetch("/api/list", { headers: { "X-Api-Path": "/clients" } });
-      const data = await res.json();
-      const sorted = (data || []).filter((c: any) => c.client_id !== 0).sort((a: any, b: any) => {
-        return (a.client_name || "").localeCompare(b.client_name || "", 'th');
-      });
-      setDropdownData((prev) => ({ ...prev, clients: sorted }));
-    } catch (error) {
-      console.error("Error fetching clients:", error);
-    }
-  };
-
-  const handleFilterChange = async (filters: RecordFilterResult) => {
+  const handleFilterChange = useCallback((filters: RecordFilterResult) => {
+    const key = JSON.stringify(filters);
+    const changed = prevFilterKeyRef.current !== "" && prevFilterKeyRef.current !== key;
+    const isFirst = prevFilterKeyRef.current === "";
+    prevFilterKeyRef.current = key;
     setFilterCriteria(filters);
-    await handleSearchWithFilters(filters);
-  };
+    setFilterReady(true);
+    // Only jump back to page 1 when the filter actually changed (a triggerSearch()
+    // refresh after void must keep the current page, not reset it).
+    if (changed || isFirst) setPage(1);
+  }, []);
 
   const formatDate = (dateString: string) => {
     const [year, month, day] = dateString.split("T")[0].split("-");
@@ -191,18 +228,69 @@ export const ACRecordsComponent = () => {
     return `${day}/${month}/${year}, ${hours}:${minutes}`;
   };
 
-  const handleSearchWithFilters = async (filters: RecordFilterResult) => {
+  const transformRecords = (items: any[]): ACRecord[] =>
+    items.map((record: any) => ({
+      id: record.document_no_ac,
+      date: record.record_datetime,
+      date_event: record.incident_datetime,
+      customer: record.client_name,
+      reporter: record.reporter_name,
+      site: record.site_name,
+      department: record.department_name,
+      fault_party: record.fault_party,
+      plateNumber: record.vehicle_truckno,
+      driver: record.driver_name,
+      driver_role_name: record.driver_role_name,
+      vehicle_head_plate: record.vehicle_head_plate,
+      vehicle_tail_plate: record.vehicle_tail_plate,
+      drug_test: record.drug_test,
+      drug_test_result: record.drug_test_result,
+      alcohol_test: record.alcohol_test,
+      alcohol_test_result: record.alcohol_test_result,
+      status: record.casestatus,
+      priority: record.priority,
+      description: record.case_details,
+      location: record.case_location,
+      province_name: record.province_name,
+      district_name: record.district_name,
+      sub_district_name: record.sub_district_name,
+      product_damage: record.product_damage,
+      product_damage_details: record.product_damage_details,
+      estimated_goods_damage_value: record.estimated_goods_damage_value,
+      actual_goods_damage_value: record.actual_goods_damage_value,
+      truck_damage: record.truck_damage,
+      truck_damage_details: record.truck_damage_details,
+      estimated_vehicle_damage_value: record.estimated_vehicle_damage_value,
+      actual_vehicle_damage_value: record.actual_vehicle_damage_value,
+      estimated_cost: (record.estimated_goods_damage_value + record.estimated_vehicle_damage_value),
+      actual_price: (record.actual_goods_damage_value + record.actual_vehicle_damage_value),
+    }));
+
+  const buildQueryParams = useCallback((pageArg: number, pageSizeArg: number) => {
+    const params = new URLSearchParams();
+    if (filterCriteria.start_date) params.append("start_date", filterCriteria.start_date);
+    if (filterCriteria.end_date) params.append("end_date", filterCriteria.end_date);
+    if (filterCriteria.document_no) params.append("document_no", filterCriteria.document_no);
+    if (filterCriteria.vehicle_plate) params.append("vehicle_plate", filterCriteria.vehicle_plate);
+
+    columnFilters.casestatus.forEach((v) => params.append("casestatus", v));
+    columnFilters.priority.forEach((v) => params.append("priority", v));
+    columnFilters.site_id.forEach((v) => params.append("site_id", v));
+    columnFilters.department_id.forEach((v) => params.append("department_id", v));
+    columnFilters.driver_id.forEach((v) => params.append("driver_id", v));
+    columnFilters.client_id.forEach((v) => params.append("client_id", v));
+
+    params.append("page", String(pageArg));
+    params.append("page_size", String(pageSizeArg));
+    params.append("sort_by", sortBy);
+    params.append("sort_order", sortOrder);
+    return params;
+  }, [filterCriteria, columnFilters, sortBy, sortOrder]);
+
+  const fetchRecords = useCallback(async () => {
     setLoading(true);
-    setCurrentPage(1);
     try {
-      const params = new URLSearchParams();
-
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value && value.toString().trim()) {
-          params.append(key, value.toString());
-        }
-      });
-
+      const params = buildQueryParams(page, pageSize);
       const response = await fetch(`/api/record/ac?${params.toString()}`, {
         method: "GET",
         headers: {
@@ -212,43 +300,10 @@ export const ACRecordsComponent = () => {
 
       if (response.ok) {
         const data = await response.json();
-        const transformedRecords = data.map((record: any) => ({
-          id: record.document_no_ac,
-          date: record.record_datetime,
-          date_event: record.incident_datetime,
-          customer: record.client_name,
-          reporter: record.reporter_name,
-          site: record.site_name,
-          department: record.department_name,
-          fault_party: record.fault_party,
-          plateNumber: record.vehicle_truckno,
-          driver: record.driver_name,
-          driver_role_name: record.driver_role_name,
-          vehicle_head_plate: record.vehicle_head_plate,
-          vehicle_tail_plate: record.vehicle_tail_plate,
-          drug_test: record.drug_test,
-          drug_test_result: record.drug_test_result,
-          alcohol_test: record.alcohol_test,
-          alcohol_test_result: record.alcohol_test_result,
-          status: record.casestatus,
-          priority: record.priority,
-          description: record.case_details,
-          location: record.case_location,
-          province_name: record.province_name,
-          district_name: record.district_name,
-          sub_district_name: record.sub_district_name,
-          product_damage: record.product_damage,
-          product_damage_details: record.product_damage_details,
-          estimated_goods_damage_value: record.estimated_goods_damage_value,
-          actual_goods_damage_value: record.actual_goods_damage_value,
-          truck_damage: record.truck_damage,
-          truck_damage_details: record.truck_damage_details,
-          estimated_vehicle_damage_value: record.estimated_vehicle_damage_value,
-          actual_vehicle_damage_value: record.actual_vehicle_damage_value,
-          estimated_cost: (record.estimated_goods_damage_value + record.estimated_vehicle_damage_value),
-          actual_price: (record.actual_goods_damage_value + record.actual_vehicle_damage_value),
-        }));
+        const transformedRecords = transformRecords(data.items || []);
         setRecords(transformedRecords);
+        setTotalRecords(data.total ?? 0);
+        setTotalPages(data.total_pages ?? 1);
 
         const allPlates = new Set<string>();
         transformedRecords.forEach((r: ACRecord) => {
@@ -270,168 +325,71 @@ export const ACRecordsComponent = () => {
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildQueryParams, page, pageSize]);
+
+  useEffect(() => {
+    if (!filterReady) return;
+    fetchRecords();
+  }, [fetchRecords, filterReady]);
+
+  const handleColumnFilterApply = (key: keyof ColumnFilters) => (values: string[]) => {
+    setColumnFilters((prev) => ({ ...prev, [key]: values }));
+    setPage(1);
   };
 
-  // Sort function
-  const handleSort = (key: keyof ACRecord) => {
-    let direction: "asc" | "desc" = "asc";
-
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-
-    setSortConfig({ key, direction });
+  const handleHeaderSort = (key: string) => {
+    setSortOrder(sortBy === key && sortOrder === "asc" ? "desc" : "asc");
+    setSortBy(key);
   };
 
-  const getSortIcon = (key: keyof ACRecord) => {
-    if (sortConfig.key !== key) {
+  const getSortIcon = (key: string) => {
+    if (sortBy !== key) {
       return <ArrowUpDown size={14} className="text-gray-400" />;
     }
-
-    if (sortConfig.direction === "asc") {
-      return <ArrowUp size={14} className="text-blue-600" />;
-    } else {
-      return <ArrowDown size={14} className="text-blue-600" />;
-    }
+    return sortOrder === "asc" ? (
+      <ArrowUp size={14} className="text-blue-600" />
+    ) : (
+      <ArrowDown size={14} className="text-blue-600" />
+    );
   };
 
-  const sortedRecords = React.useMemo(() => {
-    const sortableRecords = [...records];
+  // Distinct value lists for the column filter dropdowns
+  const siteOptions: ColumnFilterOption[] = useMemo(
+    () =>
+      dropdownData.sites.map((s: any) => ({
+        value: s.site_id?.toString() || "",
+        label: s.site_name_th || s.site_name || "ไม่ระบุชื่อ",
+      })),
+    [dropdownData.sites]
+  );
 
-    if (sortConfig.key) {
-      sortableRecords.sort((a, b) => {
-        const aValue = a[sortConfig.key!];
-        const bValue = b[sortConfig.key!];
+  const departmentOptions: ColumnFilterOption[] = useMemo(
+    () =>
+      dropdownData.departments.map((d: any) => ({
+        value: d.department_id?.toString() || "",
+        label: d.department_name_th || d.department_name || "ไม่ระบุชื่อ",
+      })),
+    [dropdownData.departments]
+  );
 
-        if (sortConfig.key === "date") {
-          const aDate = new Date(aValue as string).getTime();
-          const bDate = new Date(bValue as string).getTime();
+  const driverOptions: ColumnFilterOption[] = useMemo(
+    () =>
+      dropdownData.drivers.map((d: any) => ({
+        value: d.driver_id?.toString() || "",
+        label: `${d.first_name || ""} ${d.last_name || ""}`.trim() || "ไม่ระบุชื่อ",
+      })),
+    [dropdownData.drivers]
+  );
 
-          if (sortConfig.direction === "asc") {
-            return aDate - bDate;
-          } else {
-            return bDate - aDate;
-          }
-        }
-
-        // Handle string sorting
-        if (typeof aValue === "string" && typeof bValue === "string") {
-          if (sortConfig.direction === "asc") {
-            return aValue.localeCompare(bValue);
-          } else {
-            return bValue.localeCompare(aValue);
-          }
-        }
-
-        return 0;
-      });
-    }
-
-    return sortableRecords;
-  }, [records, sortConfig]);
-
-  const filteredRecords = sortedRecords.filter((record) => {
-    const matchesSearch =
-      record.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.description.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesStatus =
-      !filterCriteria.casestatus ||
-      filterCriteria.casestatus
-        .split(",")
-        .map((s) => s.trim())
-        .includes(record.status);
-
-    const matchesSite =
-      !filterCriteria.site_id ||
-      filterCriteria.site_id
-        .split(",")
-        .map((s) => s.trim())
-        .some((siteId) => {
-          const site = dropdownData.sites.find(
-            (s) => s.site_id?.toString() === siteId
-          );
-          return site && record.site === (site.site_name_th || site.site_name);
-        });
-
-    const matchesDriver =
-      !filterCriteria.driver_id ||
-      filterCriteria.driver_id
-        .split(",")
-        .map((d) => d.trim())
-        .some((driverId) => {
-          const driver = dropdownData.drivers.find(
-            (d) => d.driver_id?.toString() === driverId
-          );
-          return (
-            driver &&
-            record.driver ===
-            `${driver.first_name || ""} ${driver.last_name || ""}`.trim()
-          );
-        });
-
-    const matchesDocumentNo =
-      !filterCriteria.document_no ||
-      filterCriteria.document_no
-        .split(",")
-        .map((d) => d.trim())
-        .some((docNo) => record.id.toLowerCase().includes(docNo.toLowerCase()));
-
-    const matchesDepartment =
-      !filterCriteria.department_id ||
-      filterCriteria.department_id
-        .split(",")
-        .map((d) => d.trim())
-        .some((deptId) => {
-          const dept = dropdownData.departments.find(
-            (d) => d.department_id?.toString() === deptId
-          );
-          return dept && record.department === (dept.department_name_th || dept.department_name);
-        });
-
-    const matchesClient =
-      !filterCriteria.client_id ||
-      filterCriteria.client_id
-        .split(",")
-        .map((c) => c.trim())
-        .some((clientId) => {
-          const client = dropdownData.clients.find(
-            (c) => c.client_id?.toString() === clientId
-          );
-          return client && record.customer === client.client_name;
-        });
-
-    const matchesPriority =
-      !filterCriteria.priority ||
-      filterCriteria.priority
-        .split(",")
-        .map((p) => p.trim())
-        .includes(record.priority);
-
-    const matchesPlate =
-      !filterCriteria.vehicle_plate ||
-      record.plateNumber === filterCriteria.vehicle_plate ||
-      record.vehicle_head_plate === filterCriteria.vehicle_plate ||
-      record.vehicle_tail_plate === filterCriteria.vehicle_plate;
-
-    return (
-      matchesSearch &&
-      matchesStatus &&
-      matchesSite &&
-      matchesDriver &&
-      matchesDocumentNo &&
-      matchesDepartment &&
-      matchesClient &&
-      matchesPriority &&
-      matchesPlate
-    );
-  });
-
-  // Pagination
-  const totalPages = Math.ceil(filteredRecords.length / recordsPerPage);
-  const startIndex = (currentPage - 1) * recordsPerPage;
-  const endIndex = startIndex + recordsPerPage;
-  const currentRecords = filteredRecords.slice(startIndex, endIndex);
+  const clientOptions: ColumnFilterOption[] = useMemo(
+    () =>
+      dropdownData.clients.map((c: any) => ({
+        value: c.client_id?.toString() || "",
+        label: c.client_name || "ไม่ระบุชื่อ",
+      })),
+    [dropdownData.clients]
+  );
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -573,95 +531,142 @@ export const ACRecordsComponent = () => {
   }
 
   const exportToExcel = async () => {
-    if (filteredRecords.length === 0) {
-      Swal.fire({
-        title: "ไม่มีข้อมูล",
-        text: "ไม่มีข้อมูลให้ Export",
-        icon: "warning"
+    setIsExporting(true);
+    try {
+      const params = buildQueryParams(1, 5000);
+      const response = await fetch(`/api/record/ac?${params.toString()}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
       });
-      return;
-    }
-    const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 
-    const excelData = filteredRecords.map(record => {
-      let reportYear = '';
-      let reportMonth = '';
-      let reportDate = '';
-      let reportTime = '';
-
-      if (record.date) {
-        const date = new Date(record.date);
-        reportYear = date.getFullYear().toString();
-        reportMonth = thaiMonths[date.getMonth()];
-        reportDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
-        reportTime = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+      if (!response.ok) {
+        Swal.fire({
+          title: "ไม่สำเร็จ!",
+          text: "ไม่สามารถดึงข้อมูลสำหรับ Export ได้",
+          icon: "error",
+        });
+        return;
       }
-      return {
-        'เลขที่เอกสาร': record.id,
-        'ปีที่บันทึกเหตุ': reportYear,
-        'เดือนที่บันทึกเหตุ': reportMonth,
-        'วันที่บันทึกเหตุ': reportDate,
-        'เวลาที่บันทึกเหตุ': reportTime,
-        'วันและเวลา เกิดเหตุ': record.date_event ? formatDate(record.date_event) : '',
-        'ลักษณะความรับผิดจากอุบัติเหตุ': record.fault_party || '',
-        'ระดับความรุนแรง': record.priority || '',
-        'สถานะ': record.status || '',
-        'ลูกค้า': record.customer || '',
-        'ผู้รายงาน': record.reporter || '',
-        'สำนักงาน/ศูนย์': record.site || '',
-        'แผนก': record.department || '',
-        'พนักงานขับรถ': record.driver || '',
-        'ตำแหน่งพนักงานขับรถ': record.driver_role_name || '',
-        'เบอร์รถ': record.plateNumber || '',
-        'ทะเบียนหัวรถ': record.vehicle_head_plate || '',
-        'ทะเบียนหางรถ': record.vehicle_tail_plate || '',
-        'การตรวจสารเสพติด': record.drug_test || '',
-        'ผลการตรวจสารเสพติด': record.drug_test_result || '',
-        'การตรวจแอลกอฮอล์': record.alcohol_test || '',
-        'ผลการตรวจแอลกอฮอล์': record.alcohol_test_result || '',
-        'รายละเอียด': record.description || '',
-        'สถานที่เกิดเหตุ': record.location || '',
-        'จังหวัด': record.province_name || '',
-        'อำเภอ': record.district_name || '',
-        'ตำบล': record.sub_district_name || '',
-        'ความเสียหายของสินค้า': record.product_damage || '',
-        'รายละเอียดความเสียหายของสินค้า': record.product_damage_details || '',
-        'ความเสียหายของรถ': record.truck_damage || '',
-        'รายละเอียดความเสียหายของรถ': record.truck_damage_details || '',
-        'มูลค่าความเสียหายประมาณการ': record.estimated_cost != null ? Number(record.estimated_cost) : null,
-        'มูลค่าความเสียหายจริง': record.actual_price != null ? Number(record.actual_price) : null
-      };
-    });
 
-    const XLSX = await import('xlsx');
+      const data = await response.json();
 
-    const ws = XLSX.utils.json_to_sheet(excelData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'AC Records');
+      if ((data.total_pages ?? 1) > 1) {
+        Swal.fire({
+          icon: "warning",
+          title: "ข้อมูลมากเกินไป",
+          text: "มีข้อมูลมากกว่า 5,000 รายการ กรุณาแคบช่วงวันที่หรือตัวกรองก่อน Export",
+        });
+        return;
+      }
 
-    const now = new Date();
-    const dateStr = now.toLocaleDateString('th-TH', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    }).replace(/\//g, '-');
-    const timeStr = now.toLocaleTimeString('th-TH', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    }).replace(/:/g, '-');
-    const fileName = `AC_${dateStr}_${timeStr}.xlsx`;
+      const exportRecords = transformRecords(data.items || []);
 
-    // Download file
-    XLSX.writeFile(wb, fileName);
+      if (exportRecords.length === 0) {
+        Swal.fire({
+          title: "ไม่มีข้อมูล",
+          text: "ไม่มีข้อมูลให้ Export",
+          icon: "warning"
+        });
+        return;
+      }
 
-    Swal.fire({
-      title: "สำเร็จ!",
-      text: `Export ข้อมูล ${filteredRecords.length} รายการเรียบร้อย`,
-      icon: "success",
-      timer: 2000
-    });
+      const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+      const excelData = exportRecords.map(record => {
+        let reportYear = '';
+        let reportMonth = '';
+        let reportDate = '';
+        let reportTime = '';
+
+        if (record.date) {
+          const date = new Date(record.date);
+          reportYear = date.getFullYear().toString();
+          reportMonth = thaiMonths[date.getMonth()];
+          reportDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+          reportTime = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+        }
+        return {
+          'เลขที่เอกสาร': record.id,
+          'ปีที่บันทึกเหตุ': reportYear,
+          'เดือนที่บันทึกเหตุ': reportMonth,
+          'วันที่บันทึกเหตุ': reportDate,
+          'เวลาที่บันทึกเหตุ': reportTime,
+          'วันและเวลา เกิดเหตุ': record.date_event ? formatDate(record.date_event) : '',
+          'ลักษณะความรับผิดจากอุบัติเหตุ': record.fault_party || '',
+          'ระดับความรุนแรง': record.priority || '',
+          'สถานะ': record.status || '',
+          'ลูกค้า': record.customer || '',
+          'ผู้รายงาน': record.reporter || '',
+          'สำนักงาน/ศูนย์': record.site || '',
+          'แผนก': record.department || '',
+          'พนักงานขับรถ': record.driver || '',
+          'ตำแหน่งพนักงานขับรถ': record.driver_role_name || '',
+          'เบอร์รถ': record.plateNumber || '',
+          'ทะเบียนหัวรถ': record.vehicle_head_plate || '',
+          'ทะเบียนหางรถ': record.vehicle_tail_plate || '',
+          'การตรวจสารเสพติด': record.drug_test || '',
+          'ผลการตรวจสารเสพติด': record.drug_test_result || '',
+          'การตรวจแอลกอฮอล์': record.alcohol_test || '',
+          'ผลการตรวจแอลกอฮอล์': record.alcohol_test_result || '',
+          'รายละเอียด': record.description || '',
+          'สถานที่เกิดเหตุ': record.location || '',
+          'จังหวัด': record.province_name || '',
+          'อำเภอ': record.district_name || '',
+          'ตำบล': record.sub_district_name || '',
+          'ความเสียหายของสินค้า': record.product_damage || '',
+          'รายละเอียดความเสียหายของสินค้า': record.product_damage_details || '',
+          'ความเสียหายของรถ': record.truck_damage || '',
+          'รายละเอียดความเสียหายของรถ': record.truck_damage_details || '',
+          'มูลค่าความเสียหายประมาณการ': record.estimated_cost != null ? Number(record.estimated_cost) : null,
+          'มูลค่าความเสียหายจริง': record.actual_price != null ? Number(record.actual_price) : null
+        };
+      });
+
+      const XLSX = await import('xlsx');
+
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'AC Records');
+
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('th-TH', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).replace(/\//g, '-');
+      const timeStr = now.toLocaleTimeString('th-TH', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }).replace(/:/g, '-');
+      const fileName = `AC_${dateStr}_${timeStr}.xlsx`;
+
+      // Download file
+      XLSX.writeFile(wb, fileName);
+
+      Swal.fire({
+        title: "สำเร็จ!",
+        text: `Export ข้อมูล ${exportRecords.length} รายการเรียบร้อย`,
+        icon: "success",
+        timer: 2000
+      });
+    } catch (error) {
+      console.error("Error exporting AC records:", error);
+      sendErrorLog('ACRecords/exportToExcel', error instanceof Error ? error : String(error));
+      Swal.fire({
+        title: "ไม่สำเร็จ!",
+        text: "เกิดข้อผิดพลาดระหว่าง Export",
+        icon: "error"
+      });
+    } finally {
+      setIsExporting(false);
+    }
   }
+
+  const extraFilterCount =
+    (filterCriteria.document_no ? 1 : 0) +
+    (filterCriteria.vehicle_plate ? 1 : 0) +
+    Object.values(columnFilters).reduce((sum, arr) => sum + (arr.length > 0 ? 1 : 0), 0);
 
   return (
     <div className={`min-h-screen ${theme === "Dark" ? "bg-gradient-to-br from-slate-800 via-slate-700 to-[#3d5578]" : "bg-[#d1ffe1]"} py-6`}>
@@ -672,8 +677,6 @@ export const ACRecordsComponent = () => {
           onFilter={handleFilterChange}
           loading={loading}
           dropdownData={dropdownData}
-          onLoadDrivers={loadDrivers}
-          onLoadClients={loadClients}
           onLoadPlates={() => {}}
           className="mb-6 z-[10] relative"
         />
@@ -686,56 +689,59 @@ export const ACRecordsComponent = () => {
               ข้อมูล AC Records
             </h2>
             <div className="text-white mt-1 space-y-1">
-              <p>พบข้อมูล {filteredRecords.length} รายการ</p>
+              <p>พบข้อมูล {totalRecords} รายการ</p>
               {filterCriteria.start_date && filterCriteria.end_date && (
                 <p className="text-sm">
                   ช่วงวันที่: {filterCriteria.start_date} ถึง{" "}
                   {filterCriteria.end_date}
                 </p>
               )}
-              {Object.keys(filterCriteria).filter(
-                (key) =>
-                  key !== "start_date" &&
-                  key !== "end_date" &&
-                  filterCriteria[key as keyof FilterCriteria]
-              ).length > 0 && (
-                  <p className="text-xs text-gray-200">
-                    มีการใช้ตัวกรองเพิ่มเติม:{" "}
-                    {
-                      Object.keys(filterCriteria).filter(
-                        (key) =>
-                          key !== "start_date" &&
-                          key !== "end_date" &&
-                          filterCriteria[key as keyof FilterCriteria]
-                      ).length
-                    }{" "}
-                    รายการ
-                  </p>
-                )}
+              {extraFilterCount > 0 && (
+                <p className="text-xs text-gray-200">
+                  มีการใช้ตัวกรองเพิ่มเติม: {extraFilterCount} รายการ
+                </p>
+              )}
             </div>
             <div className="absolute top-4 right-4 flex flex-col sm:flex-row gap-2">
               <button
                 onClick={exportToExcel}
-                className="bg-emerald-600 border border-white hover:bg-emerald-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 shadow-lg hover:shadow-xl"
+                disabled={isExporting}
+                className="bg-emerald-600 border border-white hover:bg-emerald-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <FileSpreadsheet size={20} />
+                {isExporting ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <FileSpreadsheet size={20} />
+                )}
                 <span className="hidden sm:inline">Excel</span>
               </button>
             </div>
-            <div className="flex justify-end items-center gap-2 text-sm text-gray-600">
+            <div className="flex flex-wrap justify-end items-center gap-3 text-sm text-gray-600">
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+                className="px-2 py-1 rounded border border-white/40 bg-slate-700 text-white text-xs focus:outline-none"
+              >
+                <option value={25}>25 / หน้า</option>
+                <option value={50}>50 / หน้า</option>
+                <option value={100}>100 / หน้า</option>
+              </select>
               <button
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage((p) => p - 1)}
+                disabled={page === 1}
+                onClick={() => setPage((p) => p - 1)}
                 className="px-3 py-1 border text-white rounded hover:bg-gray-100 hover:text-gray-600 disabled:opacity-40"
               >
                 ก่อนหน้า
               </button>
               <span className="text-gray-200">
-                หน้า {currentPage} จาก {totalPages}
+                หน้า {page} จาก {totalPages}
               </span>
               <button
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage((p) => p + 1)}
+                disabled={page === totalPages}
+                onClick={() => setPage((p) => p + 1)}
                 className="px-3 py-1 border text-white rounded hover:bg-gray-100 hover:text-gray-600 disabled:opacity-40"
               >
                 ถัดไป
@@ -743,85 +749,93 @@ export const ACRecordsComponent = () => {
             </div>
           </div>
           {/* Desktop View */}
-          <div className="hidden lg:block overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-300">
+          <div className="hidden lg:block overflow-x-auto overflow-y-auto max-h-[65vh]">
+            <table className="w-full border-collapse">
+              <thead className="sticky top-0 z-10 bg-slate-200 shadow-sm">
                 <tr>
-                  <th
-                    className="px-3 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
-                    onClick={() => handleSort("id")}
-                  >
-                    <div className="flex justify-center items-center gap-2 min-w-32">
-                      <span>ID</span>
-                      {getSortIcon("id")}
+                  <th className="border border-gray-300 px-3 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
+                    <div className="flex flex-col gap-1.5 min-w-32">
+                      <div
+                        className="flex items-center gap-2 cursor-pointer hover:text-emerald-700"
+                        onClick={() => handleHeaderSort("document_no_ac")}
+                      >
+                        <span>ID</span>
+                        {getSortIcon("document_no_ac")}
+                      </div>
+                      <ColumnFilterDropdown
+                        label="Priority"
+                        options={PRIORITY_OPTIONS}
+                        selectedValues={columnFilters.priority}
+                        onApply={handleColumnFilterApply("priority")}
+                        sortDirection={sortBy === "priority" ? sortOrder : null}
+                        onSort={(dir) => { setSortBy("priority"); setSortOrder(dir); }}
+                      />
                     </div>
                   </th>
                   <th
-                    className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
-                    onClick={() => handleSort("date")}
+                    className="border border-gray-300 px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wide cursor-pointer hover:text-emerald-700 transition-colors"
+                    onClick={() => handleHeaderSort("record_datetime")}
                   >
                     <div className="flex items-center gap-2">
                       <span>Report Date</span>
-                      {getSortIcon("date")}
+                      {getSortIcon("record_datetime")}
                     </div>
                   </th>
                   <th
-                    className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
-                    onClick={() => handleSort("date_event")}
+                    className="border border-gray-300 px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wide cursor-pointer hover:text-emerald-700 transition-colors"
+                    onClick={() => handleHeaderSort("incident_datetime")}
                   >
                     <div className="flex items-center gap-2">
                       <span>Incident Date</span>
-                      {getSortIcon("date_event")}
+                      {getSortIcon("incident_datetime")}
                     </div>
                   </th>
-                  <th
-                    className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
-                    onClick={() => handleSort("customer")}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span>Customer</span>
-                      {getSortIcon("customer")}
-                    </div>
+                  <th className="border border-gray-300 px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
+                    <ColumnFilterDropdown
+                      label="Customer"
+                      options={clientOptions}
+                      selectedValues={columnFilters.client_id}
+                      onApply={handleColumnFilterApply("client_id")}
+                      sortDirection={sortBy === "client_name" ? sortOrder : null}
+                      onSort={(dir) => { setSortBy("client_name"); setSortOrder(dir); }}
+                    />
+                  </th>
+                  <th className="border border-gray-300 px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
+                    <span>Reporter</span>
+                  </th>
+                  <th className="border border-gray-300 px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
+                    <ColumnFilterDropdown
+                      label="Site"
+                      options={siteOptions}
+                      selectedValues={columnFilters.site_id}
+                      onApply={handleColumnFilterApply("site_id")}
+                      sortDirection={sortBy === "site_name" ? sortOrder : null}
+                      onSort={(dir) => { setSortBy("site_name"); setSortOrder(dir); }}
+                    />
+                  </th>
+                  <th className="border border-gray-300 px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
+                    <ColumnFilterDropdown
+                      label="Dept."
+                      options={departmentOptions}
+                      selectedValues={columnFilters.department_id}
+                      onApply={handleColumnFilterApply("department_id")}
+                      sortDirection={sortBy === "department_name" ? sortOrder : null}
+                      onSort={(dir) => { setSortBy("department_name"); setSortOrder(dir); }}
+                    />
+                  </th>
+                  <th className="border border-gray-300 px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
+                    <ColumnFilterDropdown
+                      label="Driver"
+                      options={driverOptions}
+                      selectedValues={columnFilters.driver_id}
+                      onApply={handleColumnFilterApply("driver_id")}
+                      sortDirection={sortBy === "driver_name" ? sortOrder : null}
+                      onSort={(dir) => { setSortBy("driver_name"); setSortOrder(dir); }}
+                    />
                   </th>
                   <th
-                    className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
-                    onClick={() => handleSort("reporter")}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span>Reporter</span>
-                      {getSortIcon("reporter")}
-                    </div>
-                  </th>
-                  <th
-                    className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
-                    onClick={() => handleSort("site")}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span>Site</span>
-                      {getSortIcon("site")}
-                    </div>
-                  </th>
-                  <th
-                    className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
-                    onClick={() => handleSort("department")}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span>Dept.</span>
-                      {getSortIcon("department")}
-                    </div>
-                  </th>
-                  <th
-                    className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
-                    onClick={() => handleSort("driver")}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span>Driver</span>
-                      {getSortIcon("driver")}
-                    </div>
-                  </th>
-                  <th
-                    className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
-                    onClick={() => handleSort("estimated_cost")}
+                    className="border border-gray-300 px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wide cursor-pointer hover:text-emerald-700 transition-colors"
+                    onClick={() => handleHeaderSort("estimated_cost")}
                   >
                     <div className="flex items-center gap-2" title="มูลค่าความเสียหายประมาณการ">
                       <span>Est.</span>
@@ -829,8 +843,8 @@ export const ACRecordsComponent = () => {
                     </div>
                   </th>
                   <th
-                    className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
-                    onClick={() => handleSort("actual_price")}
+                    className="border border-gray-300 px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wide cursor-pointer hover:text-emerald-700 transition-colors"
+                    onClick={() => handleHeaderSort("actual_price")}
                   >
                     <div className="flex items-center gap-2" title="มูลค่าความเสียหายจริง">
                       <span>Act.</span>
@@ -838,53 +852,54 @@ export const ACRecordsComponent = () => {
                     </div>
                   </th>
 
-                  <th
-                    className="px-4 py-4 text-left text-sm font-medium text-gray-600 cursor-pointer hover:scale-105 transition-colors"
-                    onClick={() => handleSort("status")}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span>Status</span>
-                      {getSortIcon("status")}
-                    </div>
+                  <th className="border border-gray-300 px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
+                    <ColumnFilterDropdown
+                      label="Status"
+                      options={STATUS_OPTIONS}
+                      selectedValues={columnFilters.casestatus}
+                      onApply={handleColumnFilterApply("casestatus")}
+                      sortDirection={sortBy === "casestatus" ? sortOrder : null}
+                      onSort={(dir) => { setSortBy("casestatus"); setSortOrder(dir); }}
+                    />
                   </th>
-                  <th className="px-4 py-4 text-center text-sm font-medium text-gray-600">
+                  <th className="border border-gray-300 px-4 py-3 text-center text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
                     <span></span>
                   </th>
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-white">
+              <tbody>
                 {loading
                   ? Array.from({ length: 5 }).map((_, index) => (
                     <tr key={`loading-${index}`} className="animate-pulse">
-                      <td className="px-6 py-4">
+                      <td className="border border-gray-200 px-6 py-4">
                         <div className="h-4 bg-gray-200 rounded w-24"></div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="border border-gray-200 px-6 py-4">
                         <div className="h-4 bg-gray-200 rounded w-24"></div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="border border-gray-200 px-6 py-4">
                         <div className="h-4 bg-gray-200 rounded w-24"></div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="border border-gray-200 px-6 py-4">
                         <div className="h-4 bg-gray-200 rounded w-28"></div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="border border-gray-200 px-6 py-4">
                         <div className="h-4 bg-gray-200 rounded w-28"></div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="border border-gray-200 px-6 py-4">
                         <div className="h-4 bg-gray-200 rounded w-28"></div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="border border-gray-200 px-6 py-4">
                         <div className="h-4 bg-gray-200 rounded w-28"></div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="border border-gray-200 px-6 py-4">
                         <div className="h-4 bg-gray-200 rounded w-36"></div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="border border-gray-200 px-6 py-4">
                         <div className="h-6 bg-gray-200 rounded-full w-20"></div>
                       </td>
-                      <td className="px-6 py-4 bg-gray-50">
+                      <td className="border border-gray-200 px-6 py-4 bg-gray-50">
                         <div className="flex justify-center gap-2">
                           <div className="h-8 w-8 bg-gray-200 rounded-lg"></div>
                           <div className="h-8 w-8 bg-gray-200 rounded-lg"></div>
@@ -892,9 +907,9 @@ export const ACRecordsComponent = () => {
                       </td>
                     </tr>
                   ))
-                  : currentRecords.map((record) => (
-                    <tr className="hover:bg-gray-100 transition-colors">
-                      <td className="px-3 py-4 text-xs font-medium text-gray-800">
+                  : records.map((record) => (
+                    <tr key={record.id} className="odd:bg-white even:bg-slate-50/60 hover:bg-gray-100 transition-colors">
+                      <td className="border border-gray-200 px-3 py-4 text-xs font-medium text-gray-800">
                         <div className="flex items-center gap-2">
                           <div
                             className={`flex items-center justify-center w-6 h-6 rounded-full ${getPriorityIcon(record.priority).bgColor
@@ -916,37 +931,37 @@ export const ACRecordsComponent = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-3 py-4 text-xs text-gray-600">
+                      <td className="border border-gray-200 px-3 py-4 text-xs text-gray-600">
                         {record.date ? formatDate(record.date) : "ไม่ระบุ"}
                       </td>
-                      <td className="px-3 py-4 text-xs text-gray-600">
+                      <td className="border border-gray-200 px-3 py-4 text-xs text-gray-600">
                         {record.date_event ? formatDate(record.date_event) : "ไม่ระบุ"}
                       </td>
                       <td
-                        className="px-3 py-4 text-xs text-gray-600 max-w-[140px] truncate"
+                        className="border border-gray-200 px-3 py-4 text-xs text-gray-600 max-w-[140px] truncate"
                         title={record.customer || "ไม่ระบุ"}
                       >
                         {record.customer || "ไม่ระบุ"}
                       </td>
-                      <td className="px-3 py-4 text-xs text-gray-600">
+                      <td className="border border-gray-200 px-3 py-4 text-xs text-gray-600">
                         {record.reporter || "ไม่ระบุ"}
                       </td>
-                      <td className="px-3 py-4 text-xs text-gray-600">
+                      <td className="border border-gray-200 px-3 py-4 text-xs text-gray-600">
                         {record.site || "ไม่ระบุ"}
                       </td>
-                      <td className="px-3 py-4 text-xs text-gray-600">
+                      <td className="border border-gray-200 px-3 py-4 text-xs text-gray-600">
                         {record.department || "ไม่ระบุ"}
                       </td>
-                      <td className="px-3 py-4 text-xs text-gray-600" >
+                      <td className="border border-gray-200 px-3 py-4 text-xs text-gray-600" >
                         {record.driver || "ไม่ระบุ"}
                       </td>
-                      <td className="px-3 py-4 text-xs text-gray-600">
+                      <td className="border border-gray-200 px-3 py-4 text-xs text-gray-600">
                         {record.estimated_cost != null ? Number(record.estimated_cost).toLocaleString() : "-"}
                       </td>
-                      <td className="px-3 py-4 text-xs text-gray-600">
+                      <td className="border border-gray-200 px-3 py-4 text-xs text-gray-600">
                         {record.actual_price != null ? Number(record.actual_price).toLocaleString() : "-"}
                       </td>
-                      <td className="px-3 py-4">
+                      <td className="border border-gray-200 px-3 py-4">
                         <span
                           className={`flex justify-center px-3 py-1 rounded-full text-xs font-medium text-center shadow-sm border ${getStatusColor(
                             record.status
@@ -959,7 +974,7 @@ export const ACRecordsComponent = () => {
 
                         </span>
                       </td>
-                      <td className="flex flex-row px-3 py-4 bg-gray-50 w-fit">
+                      <td className="border border-gray-200 flex flex-row px-3 py-4 bg-gray-50 w-fit">
                         <div className="flex flex-col items-center justify-center space-x-2">
                           <button
                             onClick={() => handleRouter(record.id)}
@@ -1018,7 +1033,7 @@ export const ACRecordsComponent = () => {
                   </div>
                 </div>
               ))
-              : currentRecords.map((record) => {
+              : records.map((record) => {
                 const priorityInfo = getPriorityIcon(record.priority);
                 return (
                   <div key={record.id} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
