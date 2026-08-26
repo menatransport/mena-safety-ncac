@@ -6,6 +6,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  FilterX,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { RecordFilter, RecordFilterResult, RecordFilterRef } from "./ui/record-filter";
@@ -60,6 +61,9 @@ interface ColumnFilters {
   department_id: string[];
   driver_id: string[];
   client_id: string[];
+  breakdown_status: string[];
+  reporter_id: string[];
+  incident_cause_id: string[];
 }
 
 const EMPTY_COLUMN_FILTERS: ColumnFilters = {
@@ -69,6 +73,9 @@ const EMPTY_COLUMN_FILTERS: ColumnFilters = {
   department_id: [],
   driver_id: [],
   client_id: [],
+  breakdown_status: [],
+  reporter_id: [],
+  incident_cause_id: [],
 };
 
 const STATUS_OPTIONS: ColumnFilterOption[] = [
@@ -81,6 +88,11 @@ const PRIORITY_OPTIONS: ColumnFilterOption[] = [
   { value: "Minor", label: "🟡 Minor" },
   { value: "Major", label: "🟠 Major" },
   { value: "Crisis", label: "🔴 Crisis" },
+];
+
+const BREAKDOWN_OPTIONS: ColumnFilterOption[] = [
+  { value: "วิ่งต่อได้", label: "ได้" },
+  { value: "ไม่สามารถวิ่งต่อได้", label: "ไม่ได้" },
 ];
 
 export const NCRecordsComponent = () => {
@@ -112,13 +124,15 @@ export const NCRecordsComponent = () => {
     drivers: any[];
     departments: any[];
     clients: any[];
-    plates: { plate_no: string }[];
+    reporters: any[];
+    causes: any[];
   }>({
     sites: [],
     drivers: [],
     departments: [],
     clients: [],
-    plates: [],
+    reporters: [],
+    causes: [],
   });
 
   const loadDrivers = useCallback(async () => {
@@ -150,6 +164,36 @@ export const NCRecordsComponent = () => {
       console.error("Error fetching clients:", error);
     }
   }, [dropdownData.clients.length]);
+
+  const loadReporters = useCallback(async () => {
+    if (dropdownData.reporters.length > 0) return;
+    try {
+      const res = await fetch("/api/list", { headers: { "X-Api-Path": "/users" } });
+      const data = await res.json();
+      const sorted = (data || []).sort((a: any, b: any) => {
+        const nameA = `${a.firstname || ""} ${a.lastname || ""}`.trim().toLowerCase();
+        const nameB = `${b.firstname || ""} ${b.lastname || ""}`.trim().toLowerCase();
+        return nameA.localeCompare(nameB, 'th');
+      });
+      setDropdownData((prev) => ({ ...prev, reporters: sorted }));
+    } catch (error) {
+      console.error("Error fetching reporters:", error);
+    }
+  }, [dropdownData.reporters.length]);
+
+  const loadCauses = useCallback(async () => {
+    if (dropdownData.causes.length > 0) return;
+    try {
+      const res = await fetch("/api/list", { headers: { "X-Api-Path": "/mastercauses" } });
+      const data = await res.json();
+      const sorted = (data || []).sort((a: any, b: any) => {
+        return (a.cause_name || "").localeCompare(b.cause_name || "", 'th');
+      });
+      setDropdownData((prev) => ({ ...prev, causes: sorted }));
+    } catch (error) {
+      console.error("Error fetching causes:", error);
+    }
+  }, [dropdownData.causes.length]);
 
   useEffect(() => {
     const fetchDropdownData = async () => {
@@ -199,6 +243,8 @@ export const NCRecordsComponent = () => {
     // Column filter dropdowns need options up-front (no lazy onOpen), so load eagerly on mount.
     loadDrivers();
     loadClients();
+    loadReporters();
+    loadCauses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -270,6 +316,9 @@ export const NCRecordsComponent = () => {
     columnFilters.department_id.forEach((v) => params.append("department_id", v));
     columnFilters.driver_id.forEach((v) => params.append("driver_id", v));
     columnFilters.client_id.forEach((v) => params.append("client_id", v));
+    columnFilters.reporter_id.forEach((v) => params.append("reporter_id", v));
+    columnFilters.incident_cause_id.forEach((v) => params.append("incident_cause_id", v));
+    columnFilters.breakdown_status.forEach((v) => params.append("breakdown_status", v));
 
     params.append("page", String(pageArg));
     params.append("page_size", String(pageSizeArg));
@@ -294,17 +343,6 @@ export const NCRecordsComponent = () => {
         setRecords(transformedRecords);
         setTotalRecords(data.total ?? 0);
         setTotalPages(data.total_pages ?? 1);
-
-        const allPlates = new Set<string>();
-        transformedRecords.forEach((r: NCRecord) => {
-          if (r.plateNumber) allPlates.add(r.plateNumber);
-          if (r.vehicle_head_plate) allPlates.add(r.vehicle_head_plate);
-          if (r.vehicle_tail_plate) allPlates.add(r.vehicle_tail_plate);
-        });
-        setDropdownData((prev) => ({
-          ...prev,
-          plates: [...allPlates].sort().map((p) => ({ plate_no: p })),
-        }));
       } else {
         console.error("Search failed");
       }
@@ -323,6 +361,13 @@ export const NCRecordsComponent = () => {
 
   const handleColumnFilterApply = (key: keyof ColumnFilters) => (values: string[]) => {
     setColumnFilters((prev) => ({ ...prev, [key]: values }));
+    setPage(1);
+  };
+
+  const hasColumnFilters = Object.values(columnFilters).some((arr) => arr.length > 0);
+
+  const handleClearColumnFilters = () => {
+    setColumnFilters(EMPTY_COLUMN_FILTERS);
     setPage(1);
   };
 
@@ -378,6 +423,33 @@ export const NCRecordsComponent = () => {
       })),
     [dropdownData.clients]
   );
+
+  const reporterOptions: ColumnFilterOption[] = useMemo(
+    () =>
+      dropdownData.reporters.map((r: any) => ({
+        value: r.id?.toString() || "",
+        label: `${r.firstname || ""} ${r.lastname || ""}`.trim() || "ไม่ระบุชื่อ",
+      })),
+    [dropdownData.reporters]
+  );
+
+  const causeOptions: ColumnFilterOption[] = useMemo(
+    () =>
+      dropdownData.causes.map((c: any) => ({
+        value: c.cause_id?.toString() || "",
+        label: c.cause_name || "ไม่ระบุชื่อ",
+      })),
+    [dropdownData.causes]
+  );
+
+  // breakdown_status is only ever "วิ่งต่อได้" / "ไม่สามารถวิ่งต่อได้" (set from
+  // the form's SearchableSelect) or empty — render blank when it's empty rather
+  // than a placeholder like "ไม่ระบุ".
+  const getBreakdownLabel = (status: string) => {
+    if (status === "วิ่งต่อได้") return { text: "ได้", className: "text-emerald-600" };
+    if (status === "ไม่สามารถวิ่งต่อได้") return { text: "ไม่ได้", className: "text-red-600" };
+    return { text: "ไม่ระบุ", className: "text-gray-300" }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -590,7 +662,7 @@ export const NCRecordsComponent = () => {
           'เบอร์รถ': record.plateNumber || '',
           'ทะเบียนรถหัว': record.vehicle_head_plate || '',
           'ทะเบียนรถท้าย': record.vehicle_tail_plate || '',
-          'สถานะ breakdown': (record.breakdown_status || '') === 'มี breakdown' ? 'มี' : 'ไม่มี',
+          'รถวิ่งงานต่อ': record.breakdown_status || '',
           'สาเหตุของเหตุการณ์': record.incident_cause || '',
           'รายละเอียด': record.description || '',
           'สถานที่เกิดเหตุ': record.location || '',
@@ -676,8 +748,6 @@ export const NCRecordsComponent = () => {
           type="NC"
           onFilter={handleFilterChange}
           loading={loading}
-          dropdownData={dropdownData}
-          onLoadPlates={() => {}}
           className="mb-6 z-[10] relative"
         />
 
@@ -717,6 +787,16 @@ export const NCRecordsComponent = () => {
               </button>
             </div>
             <div className="flex flex-wrap justify-end items-center gap-3 text-sm text-gray-600">
+              {hasColumnFilters && (
+                <button
+                  onClick={handleClearColumnFilters}
+                  className="flex items-center gap-1.5 text-xs font-medium text-white/90 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg px-2.5 py-1 transition-colors"
+                  title="ล้างตัวกรองที่เลือกไว้ในหัวตารางทั้งหมด"
+                >
+                  <FilterX size={13} />
+                  ล้างตัวกรองในตาราง
+                </button>
+              )}
               <select
                 value={pageSize}
                 onChange={(e) => {
@@ -749,9 +829,9 @@ export const NCRecordsComponent = () => {
             </div>
           </div>
           {/* Desktop View */}
-          <div className="hidden lg:block overflow-x-auto overflow-y-auto max-h-[65vh]">
+          <div className="hidden lg:block overflow-x-auto">
             <table className="w-full border-collapse">
-              <thead className="sticky top-0 z-10 bg-slate-200 shadow-sm">
+              <thead className="bg-slate-200 shadow-sm">
                 <tr>
                   <th className="border border-gray-300 px-3 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
                     <div className="flex flex-col gap-1.5 min-w-32">
@@ -801,7 +881,12 @@ export const NCRecordsComponent = () => {
                     />
                   </th>
                   <th className="border border-gray-300 px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
-                    <span>Reporter</span>
+                    <ColumnFilterDropdown
+                      label="Reporter"
+                      options={reporterOptions}
+                      selectedValues={columnFilters.reporter_id}
+                      onApply={handleColumnFilterApply("reporter_id")}
+                    />
                   </th>
                   <th className="border border-gray-300 px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
                     <ColumnFilterDropdown
@@ -831,6 +916,14 @@ export const NCRecordsComponent = () => {
                       onApply={handleColumnFilterApply("driver_id")}
                       sortDirection={sortBy === "driver_name" ? sortOrder : null}
                       onSort={(dir) => { setSortBy("driver_name"); setSortOrder(dir); }}
+                    />
+                  </th>
+                  <th className="border border-gray-300 px-3 py-3 text-center text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
+                    <ColumnFilterDropdown
+                      label="รถวิ่งงานต่อ"
+                      options={BREAKDOWN_OPTIONS}
+                      selectedValues={columnFilters.breakdown_status}
+                      onApply={handleColumnFilterApply("breakdown_status")}
                     />
                   </th>
                   <th className="border border-gray-300 px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
@@ -900,6 +993,9 @@ export const NCRecordsComponent = () => {
                         <div className="h-4 bg-gray-200 rounded w-36"></div>
                       </td>
                       <td className="border border-gray-200 px-6 py-4">
+                        <div className="h-4 bg-gray-200 rounded w-10 mx-auto"></div>
+                      </td>
+                      <td className="border border-gray-200 px-6 py-4">
                         <div className="h-6 bg-gray-200 rounded-full w-20"></div>
                       </td>
                       <td className="border border-gray-200 px-6 py-4 bg-gray-50">
@@ -957,7 +1053,14 @@ export const NCRecordsComponent = () => {
                       </td>
                       <td className="border border-gray-200 px-3 py-4 text-xs text-gray-600" >
                         {record.driver_name || "ไม่ระบุ"}
-                      <p className="text-[9px]">{record.vehicle_head_plate} <span className="text-red-600 font-semibold">{record.breakdown_status == 'มี breakdown' ? 'breakdown' : ''}</span></p>
+                        <p className="text-[9px] text-gray-400">{record.vehicle_head_plate}</p>
+                      </td>
+                      <td className="border border-gray-200 px-3 py-4 text-xs text-center font-semibold">
+                        {getBreakdownLabel(record.breakdown_status) && (
+                          <span className={getBreakdownLabel(record.breakdown_status)!.className}>
+                            {getBreakdownLabel(record.breakdown_status)!.text}
+                          </span>
+                        )}
                       </td>
                       <td
                         className="border border-gray-200 px-3 py-4 text-xs text-gray-600 align-center max-w-[100px] whitespace-normal break-words leading-snug"
@@ -984,7 +1087,7 @@ export const NCRecordsComponent = () => {
 
                         </span>
                       </td>
-                      <td className="border border-gray-200 flex flex-row px-3 py-4 bg-gray-50 w-fit">
+                      <td className="border border-gray-200 flex flex-row px-3 py-4 bg-gray-50 w-full justify-center gap-2">
                         <div className="flex flex-col items-center justify-center space-x-2">
                           <button
                             onClick={() => handleRouter(record.id)}
@@ -1093,7 +1196,7 @@ export const NCRecordsComponent = () => {
                         </div>
                         <div>
                           <span className="font-semibold text-indigo-600">ทะเบียนรถ:</span>
-                          <p className="text-gray-900 text-xs border-b-1 w-fit">{record.plateNumber || "ไม่ระบุ"} <span className="text-red-600 font-semibold">{record.breakdown_status == 'มี breakdown' ? 'breakdown' : ''}</span></p>
+                          <p className="text-gray-900 text-xs border-b-1 w-fit">{record.plateNumber || "ไม่ระบุ"}</p>
                         </div>
                       </div>
 
@@ -1112,13 +1215,23 @@ export const NCRecordsComponent = () => {
                           <span className="font-semibold text-indigo-600">พนักงานขับรถ:</span>
                           <p className="text-gray-900 text-xs border-b-1 w-fit">{record.driver_name || "ไม่ระบุ"}</p>
                         </div>
-                        {record.location && (
+                        {getBreakdownLabel(record.breakdown_status) && (
+                          <div>
+                            <span className="font-semibold text-indigo-600">รถวิ่งงานต่อ:</span>
+                            <p className={`text-xs border-b-1 w-fit font-semibold ${getBreakdownLabel(record.breakdown_status)!.className}`}>
+                              {getBreakdownLabel(record.breakdown_status)!.text}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      {record.location && (
+                        <div className="grid grid-cols-2 gap-2">
                           <div>
                             <span className="font-semibold text-indigo-600">สถานที่:</span>
                             <p className="text-gray-900 text-xs mt-1 border-b-1 w-fit">{record.location}</p>
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
 
                       <div>
                         <span className="font-semibold text-indigo-600">สาเหตุการเกิด:</span>

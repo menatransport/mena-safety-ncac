@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef, forwardRef, useImperativeHandle } from "react";
-import { Search, RotateCcw, Filter, ChevronDown, X, SlidersHorizontal } from "lucide-react";
+import { Search, RotateCcw, Filter, FileText, Truck } from "lucide-react";
 import { YearMultiSelect } from "@/components/ui/year-multi-select";
 import { MonthMultiSelect } from "@/components/ui/month-multi-select";
-import { SearchableSelect } from "@/components/ui/searchable-select";
 
 /* ----------------------------- Types ------------------------------ */
 export interface RecordFilterResult {
@@ -12,10 +11,6 @@ export interface RecordFilterResult {
     end_date: string;
     document_no?: string;
     vehicle_plate?: string;
-}
-
-export interface DropdownData {
-    plates?: Array<{ plate_no: string }>;
 }
 
 export interface RecordFilterRef {
@@ -27,10 +22,8 @@ interface RecordFilterProps {
     type: "NC" | "AC";
     onFilter: (filters: RecordFilterResult) => void;
     loading?: boolean;
-    dropdownData: DropdownData;
     className?: string;
     autoSearch?: boolean; // auto search on mount, default true
-    onLoadPlates?: () => void;
 }
 
 /* ----------------------------- Helper Functions ------------------------------ */
@@ -67,14 +60,6 @@ const getDateRangeFromSelection = (years: number[], months: number[]): { start_d
     };
 };
 
-/* ----------------------------- Filter Label Helper ------------------------------ */
-interface ActiveFilter {
-    key: string;
-    label: string;
-    value: string;
-    onClear: () => void;
-}
-
 /* ----------------------------- Component ------------------------------ */
 export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
     function RecordFilter(
@@ -82,10 +67,8 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
             type,
             onFilter,
             loading = false,
-            dropdownData,
             className = "",
             autoSearch = true,
-            onLoadPlates,
         },
         ref
     ) {
@@ -100,7 +83,6 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
         const [vehiclePlate, setVehiclePlate] = useState("");
 
         // UI state
-        const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
         const [isInitialized, setIsInitialized] = useState(false);
 
         // Debounce timer ref for text input
@@ -146,8 +128,10 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
         useEffect(() => {
             if (!isInitialized) return;
             handleApply();
-        }, [selectedYears, selectedMonths, vehiclePlate]);
+        }, [selectedYears, selectedMonths]);
 
+        // Text search fields share one debounce so typing in either doesn't
+        // fire a request per keystroke.
         useEffect(() => {
             if (!isInitialized) return;
             if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -157,8 +141,7 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
             return () => {
                 if (debounceRef.current) clearTimeout(debounceRef.current);
             };
-
-        }, [documentNo]);
+        }, [documentNo, vehiclePlate]);
 
 
         return (
@@ -179,22 +162,10 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
                             </div>
                         )}
                     </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                            className="md:hidden p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
-                        >
-                            <ChevronDown
-                                size={16}
-                                className={`text-white transition-transform duration-200 ${showAdvancedFilters ? 'rotate-180' : ''}`}
-                            />
-                        </button>
-                    </div>
                 </div>
 
-                {/* Filters Content */}
-                <div className="p-4 space-y-4">
-                    {/* Row 1: Date Range + Actions */}
+                {/* Filters Content — one flat, always-visible row */}
+                <div className="p-4">
                     <div className="flex flex-wrap items-end gap-3">
                         <div className="flex-shrink-0">
                             <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
@@ -218,7 +189,39 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
                             />
                         </div>
 
-                        <div className="flex-shrink-0 flex items-end gap-2">
+                        <div className="w-full sm:w-64">
+                            <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                                เลขที่เอกสาร
+                            </label>
+                            <div className="relative">
+                                <FileText size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                <input
+                                    className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 transition-all hover:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                                    type="text"
+                                    value={documentNo}
+                                    onChange={(e) => setDocumentNo(e.target.value)}
+                                    placeholder="ค้นหาเลขที่เอกสาร เช่น AC-SB-2508..."
+                                />
+                            </div>
+                        </div>
+
+                        <div className="w-full sm:w-44">
+                            <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                                ทะเบียนรถ
+                            </label>
+                            <div className="relative">
+                                <Truck size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                <input
+                                    className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 transition-all hover:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                                    type="text"
+                                    value={vehiclePlate}
+                                    onChange={(e) => setVehiclePlate(e.target.value)}
+                                    placeholder="ค้นหาทะเบียนรถ..."
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex-shrink-0 flex items-end gap-2 ml-auto">
                             <button
                                 onClick={handleApply}
                                 disabled={loading}
@@ -242,58 +245,6 @@ export const RecordFilter = forwardRef<RecordFilterRef, RecordFilterProps>(
                             </button>
                         </div>
                     </div>
-
-                    {/* Row 2: Advanced Filters */}
-                    <div className={`${showAdvancedFilters ? 'block' : 'hidden md:block'}`}>
-                        <button
-                            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                            className="flex items-center cursor-pointer gap-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2.5 hover:text-emerald-600 transition-colors"
-                        >
-                            <ChevronDown
-                                size={12}
-                                className={`transition-transform duration-200 ${showAdvancedFilters ? 'rotate-180' : ''}`}
-                            />
-                            <span>ตัวกรองเพิ่มเติม</span>
-                        </button>
-
-                        {showAdvancedFilters && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-slate-50/80 rounded-xl border border-slate-100">
-                                {/* Document Number */}
-                                <div>
-                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
-                                        เลขที่เอกสาร
-                                    </label>
-                                    <input
-                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 transition-all hover:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                                        type="text"
-                                        value={documentNo}
-                                        onChange={(e) => setDocumentNo(e.target.value)}
-                                        placeholder="พิมพ์เลขที่เอกสาร..."
-                                    />
-                                </div>
-
-                                {/* Vehicle Plate */}
-                                <div>
-                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
-                                        ทะเบียนรถ
-                                    </label>
-                                    <SearchableSelect
-                                        options={
-                                            dropdownData.plates?.map((p) => ({
-                                                value: p.plate_no,
-                                                label: p.plate_no,
-                                            })) || []
-                                        }
-                                        value={vehiclePlate}
-                                        onChange={(value) => setVehiclePlate(value.toString())}
-                                        onOpen={onLoadPlates}
-                                        placeholder="เลือกทะเบียนรถ..."
-                                    />
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
                 </div>
             </div>
         );
