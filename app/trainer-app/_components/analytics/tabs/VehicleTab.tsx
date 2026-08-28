@@ -4,7 +4,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
-import { Car, ChevronDown, FileText, FilterX, Loader2 } from 'lucide-react';
+import { Car, FileText, FilterX, Loader2 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import type { TaskFilterResult } from '../../../type';
 import { CALENDAR_MONTHS_TH } from '../../../constant';
@@ -131,7 +131,8 @@ export const VehicleTab = ({ filters }: { filters: TaskFilterResult }) => {
     const [data, setData] = useState<VehicleData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [openMonths, setOpenMonths] = useState<string[]>([]);
+    /** แสดงทีละเดือนแบบ tab — กันไม่ให้หน้ายืดยาวลงไปด้านล่างเวลากางหลายเดือนพร้อมกัน */
+    const [activeMonth, setActiveMonth] = useState<string | null>(null);
     const [pdfBusy, setPdfBusy] = useState<string | null>(null);
     /** ค่าที่ถูกติ๊กไว้ต่อคอลัมน์ — ไม่มี key = เลือกทั้งหมด */
     const [colFilters, setColFilters] = useState<Record<string, string[]>>({});
@@ -150,11 +151,6 @@ export const VehicleTab = ({ filters }: { filters: TaskFilterResult }) => {
             .catch(e => setError(e.message))
             .finally(() => setLoading(false));
     }, [filters]);
-
-    const toggleMonth = (month: string) =>
-        setOpenMonths(prev =>
-            prev.includes(month) ? prev.filter(m => m !== month) : [...prev, month]
-        );
 
     const handlePdf = async (row: VehicleRow) => {
         setPdfBusy(row.inspection_task_driver_id);
@@ -215,6 +211,19 @@ export const VehicleTab = ({ filters }: { filters: TaskFilterResult }) => {
             })
             .filter(g => g.vehicles.length > 0);
     }, [data, colFilters, sort]);
+
+    // เดือนที่เลือกไว้อาจหายไปหลังกรอง — เด้งกลับไปเดือนแรกที่ยังเหลืออยู่
+    useEffect(() => {
+        if (visibleMonths.length === 0) {
+            setActiveMonth(null);
+            return;
+        }
+        setActiveMonth(prev =>
+            prev && visibleMonths.some(g => g.month === prev) ? prev : visibleMonths[0].month
+        );
+    }, [visibleMonths]);
+
+    const activeGroup = visibleMonths.find(g => g.month === activeMonth) ?? visibleMonths[0];
 
     const filteredCount = visibleMonths.reduce((s, g) => s + g.vehicles.length, 0);
     const tableFiltered = Object.keys(colFilters).length > 0 || sort !== null;
@@ -368,99 +377,110 @@ export const VehicleTab = ({ filters }: { filters: TaskFilterResult }) => {
                     <p className="text-xs text-white/30 text-center py-10">ไม่มีรถที่ตรงกับตัวกรองที่เลือก</p>
                 ) : (
                     <div className="space-y-3">
-                        {visibleMonths.map(group => {
-                            const isOpen = openMonths.includes(group.month);
-                            return (
-                                <div key={group.month} className="rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden">
+                        {/* แถบเลือกเดือน — ดูทีละเดือน ไม่กางซ้อนกันจนหน้ายาว */}
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                            {visibleMonths.map(group => {
+                                const isActive = group.month === activeGroup?.month;
+                                return (
                                     <button
-                                        onClick={() => toggleMonth(group.month)}
-                                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.04] transition-colors cursor-pointer"
+                                        key={group.month}
+                                        onClick={() => setActiveMonth(group.month)}
+                                        className={`shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${isActive
+                                            ? 'bg-teal-500/15 border-teal-400/40 text-teal-100'
+                                            : 'bg-white/[0.03] border-white/10 text-white/55 hover:text-white/90 hover:bg-white/[0.06]'
+                                            }`}
                                     >
-                                        <ChevronDown
-                                            size={15}
-                                            className={`text-white/40 transition-transform ${isOpen ? '' : '-rotate-90'}`}
-                                        />
-                                        <span className="text-sm font-semibold text-white/90">{MONTH_LABEL(group.month)}</span>
-                                        <span className="text-[11px] text-white/40">{group.total} คัน</span>
-                                        <div className="ml-auto flex items-center gap-2">
-                                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-teal-500/15 text-teal-200 border border-teal-400/30">ผ่าน {group.pass}</span>
-                                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-rose-500/15 text-rose-200 border border-rose-400/30">ไม่ผ่าน {group.fail}</span>
-                                            <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-amber-500/15 text-amber-200 border border-amber-400/30">รอตรวจ {group.pending}</span>
-                                        </div>
+                                        {MONTH_LABEL(group.month)}
+                                        <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono ${isActive ? 'bg-teal-400/20 text-teal-100' : 'bg-white/10 text-white/45'}`}>
+                                            {group.total}
+                                        </span>
                                     </button>
+                                );
+                            })}
+                        </div>
 
-                                    {isOpen && (
-                                        <div className="overflow-x-auto border-t border-white/10">
-                                            <table className="w-full text-left">
-                                                <thead>
-                                                    <tr className="text-[10px] uppercase tracking-wide text-white/40 bg-white/[0.03]">
-                                                        {COLUMNS.map(col => (
-                                                            <th
-                                                                key={col.key}
-                                                                className={`${col.thClass ?? 'px-3'} py-2 font-medium whitespace-nowrap ${col.align === 'center' ? 'text-center' : ''}`}
-                                                            >
-                                                                <span className={`inline-flex items-center gap-1 ${col.align === 'center' ? 'justify-center' : ''}`}>
-                                                                    {col.label}
-                                                                    <ColumnFilter
-                                                                        label={col.label}
-                                                                        options={columnOptions[col.key] ?? []}
-                                                                        selected={colFilters[col.key]}
-                                                                        sortDir={sort?.key === col.key ? sort.dir : null}
-                                                                        sortLabels={col.sortLabels}
-                                                                        onSortChange={dir => setSort(dir ? { key: col.key, dir } : null)}
-                                                                        onSelectedChange={values => setColumnFilter(col.key, values)}
-                                                                    />
-                                                                </span>
-                                                            </th>
-                                                        ))}
-                                                        <th className="px-3 py-2 font-medium text-center">รายงาน</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {group.vehicles.map(v => {
-                                                        const chip = STATUS_CHIP[v.vehicle_status];
-                                                        const failItems = v.sections.flatMap(s => s.fail_items);
-                                                        const busy = pdfBusy === v.inspection_task_driver_id;
-                                                        return (
-                                                            <tr key={v.inspection_task_driver_id} className="border-t border-white/5 hover:bg-white/[0.04] transition-colors">
-                                                                <td className="px-4 py-2.5 text-xs font-semibold text-white/90 whitespace-nowrap">{v.number_plate}</td>
-                                                                <td className="px-3 py-2.5 text-xs text-white/60 whitespace-nowrap">{v.truck_number}</td>
-                                                                <td className="px-3 py-2.5 text-xs text-white/60 whitespace-nowrap">{v.truck_type}</td>
-                                                                <td className="px-3 py-2.5 text-xs text-white/70 whitespace-nowrap">{v.driver_name || '-'}</td>
-                                                                <td className="px-3 py-2.5 text-xs text-white/50 whitespace-nowrap">{v.plant_name}</td>
-                                                                <td className="px-3 py-2.5 text-xs text-white/50 whitespace-nowrap">{fmtDate(v.action_date ?? v.plan_date)}</td>
-                                                                <td className="px-3 py-2.5 text-center">
-                                                                    <span className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-semibold border ${chip.cls}`}>
-                                                                        {chip.label}
-                                                                    </span>
-                                                                </td>
-                                                                <td className="px-3 py-2.5 text-[11px] text-white/50 max-w-[260px]">
-                                                                    {failItems.length === 0
-                                                                        ? <span className="text-white/25">—</span>
-                                                                        : <span title={failItems.join(', ')} className="line-clamp-2">{failItems.join(', ')}</span>}
-                                                                </td>
-                                                                <td className="px-3 py-2.5 text-center">
-                                                                    <button
-                                                                        onClick={() => handlePdf(v)}
-                                                                        disabled={busy}
-                                                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-white/5 border border-white/10 text-white/70 hover:text-white hover:border-teal-400/40 hover:bg-teal-500/10 disabled:opacity-50 transition-colors cursor-pointer"
-                                                                    >
-                                                                        {busy
-                                                                            ? <Loader2 size={13} className="animate-spin" />
-                                                                            : <FileText size={13} />}
-                                                                        PDF
-                                                                    </button>
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    )}
+                        {activeGroup && (
+                            <div className="rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden">
+                                <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
+                                    <span className="text-sm font-semibold text-white/90">{MONTH_LABEL(activeGroup.month)}</span>
+                                    <span className="text-[11px] text-white/40">{activeGroup.total} คัน</span>
+                                    <div className="ml-auto flex items-center gap-2">
+                                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-teal-500/15 text-teal-200 border border-teal-400/30">ผ่าน {activeGroup.pass}</span>
+                                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-rose-500/15 text-rose-200 border border-rose-400/30">ไม่ผ่าน {activeGroup.fail}</span>
+                                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-amber-500/15 text-amber-200 border border-amber-400/30">รอตรวจ {activeGroup.pending}</span>
+                                    </div>
                                 </div>
-                            );
-                        })}
+
+                                {/* จำกัดความสูงตาราง + หัวตารางค้างไว้ → หน้าไม่ยืดลงไปเรื่อย ๆ */}
+                                <div className="overflow-auto max-h-[58vh]">
+                                    <table className="w-full text-left">
+                                        <thead>
+                                            <tr className="text-[10px] uppercase tracking-wide text-white/40">
+                                                {COLUMNS.map(col => (
+                                                    <th
+                                                        key={col.key}
+                                                        className={`${col.thClass ?? 'px-3'} py-2 font-medium whitespace-nowrap sticky top-0 z-10 bg-slate-900/95 backdrop-blur-sm ${col.align === 'center' ? 'text-center' : ''}`}
+                                                    >
+                                                        <span className={`inline-flex items-center gap-1 ${col.align === 'center' ? 'justify-center' : ''}`}>
+                                                            {col.label}
+                                                            <ColumnFilter
+                                                                label={col.label}
+                                                                options={columnOptions[col.key] ?? []}
+                                                                selected={colFilters[col.key]}
+                                                                sortDir={sort?.key === col.key ? sort.dir : null}
+                                                                sortLabels={col.sortLabels}
+                                                                onSortChange={dir => setSort(dir ? { key: col.key, dir } : null)}
+                                                                onSelectedChange={values => setColumnFilter(col.key, values)}
+                                                            />
+                                                        </span>
+                                                    </th>
+                                                ))}
+                                                <th className="px-3 py-2 font-medium text-center sticky top-0 z-10 bg-slate-900/95 backdrop-blur-sm">รายงาน</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {activeGroup.vehicles.map(v => {
+                                                const chip = STATUS_CHIP[v.vehicle_status];
+                                                const failItems = v.sections.flatMap(s => s.fail_items);
+                                                const busy = pdfBusy === v.inspection_task_driver_id;
+                                                return (
+                                                    <tr key={v.inspection_task_driver_id} className="border-t border-white/5 hover:bg-white/[0.04] transition-colors">
+                                                        <td className="px-4 py-2.5 text-xs font-semibold text-white/90 whitespace-nowrap">{v.number_plate}</td>
+                                                        <td className="px-3 py-2.5 text-xs text-white/60 whitespace-nowrap">{v.truck_number}</td>
+                                                        <td className="px-3 py-2.5 text-xs text-white/60 whitespace-nowrap">{v.truck_type}</td>
+                                                        <td className="px-3 py-2.5 text-xs text-white/70 whitespace-nowrap">{v.driver_name || '-'}</td>
+                                                        <td className="px-3 py-2.5 text-xs text-white/50 whitespace-nowrap">{v.plant_name}</td>
+                                                        <td className="px-3 py-2.5 text-xs text-white/50 whitespace-nowrap">{fmtDate(v.action_date ?? v.plan_date)}</td>
+                                                        <td className="px-3 py-2.5 text-center">
+                                                            <span className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-semibold border ${chip.cls}`}>
+                                                                {chip.label}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-3 py-2.5 text-[11px] text-white/50 max-w-[260px]">
+                                                            {failItems.length === 0
+                                                                ? <span className="text-white/25">—</span>
+                                                                : <span title={failItems.join(', ')} className="line-clamp-2">{failItems.join(', ')}</span>}
+                                                        </td>
+                                                        <td className="px-3 py-2.5 text-center">
+                                                            <button
+                                                                onClick={() => handlePdf(v)}
+                                                                disabled={busy}
+                                                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-white/5 border border-white/10 text-white/70 hover:text-white hover:border-teal-400/40 hover:bg-teal-500/10 disabled:opacity-50 transition-colors cursor-pointer"
+                                                            >
+                                                                {busy
+                                                                    ? <Loader2 size={13} className="animate-spin" />
+                                                                    : <FileText size={13} />}
+                                                                PDF
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

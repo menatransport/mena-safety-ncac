@@ -1486,9 +1486,9 @@ const generateACFormHTML = (formData: caseReport_AC, investigateData?: Partial<i
               <td style="width: 13%;"></td>
             </tr>
             <tr>
-              <td class="label">Approved By</td>
+              <td class="label">Investigate By</td>
               <td> </td>
-              <td class="label">Approved Date</td>
+              <td class="label">Investigate Date</td>
               <td> </td>
               <td class="label">Printed</td>
               <td>${formatDate(new Date().toISOString())}</td>

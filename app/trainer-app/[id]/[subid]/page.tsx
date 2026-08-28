@@ -40,12 +40,14 @@ import {
     X,
     CheckCheck,
     Video,
+    Wrench,
 } from "lucide-react";
 
 /* ── Status helpers (module-level so identity is stable across renders) ── */
 const STATUS_PASS = ["ผ่าน", "มี", "ไม่พบสาร"];
 const STATUS_FAIL = ["ไม่ผ่าน", "ไม่มี", "ชำรุด", "พบสาร"];
-const STATUS_NA = ["ไม่มีให้ตรวจ", "ไม่เกี่ยวข้อง", "ไม่ได้ตรวจ", "Toolbox Talk Online"];
+const VEHICLE_BREAKDOWN = "รถเสีย-ซ่อม";
+const STATUS_NA = ["ไม่มีให้ตรวจ", "ไม่เกี่ยวข้อง", "ไม่ได้ตรวจ", "Toolbox Talk Online", VEHICLE_BREAKDOWN];
 const statusTone = (v: string, fieldType?: string) => {
     if (!v) return "empty";
     // Numeric text fields (e.g. alcohol mg%): >0 = fail, 0 = pass
@@ -217,10 +219,11 @@ function EditableSectionCard({
                         const showRemark = value === "ไม่ผ่าน";
                         const selectTone = !value
                             ? "bg-white/5 border-white/15 text-white/60"
-                            : STATUS_PASS.includes(value) ? "bg-emerald-500/15 border-emerald-400/40 text-emerald-100"
-                                : STATUS_FAIL.includes(value) ? "bg-rose-500/15 border-rose-400/40 text-rose-100"
-                                    : STATUS_NA.includes(value) ? "bg-zinc-500/15 border-zinc-400/40 text-zinc-100"
-                                        : "bg-white/10 border-white/20 text-white";
+                            : value === VEHICLE_BREAKDOWN ? "bg-amber-500/20 border-amber-400/50 text-amber-100"
+                                : STATUS_PASS.includes(value) ? "bg-emerald-500/15 border-emerald-400/40 text-emerald-100"
+                                    : STATUS_FAIL.includes(value) ? "bg-rose-500/15 border-rose-400/40 text-rose-100"
+                                        : STATUS_NA.includes(value) ? "bg-zinc-500/15 border-zinc-400/40 text-zinc-100"
+                                            : "bg-white/10 border-white/20 text-white";
                         return (
                             <li key={f.fieldKey} className="py-3 flex items-start justify-between gap-3">
                                 <span className="flex-1 text-base sm:text-lg text-white/85 leading-snug pt-2">{f.label}</span>
@@ -243,7 +246,12 @@ function EditableSectionCard({
                                             {(() => {
                                                 const base = (f.options ?? []).filter(o => o.value !== "" && o.value !== "Toolbox Talk Online");
                                                 const withOnline = [...base, { value: "Toolbox Talk Online", label: "Toolbox Talk Online" }];
-                                                return withOnline.map(o => (
+                                                // "รถเสีย-ซ่อม" ไม่อยู่ในตัวเลือกปกติ — ตั้งได้จากปุ่มเท่านั้น
+                                                // แต่ถ้าค่าปัจจุบันเป็นค่านี้ (กดปุ่ม หรือโหลดจาก DB) ต้องมี option ให้ select แสดงผลได้
+                                                const opts = value === VEHICLE_BREAKDOWN
+                                                    ? [...withOnline, { value: VEHICLE_BREAKDOWN, label: VEHICLE_BREAKDOWN }]
+                                                    : withOnline;
+                                                return opts.map(o => (
                                                     <option key={o.value} value={o.value} className="bg-slate-800 text-white">{o.label}</option>
                                                 ));
                                             })()}
@@ -1257,7 +1265,7 @@ export default function TrainerApp_SUBID() {
             type: "checkbox" as const,
             options: [
                 { value: "ผ่าน", label: "ผ่าน" },
-                { value: "ไม่ผ่าน", label: "ไม่ผ่าน" }
+                { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
             ],
             icon: null,
             fieldKey: "vehicle_left_cleanliness",
@@ -1423,7 +1431,7 @@ export default function TrainerApp_SUBID() {
             type: "checkbox" as const,
             options: [
                 { value: "ผ่าน", label: "ผ่าน" },
-                { value: "ไม่ผ่าน", label: "ไม่ผ่าน" }
+                { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
             ],
             icon: null,
             fieldKey: "vehicle_rear_cleanliness",
@@ -1615,7 +1623,7 @@ export default function TrainerApp_SUBID() {
             type: "checkbox" as const,
             options: [
                 { value: "ผ่าน", label: "ผ่าน" },
-                { value: "ไม่ผ่าน", label: "ไม่ผ่าน" }
+                { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
             ],
             icon: null,
             fieldKey: "vehicle_right_cleanliness",
@@ -1768,7 +1776,7 @@ export default function TrainerApp_SUBID() {
             type: "checkbox" as const,
             options: [
                 { value: "ผ่าน", label: "ผ่าน" },
-                { value: "ไม่ผ่าน", label: "ไม่ผ่าน" }
+                { value: "ไม่ผ่าน", label: "ไม่ผ่าน" },
             ],
             icon: null,
             fieldKey: "vehicle_inside_cleanliness",
@@ -1798,6 +1806,41 @@ export default function TrainerApp_SUBID() {
         { key: "right" as const, title: "ด้านขวา", short: "ขวา", icon: <ArrowBigRight size={18} />, color: "from-emerald-500 to-teal-600", data: vehicle_right },
         { key: "inside" as const, title: "ภายในรถ", short: "ภายใน", icon: <Truck size={18} />, color: "from-violet-500 to-fuchsia-600", data: vehicle_inside },
     ];
+
+    /* ── รถเสีย-ซ่อม: ข้ามการตรวจรอบคันทั้ง 5 ด้าน ──
+       รถที่เสีย/เข้าซ่อมจะตรวจสภาพไม่ได้ จึงตั้งทุกรายการเป็น "รถเสีย-ซ่อม"
+       (นับเป็น N/A ไม่ใช่ "ไม่ผ่าน") และเคลียร์ remark เพราะไม่ต้องระบุเหตุผล */
+    const vehicleCheckFields = vehicleSections.flatMap((s) =>
+        (s.data as any[]).filter((f) => f.type === "checkbox"),
+    );
+    const vehicleBreakdownActive =
+        vehicleCheckFields.length > 0 &&
+        vehicleCheckFields.every((f) => String(dbVehicle?.[f.fieldKey] ?? "") === VEHICLE_BREAKDOWN);
+    const handleVehicleBreakdown = async () => {
+        const turningOn = !vehicleBreakdownActive;
+        const r = await Swal.fire({
+            icon: "warning",
+            title: turningOn ? "รถเสีย-ซ่อม?" : "ยกเลิกสถานะรถเสีย-ซ่อม?",
+            text: turningOn
+                ? `ระบบจะตั้งรายการตรวจรอบคันทั้งหมด ${vehicleCheckFields.length} รายการ เป็น "รถเสีย-ซ่อม" และล้างเหตุผลที่กรอกไว้`
+                : "ค่าที่ตั้งเป็น “รถเสีย-ซ่อม” ทั้งหมดจะถูกล้าง เพื่อกลับไปตรวจตามปกติ",
+            showCancelButton: true,
+            confirmButtonText: turningOn ? "ยืนยัน" : "ยกเลิกสถานะ",
+            cancelButtonText: "ปิด",
+            confirmButtonColor: turningOn ? "#f59e0b" : "#e11d48",
+        });
+        if (!r.isConfirmed) return;
+        setVehicleDirty(true);
+        setdbVehicle((prev: any) => {
+            const next = { ...(prev ?? {}) };
+            vehicleCheckFields.forEach((f) => {
+                if (turningOn) next[f.fieldKey] = VEHICLE_BREAKDOWN;
+                else delete next[f.fieldKey];
+                delete next[`${f.fieldKey}_remark`];
+            });
+            return next;
+        });
+    };
     // Aggregate grand totals
     const completionStats = countSection(
         [...alchol_tested, ...drug_tested, ...ppe_checked] as any,
@@ -2019,8 +2062,26 @@ export default function TrainerApp_SUBID() {
                                 <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">การตรวจสภาพรอบรถ</h2>
                                 <p className="text-sm text-white/60">Vehicle Inspection — 5 sides</p>
                             </div>
+                            <button
+                                type="button"
+                                onClick={handleVehicleBreakdown}
+                                title={vehicleBreakdownActive ? "ยกเลิกสถานะรถเสีย-ซ่อม" : "รถเสีย-ซ่อม — ข้ามการตรวจรอบคันทั้งหมด"}
+                                className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold border backdrop-blur transition-all active:scale-95 ${vehicleBreakdownActive
+                                    ? "bg-amber-500/30 hover:bg-amber-500/40 text-amber-100 border-amber-300/50"
+                                    : "bg-amber-500/25 hover:bg-amber-500/50 text-white/80 hover:text-amber-100 border-white/15 hover:border-amber-300/30"
+                                    }`}
+                            >
+                                <Wrench size={16} />
+                                <span className="hidden sm:inline">{vehicleBreakdownActive ? "ยกเลิกรถเสีย-ซ่อม" : "รถเสีย-ซ่อม"}</span>
+                            </button>
                             <span className="hidden sm:inline-flex items-center rounded-md bg-white/10 border border-white/15 px-3 py-1 text-sm text-white/70 font-mono">5 ด้าน</span>
                         </div>
+                        {vehicleBreakdownActive && (
+                            <div className="flex items-start gap-2.5 rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                                <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                                <span>ไม่มีการตรวจสภาพรถ เนื่องจาก <strong>รถเสีย-ซ่อม</strong> — รายการทั้งหมดถูกบันทึกเป็น “รถเสีย-ซ่อม” และจะแสดงหมายเหตุนี้ในรายงาน</span>
+                            </div>
+                        )}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                             {vehicleSections.map((s) => {
                                 const checkFields = s.data.filter((f: any) => f.type === "checkbox");
@@ -2157,10 +2218,11 @@ export default function TrainerApp_SUBID() {
                                             const showRemark = value === "ไม่ผ่าน";
                                             const selectTone = !value
                                                 ? "bg-white/5 border-white/15 text-white/60"
-                                                : STATUS_PASS.includes(value) ? "bg-emerald-500/15 border-emerald-400/40 text-emerald-100"
-                                                    : STATUS_FAIL.includes(value) ? "bg-rose-500/15 border-rose-400/40 text-rose-100"
-                                                        : STATUS_NA.includes(value) ? "bg-zinc-500/15 border-zinc-400/40 text-zinc-100"
-                                                            : "bg-white/10 border-white/20 text-white";
+                                                : value === VEHICLE_BREAKDOWN ? "bg-amber-500/20 border-amber-400/50 text-amber-100"
+                                                    : STATUS_PASS.includes(value) ? "bg-emerald-500/15 border-emerald-400/40 text-emerald-100"
+                                                        : STATUS_FAIL.includes(value) ? "bg-rose-500/15 border-rose-400/40 text-rose-100"
+                                                            : STATUS_NA.includes(value) ? "bg-zinc-500/15 border-zinc-400/40 text-zinc-100"
+                                                                : "bg-white/10 border-white/20 text-white";
                                             return (
                                                 <li key={`${section}-${f.fieldKey}`} className="px-3 py-3 flex items-start justify-between gap-3">
                                                     <span className="flex-1 text-sm sm:text-base text-white/85 leading-snug pt-2">{f.label}</span>
@@ -2180,9 +2242,15 @@ export default function TrainerApp_SUBID() {
                                                                 className={`w-full rounded-md border px-3 py-2 text-base font-medium focus:outline-none focus:ring-2 focus:ring-teal-400/40 transition-colors ${selectTone}`}
                                                             >
                                                                 <option value="" className="bg-slate-800 text-white">— เลือก —</option>
-                                                                {f.options?.filter((o) => o.value !== "").map((o) => (
-                                                                    <option key={o.value} value={o.value} className="bg-slate-800 text-white">{o.label}</option>
-                                                                ))}
+                                                                {(() => {
+                                                                    const base = (f.options ?? []).filter((o) => o.value !== "");
+                                                                    const opts = value === VEHICLE_BREAKDOWN && !base.some((o) => o.value === VEHICLE_BREAKDOWN)
+                                                                        ? [...base, { value: VEHICLE_BREAKDOWN, label: VEHICLE_BREAKDOWN }]
+                                                                        : base;
+                                                                    return opts.map((o) => (
+                                                                        <option key={o.value} value={o.value} className="bg-slate-800 text-white">{o.label}</option>
+                                                                    ));
+                                                                })()}
                                                             </select>
                                                         )}
                                                         {showRemark && (

@@ -69,9 +69,12 @@ const formatPrintedAt = () =>
         day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
     });
 
+/** สถานะพิเศษ: รถเสีย/เข้าซ่อม → ตรวจสภาพรอบคันไม่ได้ นับเป็น N/A ไม่ใช่ "ไม่ผ่าน" */
+const BREAKDOWN_STATUS = 'รถเสีย-ซ่อม';
+const isBreakdown = (status: string) => status.includes('รถเสีย');
 const isFail = (status: string) => status.includes('ไม่ผ่าน');
 const isSkipped = (status: string) =>
-    status.includes('ไม่มีให้ตรวจ') || status.includes('Toolbox') || !status.trim();
+    status.includes('ไม่มีให้ตรวจ') || status.includes('Toolbox') || isBreakdown(status) || !status.trim();
 
 const resultBadge = (status: string) => {
     const label = status.trim() || 'ไม่ได้ตรวจ';
@@ -214,6 +217,8 @@ const styles = `
   .verdict-pass { background-color: #065f46; color: #fff; }
   .verdict-fail { background-color: #991b1b; color: #fff; }
   .verdict-na   { background-color: #6b7280; color: #fff; }
+  .notice-breakdown { border: 1px solid #d97706; background-color: #fffbeb; color: #92400e; border-radius: 4px; padding: 8px 12px; margin: 8px 0; font-size: 12px; font-weight: 600; }
+  .notice-breakdown span { display: block; font-weight: 400; font-size: 11px; color: #b45309; margin-top: 2px; }
 
   /* Photos — ใช้ inline-block แทน grid เพราะ grid ตัดข้ามหน้าตอนพิมพ์แล้วรูปหาย */
   .photo-grid { font-size: 0; }
@@ -355,6 +360,17 @@ export function buildVehicleReportHtml(data: VehicleReportData, origin = '') {
     const { task, driver, photos } = data;
 
     const allItems = Object.values(data.checklist ?? {}).flat();
+    // ทั้งคันถูกตั้งเป็น "รถเสีย-ซ่อม" → รายงานต้องระบุว่าไม่มีการตรวจสภาพรถ
+    const breakdownCount = allItems.filter((i) => isBreakdown(i.status ?? '')).length;
+    const isVehicleBreakdown = allItems.length > 0 && breakdownCount === allItems.length;
+    const breakdownNotice = isVehicleBreakdown
+        ? `<div class="notice-breakdown">ไม่มีการตรวจสภาพรถ เนื่องจาก ${esc(BREAKDOWN_STATUS)}
+             <span>No walk-around inspection performed — vehicle under breakdown / repair.</span>
+           </div>`
+        : '';
+    const statusBadge = isVehicleBreakdown
+        ? `<span class="verdict verdict-na">ไม่มีการตรวจ (${esc(BREAKDOWN_STATUS)})</span>`
+        : overallBadge(data.vehicle_status);
     const failCount = allItems.filter((i) => isFail(i.status)).length;
     const naCount = allItems.filter((i) => isSkipped(i.status ?? '')).length;
     const passCount = allItems.length - failCount - naCount;
@@ -403,8 +419,10 @@ export function buildVehicleReportHtml(data: VehicleReportData, origin = '') {
         <div class="doc-no">${esc(task.inspection_task_id)}-${esc(driver.driver_id)}</div>
         <div class="doc-sub">ทะเบียนรถ ${esc(driver.number_plate ?? '-')} · เบอร์รถ ${esc(driver.truck_number ?? '-')} · ${esc(driver.driver_name || '-')}</div>
       </div>
-      <div class="doc-status">${overallBadge(data.vehicle_status)}</div>
+      <div class="doc-status">${statusBadge}</div>
     </div>
+
+    ${breakdownNotice}
 
     <!-- Part 1 -->
     <div class="part-header">
@@ -480,7 +498,7 @@ export function buildVehicleReportHtml(data: VehicleReportData, origin = '') {
           <td class="text-center" style="color:#065f46;font-weight:600;">${passCount}</td>
           <td class="text-center" style="color:#991b1b;font-weight:600;">${failCount}</td>
           <td class="text-center" style="color:#4b5563;font-weight:600;">${naCount}</td>
-          <td class="text-center">${overallBadge(data.vehicle_status)}</td>
+          <td class="text-center">${statusBadge}</td>
         </tr>
       </tbody>
     </table>
@@ -510,6 +528,7 @@ export function buildVehicleReportHtml(data: VehicleReportData, origin = '') {
       <p>ส่วนที่ 2: ผลการตรวจรายการตามด้านของรถ (หน้า / ซ้าย / หลัง / ขวา / ภายใน)</p>
     </div>
 
+    ${breakdownNotice}
     ${buildChecklistSections(data.checklist)}`;
 
     const part3 = `
