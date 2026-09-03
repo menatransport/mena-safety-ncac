@@ -24,7 +24,8 @@ import { useRouter } from "next/navigation";
 import { useClipboard_ac } from "@/lib/clipboard";
 import { LoaderPage } from "./LoaderPage";
 import { Printer, Columns2, Rows2, CirclePlus, Trash2, Bug, Copy, X, CircleCheckBig, ClipboardList } from "lucide-react";
-import { printDocument_ac } from "@/lib/printDocument";
+import { printDocument_ac, type PrintParts } from "@/lib/printDocument";
+import PrintOptionsDialog from "@/components/PrintOptionsDialog";
 import { sendErrorLog } from "@/lib/logError";
 import { documentRole } from "@/lib/documentRole";
 import { useUiTheme } from "@/lib/useUiTheme";
@@ -225,6 +226,8 @@ export const ACFormComponent = () => {
   // ฟอร์มสอบสวน (ส่วนที่ 2): เริ่มต้นปิดเสมอ แล้วค่อยอ่านค่าที่จำไว้ตอน mount
   // (อ่าน localStorage ตอน initial state จะทำให้ฝั่ง server กับ client เรนเดอร์ไม่ตรงกัน)
   const [showInvestigate, setShowInvestigate] = useState(false);
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [isPreparingPrint, setIsPreparingPrint] = useState(false);
 
   useEffect(() => {
     setShowInvestigate(localStorage.getItem(INVESTIGATE_STORAGE_KEY) === "on");
@@ -876,7 +879,8 @@ export const ACFormComponent = () => {
   };
 
   // ========== Print Document Function ==========
-  const handlePrintDocument = () => {
+  /** เปิด modal ให้เลือกส่วนที่จะพิมพ์ (Part 1 / Part 2 / ทั้งคู่) */
+  const handleOpenPrintDialog = () => {
     if (!formData.document_no_ac) {
       Swal.fire({
         icon: "warning",
@@ -886,8 +890,50 @@ export const ACFormComponent = () => {
       });
       return;
     }
+    setPrintDialogOpen(true);
+  };
+
+  /** ข้อมูลสอบสวนสำหรับพิมพ์ — ถ้ายังไม่ได้เปิดฟอร์มสอบสวนให้ดึงจาก API ให้ */
+  const getInvestigateDataForPrint = async () => {
+    if (hasInvestigateSection) return formInvestigate;
+    const docNo = formData.document_no_ac;
+    if (!docNo) return undefined;
+    try {
+      const res = await fetch(
+        `/api/investigate/ac?document_no=${encodeURIComponent(docNo)}`
+      );
+      // 404 = ยังไม่เคยสอบสวนเอกสารนี้ ให้พิมพ์ส่วนที่ 2 เป็นแบบฟอร์มเปล่า
+      if (!res.ok) return undefined;
+      const data = await res.json();
+      if (!data) return undefined;
+      return { ...normalizeInvestigateData(data), document_no_ac: docNo };
+    } catch (error) {
+      console.error("Error fetching investigate data for print:", error);
+      return undefined;
+    }
+  };
+
+  const handlePrintDocument = async (parts: PrintParts) => {
+    if (!formData.document_no_ac) return;
 
     try {
+      setIsPreparingPrint(true);
+      const needInvestigate = parts === "part2" || parts === "both";
+      const investigateForPrint = needInvestigate
+        ? await getInvestigateDataForPrint()
+        : undefined;
+
+      // เลือกพิมพ์เฉพาะส่วนที่ 2 แต่ยังไม่เคยสอบสวน = ได้เอกสารเปล่า ไม่ต้องเปิดหน้าพิมพ์
+      if (parts === "part2" && !investigateForPrint) {
+        Swal.fire({
+          icon: "warning",
+          title: "ยังไม่มีข้อมูลการสอบสวน",
+          text: "เอกสารนี้ยังไม่มีรายงานผลการสอบสวน (Part 2)",
+          confirmButtonText: "ตกลง"
+        });
+        return;
+      }
+
       // เตรียมข้อมูลสำหรับการพิมพ์
       const selectedSite = sites?.find(
         (site) => site.site_id === formData.site_id
@@ -942,11 +988,13 @@ export const ACFormComponent = () => {
 
       printDocument_ac({
         formData: printFormData as caseReport_AC,
-        // ใบพิมพ์ตามที่เห็นบนหน้าจอ — ปิดฟอร์มสอบสวนไว้ก็ไม่ต้องมีส่วนที่ 2
-        investigateData: hasInvestigateSection ? formInvestigate : undefined,
+        investigateData: investigateForPrint,
         userinfo,
-        attachedFiles
+        attachedFiles,
+        parts
       });
+
+      setPrintDialogOpen(false);
 
     } catch (error) {
       console.error("Error printing document:", error);
@@ -957,6 +1005,8 @@ export const ACFormComponent = () => {
         text: "ไม่สามารถพิมพ์เอกสารได้",
         confirmButtonText: "ตกลง"
       });
+    } finally {
+      setIsPreparingPrint(false);
     }
   };
 
@@ -2128,7 +2178,7 @@ export const ACFormComponent = () => {
               <div className="flex flex-col items-center">
                 <button
                   type="button"
-                  onClick={handlePrintDocument}
+                  onClick={handleOpenPrintDialog}
                   title="Print Document"
                   className="bg-gray-500 hover:bg-gray-700 hover:scale-105 cursor-pointer text-white border border-white font-semibold p-3 rounded-lg shadow-lg hover:shadow-xl transition duration-300 flex flex-col items-center justify-center"
                 >
@@ -3473,6 +3523,16 @@ export const ACFormComponent = () => {
           )}
         </div>
       )}
+
+      {/* เลือกส่วนที่จะพิมพ์ก่อนสั่งพิมพ์จริง */}
+      <PrintOptionsDialog
+        open={printDialogOpen}
+        onOpenChange={setPrintDialogOpen}
+        onConfirm={handlePrintDocument}
+        caseType="ac"
+        documentNo={formData.document_no_ac}
+        isPreparing={isPreparingPrint}
+      />
     </>
   );
 };

@@ -12,7 +12,8 @@ import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import { useClipboard_nc } from "@/lib/clipboard";
 import { LoaderPage } from "./LoaderPage";
-import { printDocument_nc } from "@/lib/printDocument";
+import { printDocument_nc, type PrintParts } from "@/lib/printDocument";
+import PrintOptionsDialog from "@/components/PrintOptionsDialog";
 import { sendErrorLog } from "@/lib/logError";
 import { documentRole } from "@/lib/documentRole";
 import { useUiTheme } from "@/lib/useUiTheme";
@@ -59,6 +60,8 @@ export const NCFormComponent = () => {
   const [attachedFiles, setAttachedFiles] = useState<CategoryFiles>({});
   const [userinfo, setUserinfo] = useState<any>(null);
   const [thisform, setThisform] = useState<string>("initial"); // initial or investigate
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [isPreparingPrint, setIsPreparingPrint] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [docValue, setDocValue] = useState<any[]>([]);
   const { theme } = useUiTheme();
@@ -740,7 +743,8 @@ export const NCFormComponent = () => {
   };
 
   // ========== Print Document Function ==========
-  const handlePrintDocument = () => {
+  /** เปิด modal ให้เลือกส่วนที่จะพิมพ์ (Part 1 / Part 2 / ทั้งคู่) */
+  const handleOpenPrintDialog = () => {
     if (!formData.document_no) {
       Swal.fire({
         icon: "warning",
@@ -750,8 +754,48 @@ export const NCFormComponent = () => {
       });
       return;
     }
+    setPrintDialogOpen(true);
+  };
+
+  /** ข้อมูลสอบสวนสำหรับพิมพ์ — ถ้ายังไม่ได้เปิดแท็บสอบสวนให้ดึงจาก API ให้ */
+  const getInvestigateDataForPrint = async () => {
+    if (thisform === "investigate") {
+      return { ...formInvestigate, corrective_actions };
+    }
+    try {
+      const res = await fetch(
+        `/api/investigate/nc?document_no=${formData.document_no}`,
+        { method: "GET", headers: { "Content-Type": "application/json" } }
+      );
+      if (!res.ok) return undefined;
+      return await res.json();
+    } catch (error) {
+      console.error("Error fetching investigate data for print:", error);
+      return undefined;
+    }
+  };
+
+  const handlePrintDocument = async (parts: PrintParts) => {
+    if (!formData.document_no) return;
 
     try {
+      setIsPreparingPrint(true);
+      const needInvestigate = parts === "part2" || parts === "both";
+      const investigateForPrint = needInvestigate
+        ? await getInvestigateDataForPrint()
+        : undefined;
+
+      // เลือกพิมพ์เฉพาะส่วนที่ 2 แต่ยังไม่เคยสอบสวน = ได้เอกสารเปล่า ไม่ต้องเปิดหน้าพิมพ์
+      if (parts === "part2" && !investigateForPrint) {
+        Swal.fire({
+          icon: "warning",
+          title: "ยังไม่มีข้อมูลการสอบสวน",
+          text: "เอกสารนี้ยังไม่มีรายงานผลการสอบสวน (Part 2)",
+          confirmButtonText: "ตกลง"
+        });
+        return;
+      }
+
       // เตรียมข้อมูลสำหรับการพิมพ์
       const selectedSite = sites?.find(
         (site) => site.site_id === formData.site_id
@@ -800,10 +844,13 @@ export const NCFormComponent = () => {
       // เรียกใช้ฟังก์ชันพิมพ์
       printDocument_nc({
         formData: printFormData,
-        investigateData: thisform === "investigate" ? formInvestigate : undefined,
+        investigateData: investigateForPrint as any,
         userinfo,
-        attachedFiles
+        attachedFiles,
+        parts
       });
+
+      setPrintDialogOpen(false);
 
     } catch (error) {
       console.error("Error printing document:", error);
@@ -814,6 +861,8 @@ export const NCFormComponent = () => {
         text: "ไม่สามารถพิมพ์เอกสารได้",
         confirmButtonText: "ตกลง"
       });
+    } finally {
+      setIsPreparingPrint(false);
     }
   };
 
@@ -1687,7 +1736,7 @@ export const NCFormComponent = () => {
               ">
                 <button
                   type="button"
-                  onClick={handlePrintDocument}
+                  onClick={handleOpenPrintDialog}
                   title="Print Document"
                   className="bg-gray-500 hover:bg-gray-700 hover:scale-105 cursor-pointer text-white border border-white font-semibold p-3 rounded-lg shadow-lg hover:shadow-xl transition duration-300 flex flex-col items-center justify-center"
                 >
@@ -3048,6 +3097,16 @@ export const NCFormComponent = () => {
           </div>
         </div>
       )}
+
+      {/* เลือกส่วนที่จะพิมพ์ก่อนสั่งพิมพ์จริง */}
+      <PrintOptionsDialog
+        open={printDialogOpen}
+        onOpenChange={setPrintDialogOpen}
+        onConfirm={handlePrintDocument}
+        caseType="nc"
+        documentNo={formData.document_no}
+        isPreparing={isPreparingPrint}
+      />
     </>
   );
 };

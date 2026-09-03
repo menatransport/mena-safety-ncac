@@ -56,11 +56,19 @@ interface InvestigateData {
   company_cost?: string | number;
 }
 
+/**
+ * ส่วนของเอกสารที่ต้องการพิมพ์
+ * - part1 = รายงานเบื้องต้น, part2 = รายงานผลการสอบสวน, both = ทั้งสองส่วน
+ * หน้าภาพประกอบเหตุการณ์และสถานะการติดตามเอกสารจะแนบให้ทุกกรณี
+ */
+export type PrintParts = 'part1' | 'part2' | 'both';
+
 interface PrintDocumentData {
   formData: NCFormData;
   investigateData?: InvestigateData;
   userinfo?: any;
   attachedFiles?: { [key: string]: any[] };
+  parts?: PrintParts;
 }
 
 interface PrintACDocumentData {
@@ -68,6 +76,7 @@ interface PrintACDocumentData {
   investigateData?: Partial<investigate_AC>;
   userinfo?: any;
   attachedFiles?: { [key: string]: any[] };
+  parts?: PrintParts;
 }
 
 // ==================== Shared Utility Functions ====================
@@ -167,6 +176,19 @@ const getSharedStyles = () => `
       color: #374151;
       background-color: white;
       padding-top: 10px;
+    }
+
+    /* ชุดใน tfoot ใช้จองพื้นที่ท้ายทุกหน้าไม่ให้เนื้อหาทับ Document Control (ไม่แสดงผล) */
+    .page-footer-spacer {
+      visibility: hidden;
+    }
+
+    /* ชุดที่แสดงจริง ตรึงไว้ล่างสุดของกระดาษทุกหน้า (เบราว์เซอร์พิมพ์ซ้ำให้ทุกหน้า) */
+    .page-footer-fixed {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
     }
     
     .page-footer table {
@@ -601,13 +623,62 @@ const getSharedStyles = () => `
 `;
 
 
+// ==================== Document Control (ท้ายทุกหน้า) ====================
+
+/**
+ * ตาราง Document Control ที่พิมพ์ซ้ำท้ายทุกหน้า — ต้องเรียกใช้ 2 ชุดเสมอ
+ * - variant "spacer": วางใน <tfoot> เพื่อจองพื้นที่ท้ายหน้าไว้ (ซ่อนไม่ให้เห็น)
+ * - variant "fixed": ชุดที่แสดงจริง ตรึงไว้ล่างสุดของกระดาษ ไม่ลอยตามเนื้อหาในหน้าที่สั้น
+ */
+const getDocumentControlHTML = (options: {
+  variant: 'spacer' | 'fixed';
+  documentNo?: string;
+  documentName: string;
+  ownerName?: string;
+  approvedByLabel: string;
+  approvedDateLabel: string;
+}): string => `
+      <div class="page-footer page-footer-${options.variant}">
+        <table>
+          <thead>
+            <tr>
+              <th colspan="6" style="text-align: center; background-color: #c9c9c9;">Document Control & Revision History</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="label" style="width: 15%;">Document Ref</td>
+              <td style="width: 35%;">${options.documentNo || ' '}</td>
+              <td class="label" style="width: 15%;">Document Name</td>
+              <td colspan="3">${options.documentName}</td>
+            </tr>
+            <tr>
+              <td class="label">Document Owner</td>
+              <td>${options.ownerName || ' '}</td>
+              <td class="label">Version No</td>
+              <td style="width: 10%;">01</td>
+              <td class="label" style="width: 12%;">Revision Date</td>
+              <td style="width: 13%;"></td>
+            </tr>
+            <tr>
+              <td class="label">${options.approvedByLabel}</td>
+              <td> </td>
+              <td class="label">${options.approvedDateLabel}</td>
+              <td> </td>
+              <td class="label">Printed</td>
+              <td>${formatDate(new Date().toISOString())}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>`;
+
 // ==================== Print NC Document Function ====================
 
 export const printDocument_nc = (data: PrintDocumentData) => {
   
-  const { formData, investigateData, userinfo, attachedFiles } = data;
+  const { formData, investigateData, userinfo, attachedFiles, parts = 'both' } = data;
   
-  const htmlContent = generateNCFormHTML(formData, investigateData, userinfo, attachedFiles);
+  const htmlContent = generateNCFormHTML(formData, investigateData, userinfo, attachedFiles, parts);
   const printWindow = window.open('', '', 'width=800,height=600');
   
   if (printWindow) {
@@ -623,8 +694,17 @@ export const printDocument_nc = (data: PrintDocumentData) => {
   }
 };
 
-const generateNCFormHTML = (formData: NCFormData, investigateData?: InvestigateData, userinfo?: any, attachedFiles?: { [key: string]: any[] }): string => {
+const generateNCFormHTML = (formData: NCFormData, investigateData?: InvestigateData, userinfo?: any, attachedFiles?: { [key: string]: any[] }, parts: PrintParts = 'both'): string => {
   // console.log('Generating investigateData:', investigateData);
+  const includePart1 = parts === 'part1' || parts === 'both';
+  const includePart2 = parts === 'part2' || parts === 'both';
+  const ncDocumentControl = {
+    documentNo: formData.document_no,
+    documentName: 'Non-Conformity Services (NC)',
+    ownerName: formData.reporter_name,
+    approvedByLabel: 'Approved By',
+    approvedDateLabel: 'Approved Date',
+  };
   return `
     <!DOCTYPE html>
     <html lang="th">
@@ -637,44 +717,15 @@ const generateNCFormHTML = (formData: NCFormData, investigateData?: InvestigateD
       </style>
     </head>
     <body>
+      <!-- Document Control ตัวจริง: ตรึงไว้ล่างสุดของกระดาษทุกหน้า -->
+      ${getDocumentControlHTML({ variant: 'fixed', ...ncDocumentControl })}
+
       <table class="page-wrap">
         <tfoot>
           <tr>
             <td>
-      <!-- Document Control: พิมพ์ซ้ำท้ายทุกหน้า -->
-      <div class="page-footer">
-        <table>
-          <thead>
-            <tr>
-              <th colspan="6" style="text-align: center; background-color: #c9c9c9;">Document Control & Revision History</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="label" style="width: 15%;">Document Ref</td>
-              <td style="width: 35%;">${formData.document_no || ' '}</td>
-              <td class="label" style="width: 15%;">Document Name</td>
-              <td colspan="3">Non-Conformity Services (NC)</td>
-            </tr>
-            <tr>
-              <td class="label">Document Owner</td>
-              <td>${formData.reporter_name || ' '}</td>
-              <td class="label">Version No</td>
-              <td style="width: 10%;">01</td>
-              <td class="label" style="width: 12%;">Revision Date</td>
-              <td style="width: 13%;"></td>
-            </tr>
-            <tr>
-              <td class="label">Approved By</td>
-              <td> </td>
-              <td class="label">Approved Date</td>
-              <td> </td>
-              <td class="label">Printed</td>
-              <td>${formatDate(new Date().toISOString())}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <!-- ชุดจองพื้นที่ท้ายทุกหน้า (ซ่อนไว้) -->
+      ${getDocumentControlHTML({ variant: 'spacer', ...ncDocumentControl })}
             </td>
           </tr>
         </tfoot>
@@ -693,6 +744,7 @@ const generateNCFormHTML = (formData: NCFormData, investigateData?: InvestigateD
           </div>
         </div>
         
+        ${includePart1 ? `
         <!-- Part 1 Header -->
         <div class="part-header">
           <p>Part 1: Initial NC Reporting - Overview and key details</p>
@@ -856,7 +908,10 @@ const generateNCFormHTML = (formData: NCFormData, investigateData?: InvestigateD
         </div>
         
         <div class="divider"></div>
-        <div class="page-break"></div>
+        ` : ''}
+
+        ${includePart2 ? `
+        ${includePart1 ? '<div class="page-break"></div>' : ''}
 
         <!-- Part 2 Header -->
         <div class="part-header">
@@ -954,7 +1009,9 @@ const generateNCFormHTML = (formData: NCFormData, investigateData?: InvestigateD
           </div>
         </div>
         
-       <div class="page-break"></div>
+        ` : ''}
+
+        <div class="page-break"></div>
         <!-- ตารางอัปโหลดเอกสารและสถานะการติดตามเอกสาร -->
         <div class="section-header">
           <h3>สถานะการติดตามเอกสาร</h3>
@@ -1008,6 +1065,9 @@ const generateNCFormHTML = (formData: NCFormData, investigateData?: InvestigateD
             </tbody>
           </table>
         </div>
+
+        <!-- ภาพประกอบเหตุการณ์ -->
+        ${generatePhotosHTML(attachedFiles)}
 
         <!-- Footer -->
         <div class="footer">
@@ -1090,7 +1150,7 @@ const labelOf = (map: { [key: string]: string }, value?: string) =>
   (value && map[value]) || value || ' ';
 
 /** ส่วนที่ 2: รายงานผลการสอบสวน (แสดงเมื่อมีข้อมูลการสอบสวนแล้ว) */
-const generateACInvestigateHTML = (investigateData?: Partial<investigate_AC>): string => {
+const generateACInvestigateHTML = (investigateData?: Partial<investigate_AC>, pageBreakBefore: boolean = true): string => {
   if (!investigateData) return '';
 
   const rootCauses = investigateData.root_causes || [];
@@ -1183,7 +1243,7 @@ const generateACInvestigateHTML = (investigateData?: Partial<investigate_AC>): s
     .join('');
 
   return `
-        <div class="page-break"></div>
+        ${pageBreakBefore ? '<div class="page-break"></div>' : ''}
 
         <div class="part-header">
           <p>Part 2: AC Investigation Report - Root cause analysis and corrective actions</p>
@@ -1292,7 +1352,7 @@ const generateACInvestigateHTML = (investigateData?: Partial<investigate_AC>): s
 };
 
 /** ภาพประกอบเหตุการณ์จากไฟล์แนบ (เฉพาะไฟล์รูป) */
-const generateACPhotosHTML = (attachedFiles?: { [key: string]: any[] }): string => {
+const generatePhotosHTML = (attachedFiles?: { [key: string]: any[] }): string => {
   if (!attachedFiles) return '';
 
   const isImage = (item: any) => {
@@ -1339,8 +1399,8 @@ const generateACPhotosHTML = (attachedFiles?: { [key: string]: any[] }): string 
 
 export const printDocument_ac = (data: PrintACDocumentData) => {
   console.log("printDocument_ac data:", data);
-  const { formData, investigateData, userinfo, attachedFiles } = data;
-  const htmlContent = generateACFormHTML(formData, investigateData, userinfo, attachedFiles);
+  const { formData, investigateData, userinfo, attachedFiles, parts = 'both' } = data;
+  const htmlContent = generateACFormHTML(formData, investigateData, userinfo, attachedFiles, parts);
   const printWindow = window.open('', '', 'width=800,height=600');
   
   if (printWindow) {
@@ -1355,7 +1415,9 @@ export const printDocument_ac = (data: PrintACDocumentData) => {
   }
 };
 
-const generateACFormHTML = (formData: caseReport_AC, investigateData?: Partial<investigate_AC>, userinfo?: any, attachedFiles?: { [key: string]: any[] }): string => {
+const generateACFormHTML = (formData: caseReport_AC, investigateData?: Partial<investigate_AC>, userinfo?: any, attachedFiles?: { [key: string]: any[] }, parts: PrintParts = 'both'): string => {
+  const includePart1 = parts === 'part1' || parts === 'both';
+  const includePart2 = parts === 'part2' || parts === 'both';
   // ค่าเสียหาย: แสดงเฉพาะกลุ่มที่มีข้อมูล (สินค้า / รถและอื่นๆ) ในตารางเดียว
   const damageItems = Array.isArray(formData.damage_items) ? formData.damage_items : [];
   const baht = (value: any) => Number(value) ? Number(value).toLocaleString('th-TH') : '';
@@ -1388,6 +1450,14 @@ const generateACFormHTML = (formData: caseReport_AC, investigateData?: Partial<i
     })
     // กลุ่มที่ระบุว่า "ไม่เสียหาย" จะขึ้นเฉพาะเมื่อมียอดค้างจากข้อมูลเดิม ไม่เอาแถวที่ถูกซ่อนมาพิมพ์
     .filter((group) => group.shown || group.estimated > 0 || group.actual > 0);
+
+  const acDocumentControl = {
+    documentNo: formData.document_no_ac,
+    documentName: 'Accident Report (AC)',
+    ownerName: formData.reporter_name,
+    approvedByLabel: 'Investigate By',
+    approvedDateLabel: 'Investigate Date',
+  };
 
   const totalEstimated = damageGroups.reduce((sum, group) => sum + group.estimated, 0);
   const totalActual = damageGroups.reduce((sum, group) => sum + group.total, 0);
@@ -1458,44 +1528,15 @@ const generateACFormHTML = (formData: caseReport_AC, investigateData?: Partial<i
       </style>
     </head>
     <body>
+      <!-- Document Control ตัวจริง: ตรึงไว้ล่างสุดของกระดาษทุกหน้า -->
+      ${getDocumentControlHTML({ variant: 'fixed', ...acDocumentControl })}
+
       <table class="page-wrap">
         <tfoot>
           <tr>
             <td>
-      <!-- Document Control: พิมพ์ซ้ำท้ายทุกหน้า -->
-      <div class="page-footer">
-        <table>
-          <thead>
-            <tr>
-              <th colspan="6" style="text-align: center; background-color: #c9c9c9;">Document Control & Revision History</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="label" style="width: 15%;">Document Ref</td>
-              <td style="width: 35%;">${formData.document_no_ac || ' '}</td>
-              <td class="label" style="width: 15%;">Document Name</td>
-              <td colspan="3">Accident Report (AC)</td>
-            </tr>
-            <tr>
-              <td class="label">Document Owner</td>
-              <td>${formData.reporter_name || ' '}</td>
-              <td class="label">Version No</td>
-              <td style="width: 10%;">01</td>
-              <td class="label" style="width: 12%;">Revision Date</td>
-              <td style="width: 13%;"></td>
-            </tr>
-            <tr>
-              <td class="label">Investigate By</td>
-              <td> </td>
-              <td class="label">Investigate Date</td>
-              <td> </td>
-              <td class="label">Printed</td>
-              <td>${formatDate(new Date().toISOString())}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <!-- ชุดจองพื้นที่ท้ายทุกหน้า (ซ่อนไว้) -->
+      ${getDocumentControlHTML({ variant: 'spacer', ...acDocumentControl })}
             </td>
           </tr>
         </tfoot>
@@ -1514,6 +1555,7 @@ const generateACFormHTML = (formData: caseReport_AC, investigateData?: Partial<i
           </div>
         </div>
         
+        ${includePart1 ? `
         <!-- Part 1 Header -->
         <div class="part-header">
           <p>Part 1: Initial AC Reporting - Overview and key details</p>
@@ -1799,9 +1841,10 @@ const generateACFormHTML = (formData: caseReport_AC, investigateData?: Partial<i
         </div>
         
         <div class="divider"></div>
+        ` : ''}
 
         <!-- ส่วนที่ 2: ผลการสอบสวน -->
-        ${generateACInvestigateHTML(investigateData)}
+        ${includePart2 ? generateACInvestigateHTML(investigateData, includePart1) : ''}
 
         <div class="divider"></div>
         <div class="page-break"></div>
@@ -1857,7 +1900,7 @@ const generateACFormHTML = (formData: caseReport_AC, investigateData?: Partial<i
         </div>
 
         <!-- ภาพประกอบเหตุการณ์ -->
-        ${generateACPhotosHTML(attachedFiles)}
+        ${generatePhotosHTML(attachedFiles)}
 
         <!-- Footer -->
         <div class="footer">
