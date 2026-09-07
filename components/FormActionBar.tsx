@@ -81,16 +81,20 @@ export const FormActionButton = ({
   children,
   disabled = false,
   icon,
+  title,
 }: {
   onClick: () => void;
   children: ReactNode;
   disabled?: boolean;
   icon?: ReactNode;
+  /** ข้อความอธิบายตอนปุ่มถูกปิด — ผู้ใช้จะได้รู้ว่าต้องทำอะไรก่อน */
+  title?: string;
 }) => (
   <button
     type="button"
     onClick={onClick}
     disabled={disabled}
+    title={title}
     className={`${baseButton} text-white ${disabled
       ? "bg-gray-300 cursor-not-allowed"
       : "bg-gray-400 hover:bg-gray-500 cursor-pointer"

@@ -46,9 +46,12 @@ interface CategoryFiles {
 /**
  * ฟอร์มสอบสวน (ส่วนที่ 2) — ผู้ใช้เปิด/ปิดเองได้จากปุ่มบนหน้าฟอร์ม
  *
- * ค่าเริ่มต้นคือ "ปิด" เพราะช่วงนี้ใช้การแนบ "เอกสารสอบสวน" ในส่วนเอกสารแนบแทน
- * (แนบแล้วจึงจะกดปิดเคสได้ — CASE_CLOSING_DOC ใน lib/attachment.ts)
+ * ค่าเริ่มต้นคือ "ปิด" เพราะส่วนใหญ่ใช้การแนบ "เอกสารสอบสวน" ในส่วนเอกสารแนบแทน
  * ใครอยากกรอกฟอร์มเต็มก็เปิดเองได้ และระบบจะจำค่าไว้ให้
+ *
+ * ปิดเคสได้ 2 ช่องทาง เลือกทางใดทางหนึ่ง แล้วกดปุ่ม "ปิดเคส" เอง:
+ *   1) แนบเอกสารสอบสวน (CASE_CLOSING_DOC ใน lib/attachment.ts)
+ *   2) กรอกฟอร์มนี้ให้ครบ — backend ตอบ is_complete กลับมา
  */
 const INVESTIGATE_STORAGE_KEY = "acFormShowInvestigate";
 
@@ -204,6 +207,9 @@ export const ACFormComponent = () => {
   const [isClosingCase, setIsClosingCase] = useState(false);
   // ระหว่างโหลดผลการสอบสวนเดิม ห้ามบันทึกทับ — POST เป็น upsert แบบแทนที่ทั้งชุด
   const [isLoadingInvestigate, setIsLoadingInvestigate] = useState(false);
+  // ผลการสอบสวน (ส่วนที่ 2) กรอกครบตามเกณฑ์ backend แล้วหรือยัง (is_complete)
+  // ใช้เป็นอีกช่องทางที่ทำให้ปิดเคสได้ นอกจากการแนบเอกสารสอบสวน
+  const [isInvestigateComplete, setIsInvestigateComplete] = useState(false);
 
   // ไฟล์แนบของแต่ละมาตรการ (ส่วนที่ 2)
   const [measureFiles, setMeasureFiles] = useState<MeasureFileMap>({});
@@ -386,12 +392,14 @@ export const ACFormComponent = () => {
   // เวลาปิดแล้วเปิดฟอร์มสอบสวนใหม่
   const loadedInvestigateDocRef = useRef<string | null>(null);
 
-  // โหลดข้อมูลการสอบสวน (ส่วนที่ 2) เมื่อมีเลขเคส และผู้ใช้เปิดฟอร์มสอบสวนไว้
+  // โหลดข้อมูลการสอบสวน (ส่วนที่ 2) เมื่อมีเลขเคส
+  //
+  // โหลดทุกครั้งแม้ผู้ใช้จะปิดฟอร์มสอบสวนไว้ เพราะ is_complete จากรอบนี้เป็น
+  // เงื่อนไขหนึ่งของปุ่มปิดเคส — ถ้ารอให้เปิดฟอร์มก่อน เคสที่สอบสวนครบแล้ว
+  // จะกดปิดไม่ได้ทั้งที่ควรกดได้
   useEffect(() => {
     const docNo = formData.document_no_ac;
     if (!docNo) return;
-    // ฟอร์มสอบสวนถูกปิดอยู่ ไม่ต้องยิง API ที่ไม่ได้ใช้
-    if (!showInvestigate) return;
     // โหลดเอกสารนี้ไปแล้ว ไม่ต้องดึงซ้ำให้ทับสิ่งที่กรอกค้างไว้
     if (loadedInvestigateDocRef.current === docNo) return;
     loadedInvestigateDocRef.current = docNo;
@@ -419,6 +427,7 @@ export const ACFormComponent = () => {
 
         const data = await res.json();
         if (!data || cancelled) return;
+        setIsInvestigateComplete(!!data.is_complete);
         setFormInvestigate((prev) => ({
           ...prev,
           ...normalizeInvestigateData(data),
@@ -442,7 +451,7 @@ export const ACFormComponent = () => {
     return () => {
       cancelled = true;
     };
-  }, [formData.document_no_ac, showInvestigate]);
+  }, [formData.document_no_ac]);
 
   const processAttachmentData = (data: any) => {
     const categorizedFiles: CategoryFiles = {};
@@ -1720,16 +1729,16 @@ export const ACFormComponent = () => {
   };
 
   // ========== ปิดเคส ==========
-  // เงื่อนไข: ต้องแนบเอกสารสอบสวนแล้ว (ใช้แทนการกรอกฟอร์มสอบสวนส่วนที่ 2)
+  // เงื่อนไข: ทำอย่างใดอย่างหนึ่ง — แนบเอกสารสอบสวน หรือ กรอกฟอร์มสอบสวน (ส่วนที่ 2) ครบ
   const handleCloseCase = async () => {
     const documentNo = formData.document_no_ac;
     if (!documentNo) return;
 
-    if (!hasClosingDoc) {
+    if (!canCloseCase) {
       Swal.fire({
         icon: "warning",
-        title: `ต้องแนบ${getCaseClosingDocLabel()}ก่อนปิดเคส`,
-        text: "กรุณาแนบเอกสารในหัวข้อเอกสารแนบ แล้วลองอีกครั้ง",
+        title: "ยังปิดเคสไม่ได้",
+        html: `ต้องทำอย่างใดอย่างหนึ่งก่อน<br/>• แนบ<b>${getCaseClosingDocLabel()}</b> ในหัวข้อเอกสารแนบ<br/>• หรือกรอก<b>ฟอร์มสอบสวน (ส่วนที่ 2)</b> ให้ครบแล้วบันทึก`,
         confirmButtonText: "ตกลง",
       });
       return;
@@ -1841,8 +1850,6 @@ export const ACFormComponent = () => {
         body: uploadFormData,
       });
 
-      // สถานะ "Completed Investigate" ถูกดันโดย backend เอง (_sync_case_status)
-      // เมื่อผลการสอบสวนส่วนที่ 2 กรอกครบ — ไม่ต้องอิงไฟล์แนบอีกต่อไป
       if (!res.ok) {
         Swal.fire({
           icon: "error",
@@ -1970,13 +1977,8 @@ export const ACFormComponent = () => {
         }));
       }
 
-      // backend ดัน casestatus ให้เองเมื่อผลการสอบสวนครบ — sync กลับมาแสดงทันที
-      if (responseData?.is_complete) {
-        setFormData((prev) => ({
-          ...prev,
-          casestatus: "Completed Investigate",
-        }));
-      }
+      // สอบสวนครบ = ปลดล็อกปุ่มปิดเคส (ยังไม่ปิดให้เอง — ผู้ใช้ต้องกดยืนยันเอง)
+      setIsInvestigateComplete(!!responseData?.is_complete);
 
       await uploadMeasureFiles(documentNo);
 
@@ -1985,6 +1987,10 @@ export const ACFormComponent = () => {
         title: isUpdate
           ? "อัปเดตผลการสอบสวนเรียบร้อย"
           : "บันทึกผลการสอบสวนเรียบร้อย",
+        // บอกให้ชัดว่าครบแล้วเหลือกดปิดเคส หรือยังขาดอะไรอยู่
+        text: responseData?.is_complete
+          ? "ผลการสอบสวนครบแล้ว กดปุ่ม “ปิดเคส” ได้เลย"
+          : "ยังกรอกไม่ครบ — ทุกสาเหตุต้องมีมาตรการอย่างน้อย 1 ข้อ พร้อมผู้รับผิดชอบและวันที่แผน จึงจะปิดเคสจากฟอร์มนี้ได้",
         confirmButtonText: "ตกลง",
         allowOutsideClick: false,
       });
@@ -2088,9 +2094,14 @@ export const ACFormComponent = () => {
   const canShowInvestigateToggle = !!formData?.document_no_ac;
   const hasInvestigateSection = canShowInvestigateToggle && showInvestigate;
 
-  // ========== ปิดเคส (ใช้แทนฟอร์มสอบสวนระหว่างที่ส่วนที่ 2 ยังปิดอยู่) ==========
+  // ========== ปิดเคส ==========
+  // เปิดปุ่มได้ 2 ช่องทาง (เลือกทางใดทางหนึ่ง):
+  //   1) แนบเอกสารสอบสวนในหัวข้อเอกสารแนบ
+  //   2) กรอกฟอร์มสอบสวน (ส่วนที่ 2) ครบตามเกณฑ์แล้วบันทึก → backend ตอบ is_complete
+  // ทั้งสองทางจบด้วยการกดปุ่มปิดเคสเองเสมอ ไม่มีการปิดให้อัตโนมัติ
   const isCaseClosed = formData?.casestatus === CASE_CLOSED_STATUS;
   const hasClosingDoc = hasCaseClosingDoc(attachedFiles);
+  const canCloseCase = hasClosingDoc || isInvestigateComplete;
   const canShowCloseCase =
     !isViewMode &&
     !!formData?.document_no_ac &&
@@ -3383,8 +3394,8 @@ export const ACFormComponent = () => {
                     requiredNote={
                       formData?.casestatus === ""
                         ? "ต้องแนบรูปเหตุการณ์อย่างน้อย 1 รูป ก่อนบันทึก"
-                        : canShowCloseCase
-                          ? `แนบ${getCaseClosingDocLabel()}แล้วจึงจะปิดเคสได้`
+                        : canShowCloseCase && !canCloseCase
+                          ? `แนบ${getCaseClosingDocLabel()} หรือกรอกฟอร์มสอบสวน (ส่วนที่ 2) ให้ครบ แล้วจึงจะปิดเคสได้`
                           : undefined
                     }
                     reporterDepartment={
@@ -3416,7 +3427,12 @@ export const ACFormComponent = () => {
                   {canShowCloseCase && (
                     <FormActionButton
                       onClick={handleCloseCase}
-                      disabled={!hasClosingDoc || isClosingCase}
+                      disabled={!canCloseCase || isClosingCase}
+                      title={
+                        canCloseCase
+                          ? undefined
+                          : `ปิดเคสได้เมื่อแนบ${getCaseClosingDocLabel()} หรือกรอกฟอร์มสอบสวน (ส่วนที่ 2) ครบแล้ว`
+                      }
                       icon={<CircleCheckBig className="w-4 h-4" />}
                     >
                       {isClosingCase ? "กำลังปิดเคส..." : "ปิดเคส"}
