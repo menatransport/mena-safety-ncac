@@ -1,18 +1,24 @@
 import type { DropdownlistData } from "@/lib/dropdownlist";
 
 /** สิทธิ์แก้ไขข้อมูลหลัก (ดูได้ทุกคน แต่แก้ไขได้เฉพาะผู้ที่ตรงเงื่อนไขนี้) */
-export const MASTER_EDIT_DEPARTMENT_ID = 17;
-export const MASTER_EDIT_EMAIL = "kittaboon.l@menatransport.co.th";
+/** แผนกที่มีสิทธิ์แก้ไข: 8 = safety, 17 = compliance */
+export const MASTER_EDIT_DEPARTMENT_IDS = [8, 17];
 
-/** ปิดการบังคับสิทธิ์ชั่วคราว — ตั้งเป็น true เมื่อต้องการจำกัดสิทธิ์แก้ไขอีกครั้ง */
-export const MASTER_EDIT_ENFORCE = false;
+/** อีเมลที่ได้รับสิทธิ์แก้ไขเป็นรายบุคคล (นอกเหนือจากแผนกด้านบน) */
+export const MASTER_EDIT_EMAILS = [
+  "kittaboon.l@menatransport.co.th",
+  "narongkorn.a@menatransport.co.th",
+];
+
+/** ปิดการบังคับสิทธิ์ชั่วคราว — ตั้งเป็น false เมื่อต้องการให้ทุกคนแก้ไขได้ */
+export const MASTER_EDIT_ENFORCE = true;
 
 export const canEditMasterData = (user: any): boolean => {
   if (!MASTER_EDIT_ENFORCE) return true;
   if (!user) return false;
-  const deptOk = Number(user.department_id) === MASTER_EDIT_DEPARTMENT_ID;
-  const emailOk = String(user.email || "").toLowerCase() === MASTER_EDIT_EMAIL;
-  return deptOk && emailOk;
+  const deptOk = MASTER_EDIT_DEPARTMENT_IDS.includes(Number(user.department_id));
+  const emailOk = MASTER_EDIT_EMAILS.includes(String(user.email || "").trim().toLowerCase());
+  return deptOk || emailOk;
 };
 
 export type MasterFieldType = "text" | "textarea" | "select" | "options";

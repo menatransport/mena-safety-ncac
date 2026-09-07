@@ -2014,7 +2014,7 @@ export const NCFormComponent = () => {
                                 incident_cause_id: Number(value),
                               }))
                             }
-                            onAdd={() => handleAddItem("mastercauses")}
+                            // onAdd={() => handleAddItem("mastercauses")}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -2089,7 +2089,7 @@ export const NCFormComponent = () => {
                                 client_id: Number(value),
                               }))
                             }
-                            onAdd={() => handleAddItem("clients")}
+                            // onAdd={() => handleAddItem("clients")}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -2114,7 +2114,7 @@ export const NCFormComponent = () => {
                                 origin_id: Number(value),
                               }))
                             }
-                            onAdd={() => handleAddItem("locations")}
+                            // onAdd={() => handleAddItem("locations")}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}
@@ -2586,7 +2586,7 @@ export const NCFormComponent = () => {
                                 root_cause: String(value),
                               }))
                             }
-                            onAdd={() => handleAddItem_investigate()}
+                            // onAdd={() => handleAddItem_investigate()}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}

@@ -2399,7 +2399,7 @@ export const ACFormComponent = () => {
                         }
                         disabled={isViewMode}
                         className="w-full"
-                        onAdd={() => handleAddItem("clients")}
+                        // onAdd={() => handleAddItem("clients")}
                       />
                     </div>
 
@@ -2421,7 +2421,7 @@ export const ACFormComponent = () => {
                             origin_id: Number(value),
                           }))
                         }
-                        onAdd={() => handleAddItem("locations")}
+                        // onAdd={() => handleAddItem("locations")}
                         disabled={isViewMode}
                         className="w-full"
                       />
