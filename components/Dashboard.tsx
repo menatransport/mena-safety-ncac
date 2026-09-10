@@ -1,595 +1,324 @@
-'use client'
-import { useEffect, useState, useMemo } from 'react';
-import Swal from 'sweetalert2';
-import { caseReport_NC, caseReport_AC } from '@/lib/caseReport';
+'use client';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AlertCircle,
+  BarChart3,
+  Coins,
+  Download,
+  ShieldAlert,
+  Users,
+} from 'lucide-react';
 import { sendErrorLog } from '@/lib/logError';
 import { useUiTheme } from '@/lib/useUiTheme';
 import {
-  FilterSection,
-  ViewSelector,
-  PlaceholderView,
-  FinanceView,
-  DashboardView,
-  TransportView
-} from '@/components/ui/dashboard';
-import { Calculator, FileText } from 'lucide-react';
+  AnalyticsQuery,
+  IncidentAnalytics,
+  fetchIncidentAnalytics,
+  fmtDate,
+  fmtPeriod,
+} from '@/lib/incidentAnalytics';
+import {
+  ControlBar,
+  CostPanel,
+  EntityPanel,
+  InsightBoard,
+  KpiStrip,
+  OverviewPanel,
+  PresetId,
+  RiskPanel,
+  SiteOption,
+  buildPreset,
+  useSurface,
+} from '@/components/ui/dashboard/analytics';
 
-const MONTH_NAMES = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'] as const;
+const TABS = [
+  { id: 'overview', label: 'ภาพรวม', icon: BarChart3, hint: 'แนวโน้ม ความรุนแรง และรายศูนย์' },
+  { id: 'risk', label: 'สาเหตุและความเสี่ยง', icon: ShieldAlert, hint: 'Pareto 5M1E และช่วงเวลาเสี่ยง' },
+  { id: 'cost', label: 'ต้นทุนความเสียหาย', icon: Coins, hint: 'ประเมินเทียบจริง และการรับผิดชอบ' },
+  { id: 'entities', label: 'ผู้เกี่ยวข้อง', icon: Users, hint: 'พนักงานขับรถ รถ และลูกค้า' },
+] as const;
 
-const menu = [
-  { value: 'dashboard', name: 'เบื้องต้น', icon: FileText },
-  { value: 'finance', name: 'การเงิน', icon: Calculator },
-];
+type TabId = (typeof TABS)[number]['id'];
+
+const DEFAULT_PRESET: PresetId = 'ytd';
 
 export const DashboardComponent = () => {
-  const [selectedMonth, setSelectedMonth] = useState('all');
-  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
-  const [selectedCenter, setSelectedCenter] = useState('all');
-  const [selectedCaseType, setSelectedCaseType] = useState('all');
-  const [ncData, setNcData] = useState<caseReport_NC[]>([]);
-  const [acData, setAcData] = useState<caseReport_AC[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
-  const [activeView, setActiveView] = useState('dashboard');
   const { theme } = useUiTheme();
+  const s = useSurface();
 
+  const [query, setQuery] = useState<AnalyticsQuery>(() => {
+    const range = buildPreset(DEFAULT_PRESET)!;
+    return { ...range, caseType: 'all', siteIds: [], priorities: [] };
+  });
+  const [activePreset, setActivePreset] = useState<PresetId>(DEFAULT_PRESET);
+  const [activeTab, setActiveTab] = useState<TabId>('overview');
+
+  const [data, setData] = useState<IncidentAnalytics | null>(null);
+  const [sites, setSites] = useState<SiteOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
+
+  const abortRef = useRef<AbortController | null>(null);
+
+  // ---------------------------------------------------------
+  // ตัวเลือกศูนย์ปฏิบัติการ — master data โหลดครั้งเดียวต่อการเปิดหน้า
+  // ---------------------------------------------------------
   useEffect(() => {
-    fetchData();
-  }, [selectedMonth, selectedYear]);
+    let cancelled = false;
+    fetch('/api/analytics/incidents/filters')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (!cancelled && body?.sites) setSites(body.sites);
+      })
+      .catch(() => {
+        /* ตัวกรองใช้ไม่ได้ไม่ควรทำให้ทั้งหน้าพัง — ผู้ใช้ยังดูภาพรวมทุกศูนย์ได้ */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const fetchData = async () => {
+  // ---------------------------------------------------------
+  // ข้อมูลหลัก — ยกเลิก request เดิมทุกครั้งที่ตัวกรองเปลี่ยน
+  // เพราะการกดเปลี่ยนช่วงเวลารัว ๆ ทำให้ response มาถึงสลับลำดับได้
+  // ---------------------------------------------------------
+  useEffect(() => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
-    setLoading(true);
+    const timer = setTimeout(() => {
+      setLoading(true);
+      setError(null);
+      fetchIncidentAnalytics(query, controller.signal)
+        .then((result) => setData(result))
+        .catch((err: unknown) => {
+          if (err instanceof DOMException && err.name === 'AbortError') return;
+          const message = err instanceof Error ? err.message : 'โหลดข้อมูลไม่สำเร็จ';
+          setError(message);
+          sendErrorLog('Dashboard/fetchIncidentAnalytics', err instanceof Error ? err : String(err));
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setLoading(false);
+        });
+    }, 250);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query, reloadToken]);
+
+  const patchQuery = useCallback((patch: Partial<AnalyticsQuery>) => {
+    setQuery((prev) => ({ ...prev, ...patch }));
+    if (patch.startDate || patch.endDate) setActivePreset('custom');
+  }, []);
+
+  const applyPreset = useCallback((id: PresetId) => {
+    const range = buildPreset(id);
+    if (!range) return;
+    setActivePreset(id);
+    setQuery((prev) => ({ ...prev, ...range }));
+  }, []);
+
+  // ---------------------------------------------------------
+  // ส่งออก Excel — ใช้ตัวเลขชุดเดียวกับที่แสดงบนจอ ไม่ยิง API ซ้ำ
+  // เพื่อไม่ให้ไฟล์ที่ส่งต่อในที่ประชุมขัดกับหน้าจอที่กำลังฉายอยู่
+  // ---------------------------------------------------------
+  const handleExport = useCallback(async () => {
+    if (!data) return;
     try {
-      let startDate: string;
-      let endDate: string;
+      const XLSX = await import('xlsx');
+      const wb = XLSX.utils.book_new();
 
-      if (selectedMonth === 'all') {
+      const summary = [
+        ['รายงานวิเคราะห์อุบัติการณ์ NC / AC'],
+        ['ช่วงข้อมูล', fmtPeriod(data.meta.start_date, data.meta.end_date)],
+        ['เทียบกับ', fmtPeriod(data.meta.compare_start_date, data.meta.compare_end_date)],
+        ['สร้างเมื่อ', fmtDate(data.meta.generated_at)],
+        [],
+        ['ตัวชี้วัด', 'ค่าปัจจุบัน', 'ช่วงก่อนหน้า', 'เปลี่ยนแปลง (%)'],
+        ...Object.entries(data.kpis).map(([key, m]) => [key, m.value, m.previous, m.change_pct ?? '-']),
+        [],
+        ['ประเด็นสำคัญ', 'รายละเอียด', 'ตัวเลข'],
+        ...data.insights.map((i) => [i.title, i.detail, i.metric]),
+      ];
 
-        startDate = `${selectedYear}-01-01`;
-        endDate = `${selectedYear}-12-31`;
-      } else {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summary), 'สรุป');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.sites), 'รายศูนย์');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.causes), 'สาเหตุ');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.entities.drivers), 'พนักงานขับรถ');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.entities.vehicles), 'รถ');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.cost.top_cases), 'เคสมูลค่าสูง');
 
-        const monthNum = parseInt(selectedMonth);
-        startDate = `${selectedYear}-${String(monthNum).padStart(2, '0')}-01`;
-        endDate = new Date(selectedYear, monthNum, 0).toISOString().split('T')[0];
-      }
-
-      const [ncResponse, acResponse] = await Promise.all([
-        fetch(`/api/dashboard/nc?start_date=${startDate}&end_date=${endDate}&casestatus=Pending&casestatus=Completed Investigate&casestatus=Completed`,{method: 'GET', headers: { 'Content-Type': 'application/json' }}),
-        fetch(`/api/dashboard/ac?start_date=${startDate}&end_date=${endDate}&casestatus=Pending&casestatus=Completed Investigate&casestatus=Completed`,{method: 'GET', headers: { 'Content-Type': 'application/json' }})
-      ]);
-
-      if (ncResponse.ok && acResponse.ok) {
-        const ncResult = await ncResponse.json();
-        const acResult = await acResponse.json();
-        setNcData((Array.isArray(ncResult) ? ncResult : []).map(item => ({
-          ...item,
-          type: 'NC' as const
-        })));
-
-        setAcData((Array.isArray(acResult) ? acResult : []).map((item: any) => ({
-          ...item,
-          type: 'AC' as const,
-          record_date: item.record_date || item.record_date,
-          incident_date: item.incident_date || item.incident_date,
-          actual_price: (item.actual_price !== undefined && item.actual_price !== null) 
-            ? item.actual_price 
-            : (item.actual_goods_damage_value || 0) + (item.actual_vehicle_damage_value || 0),
-          estimated_cost: (item.estimated_cost !== undefined && item.estimated_cost !== null)
-            ? item.estimated_cost
-            : (item.estimated_goods_damage_value || 0) + (item.estimated_vehicle_damage_value || 0),
-          incident_cause: item.incident_cause || 'อุบัติเหตุ'
-        })));
-      }
-      // console.log('NC - ',ncData)
-      // console.log('AC - ',acData)
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      sendErrorLog('Dashboard/fetchData', error instanceof Error ? error : String(error));
-    } finally {
-      setLoading(false);
+      XLSX.writeFile(wb, `incident-analytics_${data.meta.start_date}_${data.meta.end_date}.xlsx`);
+    } catch (err) {
+      sendErrorLog('Dashboard/handleExport', err instanceof Error ? err : String(err));
     }
-  };
+  }, [data]);
 
-  const handleSearch = () => {
-    fetchData();
-  };
+  const pageBg =
+    theme === 'Dark'
+      ? 'bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900'
+      : 'bg-slate-100';
 
-  // คำนวณข้อมูลเฉพาะเมื่อ activeView === 'dashboard'
-  const dashboardData = useMemo(() => {
-    if (activeView !== 'dashboard') {
-      return null;
-    }
+  const tabButton = (active: boolean) =>
+    `group relative flex items-center gap-2 whitespace-nowrap px-3.5 py-2.5 text-sm font-medium transition-colors ${
+      active ? s.heading : s.muted
+    }`;
 
-    // คำนวณข้อมูลสำหรับ Summary Cards
-    let filteredNcData = selectedCaseType === 'ac' ? [] : ncData;
-    let filteredAcData = selectedCaseType === 'nc' ? [] : acData;
- 
-    if (selectedCenter !== 'all') {
-      filteredNcData = filteredNcData.filter(item => item.site_name === selectedCenter);
-      filteredAcData = filteredAcData.filter(item => item.site_name === selectedCenter);
-    }
-
-    const allData = [...filteredNcData, ...filteredAcData];
-    // console.log('allData', allData);
-    const majorCount = allData.filter(item => item.priority === 'Major').length;
-    const minorCount = allData.filter(item => item.priority === 'Minor').length;
-    const crisisCount = allData.filter(item => item.priority === 'Crisis').length;
-    const totalCount = allData.length;
-
-    const ncMajor = filteredNcData.filter(item => item.priority === 'Major').length;
-    const ncMinor = filteredNcData.filter(item => item.priority === 'Minor').length;
-    const ncCrisis = filteredNcData.filter(item => item.priority === 'Crisis').length;
-
-    const acMajor = filteredAcData.filter(item => item.priority === 'Major').length;
-    const acMinor = filteredAcData.filter(item => item.priority === 'Minor').length;
-    const acCrisis = filteredAcData.filter(item => item.priority === 'Crisis').length;
-
-    const summaryStats = {
-      majorCount,
-      minorCount,
-      crisisCount,
-      totalCount,
-      ncMajor,
-      ncMinor,
-      ncCrisis,
-      acMajor,
-      acMinor,
-      acCrisis,
-      ncTotal: filteredNcData.length,
-      acTotal: filteredAcData.length
-    };
-
-    // สร้างข้อมูลสำหรับ Calendar Chart
-    const dataByDate: { [key: string]: number } = {};
-    allData.forEach((item: any) => {
-      const date = item.record_date?.split('T')[0] || item.record_datetime?.split('T')[0];
-      if (date) {
-        dataByDate[date] = (dataByDate[date] || 0) + 1;
-      }
-    });
-
-    const calendarData = Object.entries(dataByDate).map(([day, value]) => ({
-      day,
-      value
-    }));
-
-    // สร้างข้อมูลสำหรับ Pie Chart (NC)
-    const ncPieData = summaryStats.ncTotal === 0 ? [] : [
-      {
-        id: 'Major',
-        label: 'Major',
-        value: summaryStats.ncMajor,
-        color: '#ef4444'
-      },
-      {
-        id: 'Minor',
-        label: 'Minor',
-        value: summaryStats.ncMinor,
-        color: '#f59e0b'
-      },
-      {
-        id: 'Crisis',
-        label: 'Crisis',
-        value: summaryStats.ncCrisis,
-        color: '#8b5cf6'
-      }
-    ].filter(item => item.value > 0);
-
-    // สร้างข้อมูลสำหรับ Pie Chart (AC)
-    const acPieData = summaryStats.acTotal === 0 ? [] : [
-      {
-        id: 'Major',
-        label: 'Major',
-        value: summaryStats.acMajor,
-        color: '#ef4444'
-      },
-      {
-        id: 'Minor',
-        label: 'Minor',
-        value: summaryStats.acMinor,
-        color: '#f59e0b'
-      },
-      {
-        id: 'Crisis',
-        label: 'Crisis',
-        value: summaryStats.acCrisis,
-        color: '#8b5cf6'
-      }
-    ].filter(item => item.value > 0);
-
-    // สร้างข้อมูลสำหรับ Stacked Bar Chart (รายเดือน)
-    const dataByMonth: { [key: string]: { Major: number; Minor: number; Crisis: number } } = {};
-    allData.forEach((item: any) => {
-      const date = item.record_date?.split('T')[0] || item.record_datetime?.split('T')[0];
-      const monthKey = date ? new Date(date).toLocaleDateString('th-TH', { month: 'short', year: '2-digit' }) : null;
-      if (monthKey && monthKey !== 'Invalid Date') {
-        if (!dataByMonth[monthKey]) {
-          dataByMonth[monthKey] = { Major: 0, Minor: 0, Crisis: 0 };
-        }
-        if (item.priority === 'Major') dataByMonth[monthKey].Major++;
-        else if (item.priority === 'Minor') dataByMonth[monthKey].Minor++;
-        else if (item.priority === 'Crisis') dataByMonth[monthKey].Crisis++;
-      }
-    });
-
-    const stackedBarData = Object.entries(dataByMonth)
-      .map(([month, values]) => ({
-        date: month,
-        ...values
-      }))
-      .sort((a, b) => {
-        const monthA = MONTH_NAMES.indexOf(a.date.split(' ')[0] as typeof MONTH_NAMES[number]);
-        const monthB = MONTH_NAMES.indexOf(b.date.split(' ')[0] as typeof MONTH_NAMES[number]);
-        return monthA - monthB;
-      });
-      // console.log('stackedBarData', stackedBarData);
-    // วิเคราะห์สาเหตุที่เกิดขึ้นบ่อยที่สุด
-    const causeCounts: { [key: string]: number } = {};
-    allData.forEach((item: any) => {
-      const cause = item.incident_cause || 'ไม่ระบุ';
-      causeCounts[cause] = (causeCounts[cause] || 0) + 1;
-    });
-
-    const topCauses = Object.entries(causeCounts)
-      .map(([cause, count]) => ({
-        cause,
-        count,
-        percentage: totalCount > 0 ? (count / totalCount) * 100 : 0
-      }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-
-    return {
-      summaryStats,
-      calendarData,
-      ncPieData,
-      acPieData,
-      stackedBarData,
-      topCauses
-    };
-  }, [activeView, ncData, acData, selectedCaseType, selectedCenter]);
-
-
-  const financeData = useMemo(() => {
-    if (activeView !== 'finance') {
-      return null;
-    }
-
-    let filteredNcData = selectedCaseType === 'ac' ? [] : ncData;
-    let filteredAcData = selectedCaseType === 'nc' ? [] : acData;
-  
-    // กรองตาม Center
-    if (selectedCenter !== 'all') {
-      filteredNcData = filteredNcData.filter(item => item.site_name === selectedCenter);
-      filteredAcData = filteredAcData.filter(item => item.site_name === selectedCenter);
-    }
-
-    const allData = [...filteredNcData, ...filteredAcData];
-
-    const centerCosts: { [key: string]: number } = {};
-    allData.forEach((item: any) => {
-      const centerName = item.site || item.site_name || 'ไม่ระบุ';
-      const actualCost = item.actual_price || 0;
-
-      if (!centerCosts[centerName]) {
-        centerCosts[centerName] = 0;
-      }
-      centerCosts[centerName] += actualCost;
-    });
-
-    const totalActualCost = Object.values(centerCosts).reduce((sum, cost) => sum + cost, 0);
-
-    const centerCostData = Object.entries(centerCosts).map(([center, cost], index) => {
-      const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6'];
-      return {
-        id: center,
-        label: center,
-        value: cost,
-        percentage: totalActualCost > 0 ? (cost / totalActualCost) * 100 : 0,
-        color: colors[index % colors.length]
-      };
-    }).sort((a, b) => b.value - a.value);
-
-    // คำนวณค่าเสียหายตาม Priority
-    const priorityCosts: { [key: string]: { actual: number; estimated: number } } = {
-      'Major': { actual: 0, estimated: 0 },
-      'Minor': { actual: 0, estimated: 0 },
-      'Crisis': { actual: 0, estimated: 0 }
-    };
-
-    allData.forEach((item: any) => {
-      const priority = item.priority || 'Minor';
-      if (priorityCosts[priority]) {
-        priorityCosts[priority].actual += item.actual_price || 0;
-        priorityCosts[priority].estimated += item.estimated_cost || 0;
-      }
-    });
-
-    // คำนวณค่าเสียหายรายเดือน
-    const monthlyCosts: { [key: string]: { NC: number; AC: number } } = {};
-
-    filteredNcData.forEach(item => {
-      const date = new Date(item.record_date || '');
-      const monthKey = date.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' });
-      if (!monthlyCosts[monthKey]) {
-        monthlyCosts[monthKey] = { NC: 0, AC: 0 };
-      }
-      monthlyCosts[monthKey].NC += item.actual_price || 0;
-    });
-
-    filteredAcData.forEach((item: any) => {
-      const date = new Date(item.record_datetime || '');
-      const monthKey = date.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' });
-      if (!monthlyCosts[monthKey]) {
-        monthlyCosts[monthKey] = { NC: 0, AC: 0 };
-      }
-      monthlyCosts[monthKey].AC += item.actual_price || 0;
-    });
-
-    const monthlyCostData = Object.entries(monthlyCosts)
-      .map(([month, costs]) => ({
-        month,
-        NC: costs.NC,
-        AC: costs.AC,
-        total: costs.NC + costs.AC
-      }))
-      .sort((a, b) => {
-        const monthA = MONTH_NAMES.indexOf(a.month.split(' ')[0] as typeof MONTH_NAMES[number]);
-        const monthB = MONTH_NAMES.indexOf(b.month.split(' ')[0] as typeof MONTH_NAMES[number]);
-        return monthA - monthB;
-      });
-
-      // console.log('monthlyCostData', monthlyCostData);
-      // console.log('centerCostData', centerCostData);
-
-    return {
-      centerCosts: centerCostData,
-      totalActualCost,
-      monthlyCosts: monthlyCostData,
-    };
-  }, [activeView, ncData, acData, selectedCaseType, selectedCenter]);
-
-  const transportData = useMemo(() => {
-    if (activeView !== 'transport') {
-      return null;
-    }
-
-    let filteredNcData = selectedCaseType === 'ac' ? [] : ncData;
-    let filteredAcData = selectedCaseType === 'nc' ? [] : acData;
-
-    // กรองตาม Center
-    if (selectedCenter !== 'all') {
-      filteredNcData = filteredNcData.filter(item => item.site_name === selectedCenter);
-      filteredAcData = filteredAcData.filter(item => item.site_name === selectedCenter);
-    }
-
-    const allData = [...filteredNcData, ...filteredAcData];
-
-    // คำนวณคนขับที่เกิดเคสมากที่สุด
-    const driverCaseCounts: { [key: string]: { count: number; severity: string; name: string } } = {};
-    allData.forEach((item: any) => {
-      const driverId = item.driver_id || 'unknown';
-      const driverName = item.driver || `คนขับ ${driverId}`;
-      if (!driverCaseCounts[driverId]) {
-        driverCaseCounts[driverId] = { count: 0, severity: 'Minor', name: driverName };
-      }
-      driverCaseCounts[driverId].count++;
-      if (item.priority === 'Crisis') {
-        driverCaseCounts[driverId].severity = 'Crisis';
-      } else if (item.priority === 'Major' && driverCaseCounts[driverId].severity !== 'Crisis') {
-        driverCaseCounts[driverId].severity = 'Major';
-      }
-    });
-
-    const topDrivers = Object.entries(driverCaseCounts)
-      .map(([id, data]) => ({
-        name: data.name,
-        caseCount: data.count,
-        severity: data.severity
-      }))
-      .sort((a, b) => b.caseCount - a.caseCount)
-      .slice(0, 5);
-
-    // คำนวณลูกค้าที่เกิดเคสมากที่สุด
-    const clientCaseCounts: { [key: string]: { count: number; cost: number; name: string } } = {};
-    allData.forEach((item: any) => {
-      const clientId = item.client_id?.toString() || 'unknown';
-      const clientName = item.client || `ลูกค้า ${clientId}`;
-      if (!clientCaseCounts[clientId]) {
-        clientCaseCounts[clientId] = { count: 0, cost: 0, name: clientName };
-      }
-      clientCaseCounts[clientId].count++;
-      clientCaseCounts[clientId].cost += item.actual_price || 0;
-    });
-
-    const topClients = Object.entries(clientCaseCounts)
-      .map(([id, data]) => ({
-        name: data.name,
-        caseCount: data.count,
-        cost: data.cost
-      }))
-      .sort((a, b) => b.caseCount - a.caseCount)
-      .slice(0, 5);
-
-    // คำนวณทะเบียนรถที่เกิดเคสมากที่สุด
-    const vehicleCaseCounts: { [key: string]: { count: number; priority: string } } = {};
-    allData.forEach((item: any) => {
-      const truckNo = item.vehicle_truckno || 'ไม่ระบุ';
-      if (truckNo !== 'ไม่ระบุ') {
-        if (!vehicleCaseCounts[truckNo]) {
-          vehicleCaseCounts[truckNo] = { count: 0, priority: 'Minor' };
-        }
-        vehicleCaseCounts[truckNo].count++;
-        if (item.priority === 'Crisis') {
-          vehicleCaseCounts[truckNo].priority = 'Crisis';
-        } else if (item.priority === 'Major' && vehicleCaseCounts[truckNo].priority !== 'Crisis') {
-          vehicleCaseCounts[truckNo].priority = 'Major';
-        }
-      }
-    });
-
-    const topVehicles = Object.entries(vehicleCaseCounts)
-      .map(([plateNumber, data]) => ({
-        plateNumber,
-        caseCount: data.count,
-        priority: data.priority
-      }))
-      .sort((a, b) => b.caseCount - a.caseCount)
-      .slice(0, 5);
-
-    // สถิติแอลกอฮอล์และสารเสพติด
-    let alcoholCases = 0;
-    let drugCases = 0;
-    let normalCases = 0;
-
-    allData.forEach((item: any) => {
-      const cause = (item.incident_cause || '').toLowerCase();
-      if (cause.includes('แอลกอฮอล์') || cause.includes('เมา') || cause.includes('ดื่ม')) {
-        alcoholCases++;
-      } else if (cause.includes('ยา') || cause.includes('สารเสพติด')) {
-        drugCases++;
-      } else {
-        normalCases++;
-      }
-    });
-
-    const alcoholDrugData = [
-      { id: 'ปกติ', label: 'ปกติ', value: normalCases, color: '#10b981' },
-      { id: 'แอลกอฮอล์', label: 'แอลกอฮอล์', value: alcoholCases, color: '#f59e0b' },
-      { id: 'สารเสพติด', label: 'สารเสพติด', value: drugCases, color: '#ef4444' }
-    ].filter(item => item.value > 0);
-
-    // สถิติการบาดเจ็บ
-    const injuryTypes: { [key: string]: { NC: number; AC: number } } = {};
-
-    allData.forEach((item: any) => {
-      const details = ((item.case_details || '') + ' ' + (item.description || '')).toLowerCase();
-      let injuryType = 'อื่นๆ';
-
-      if (details.includes('เสียชีวิต')) {
-        injuryType = 'เสียชีวิต';
-      } else if (details.includes('สาหัส')) {
-        injuryType = 'บาดเจ็บสาหัส';
-      } else if (details.includes('เล็กน้อย')) {
-        injuryType = 'บาดเจ็บเล็กน้อย';
-      } else if (details.includes('บาดเจ็บ')) {
-        injuryType = 'บาดเจ็บทั่วไป';
-      } else if (details.includes('ไม่มี') && details.includes('บาดเจ็บ')) {
-        injuryType = 'ไม่มีบาดเจ็บ';
-      }
-
-      if (!injuryTypes[injuryType]) {
-        injuryTypes[injuryType] = { NC: 0, AC: 0 };
-      }
-
-      if (item.type === 'NC') {
-        injuryTypes[injuryType].NC++;
-      } else {
-        injuryTypes[injuryType].AC++;
-      }
-    });
-
-    const injuryData = Object.entries(injuryTypes)
-      .map(([type, counts]) => ({
-        type,
-        NC: counts.NC,
-        AC: counts.AC
-      }))
-      .filter(item => item.NC > 0 || item.AC > 0);
-
-    // วิเคราะห์ Performance คนขับ
-    const allDriverIds = new Set<string>();
-    allData.forEach((item: any) => {
-      if (item.driver_id) allDriverIds.add(item.driver_id);
-    });
-
-    let excellent = 0;
-    let good = 0;
-    let warning = 0;
-    let critical = 0;
-
-    Object.entries(driverCaseCounts).forEach(([id, data]) => {
-      if (data.severity === 'Crisis' || data.count > 5) {
-        critical++;
-      } else if (data.severity === 'Major' || data.count >= 3) {
-        warning++;
-      } else if (data.count >= 1) {
-        good++;
-      }
-    });
-
-    excellent = allDriverIds.size - (good + warning + critical);
-    if (excellent < 0) excellent = 0;
-
-    const driverPerformance = {
-      excellent,
-      good,
-      warning,
-      critical
-    };
-
-    return {
-      topDrivers,
-      topClients,
-      topVehicles,
-      alcoholDrugData,
-      injuryData,
-      driverPerformance
-    };
-  }, [activeView, ncData, acData, selectedCaseType, selectedCenter]);
+  const activeCount = useMemo(
+    () => (query.siteIds.length ? 1 : 0) + (query.priorities.length ? 1 : 0) + (query.caseType !== 'all' ? 1 : 0),
+    [query]
+  );
 
   return (
-    <div className={`min-h-screen ${theme === "Dark" ? "bg-gradient-to-br from-slate-800 via-slate-700 to-[#3d5578]" : "bg-[#d1ffe1]"} p-4 md:p-6 lg:p-10`}>
-      <div className="space-y-4 md:space-y-6">
+    <div className={`min-h-screen ${pageBg} px-3 py-4 md:px-6 md:py-6 lg:px-8`}>
+      <div className="mx-auto max-w-[1600px] space-y-4">
+        {/* ส่วนหัว */}
+        <header className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${s.faint}`}>
+              MENA Safety · Incident Analytics
+            </p>
+            <h1 className={`mt-1 text-xl font-semibold tracking-tight md:text-2xl ${s.heading}`}>
+              รายงานวิเคราะห์อุบัติการณ์และอุบัติเหตุ
+            </h1>
+            <p className={`mt-1 text-xs ${s.muted}`}>
+              รวมเอกสาร NC (Non-Conformance) และ AC (Accident Case) · ตัวเลขทั้งหมดคำนวณจากฐานข้อมูลกลาง
+              {data && ` · ข้อมูล ${data.meta.row_count.toLocaleString('th-TH')} เคสในช่วงที่เลือก`}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {activeCount > 0 && (
+              <span className={`rounded-md px-2 py-1 text-[11px] font-medium ${s.panelSubtle} ${s.muted} border`}>
+                ใช้ตัวกรอง {activeCount} รายการ
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={!data}
+              className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-40 ${s.chipIdle}`}
+            >
+              <Download className="h-3.5 w-3.5" />
+              ส่งออก Excel
+            </button>
+          </div>
+        </header>
 
-
-        {/* Filter Section */}
-        <FilterSection
-          selectedMonth={selectedMonth}
-          setSelectedMonth={setSelectedMonth}
-          selectedYear={selectedYear}
-          setSelectedYear={setSelectedYear}
-          selectedCenter={selectedCenter}
-          setSelectedCenter={setSelectedCenter}
-          selectedCaseType={selectedCaseType}
-          setSelectedCaseType={setSelectedCaseType}
+        {/* ตัวควบคุม */}
+        <ControlBar
+          query={query}
+          activePreset={activePreset}
+          onPreset={applyPreset}
+          onChange={patchQuery}
+          sites={sites}
           loading={loading}
-          isCollapsed={isFilterCollapsed}
-          setIsCollapsed={setIsFilterCollapsed}
-          onSearch={handleSearch}
+          onRefresh={() => setReloadToken((n) => n + 1)}
+          compareStart={data?.meta.compare_start_date}
+          compareEnd={data?.meta.compare_end_date}
         />
 
-        {/* View Selector */}
-        <ViewSelector
-          activeView={activeView}
-          setActiveView={setActiveView}
-          menu={menu}
-        />
-
-        {/* Dashboard View */}
-        {activeView === 'dashboard' && dashboardData && (
-          <DashboardView
-            data={dashboardData}
-            selectedCaseType={selectedCaseType}
-            selectedMonth={selectedMonth}
-            selectedYear={selectedYear}
-          />
+        {/* สถานะผิดพลาด */}
+        {error && (
+          <div
+            className={`flex items-start gap-3 rounded-xl border px-4 py-3.5 ${
+              s.isDark ? 'border-rose-900/70 bg-rose-950/40' : 'border-rose-200 bg-rose-50'
+            }`}
+          >
+            <AlertCircle className={`mt-0.5 h-4 w-4 shrink-0 ${s.isDark ? 'text-rose-400' : 'text-rose-600'}`} />
+            <div className="flex-1">
+              <p className={`text-sm font-semibold ${s.isDark ? 'text-rose-300' : 'text-rose-700'}`}>
+                โหลดข้อมูลไม่สำเร็จ
+              </p>
+              <p className={`mt-0.5 text-xs ${s.muted}`}>{error}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReloadToken((n) => n + 1)}
+              className={`rounded-md px-3 py-1.5 text-xs font-semibold ${s.chipActive}`}
+            >
+              ลองอีกครั้ง
+            </button>
+          </div>
         )}
 
-        {/* Finance View */}
-        {activeView === 'finance' && financeData && (
-          <FinanceView data={financeData} />
+        {/* โครงหน้าระหว่างโหลดครั้งแรก */}
+        {loading && !data && <DashboardSkeleton />}
+
+        {data && (
+          <>
+            <KpiStrip data={data} query={query} />
+            <InsightBoard insights={data.insights} />
+
+            {/* แท็บ */}
+            <div className={`rounded-xl border shadow-sm ${s.panel}`}>
+              <nav className={`flex overflow-x-auto border-b px-2 ${s.divider}`} role="tablist">
+                {TABS.map((tab) => {
+                  const Icon = tab.icon;
+                  const active = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      title={tab.hint}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={tabButton(active)}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {tab.label}
+                      {active && (
+                        <span
+                          className={`absolute inset-x-2 -bottom-px h-0.5 rounded-full ${
+                            s.isDark ? 'bg-slate-100' : 'bg-slate-900'
+                          }`}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </nav>
+              <p className={`px-4 py-2 text-[11px] ${s.faint}`}>
+                {TABS.find((t) => t.id === activeTab)?.hint}
+              </p>
+            </div>
+
+            <div className={loading ? 'pointer-events-none opacity-60 transition-opacity' : 'transition-opacity'}>
+              {activeTab === 'overview' && <OverviewPanel data={data} query={query} />}
+              {activeTab === 'risk' && <RiskPanel data={data} query={query} />}
+              {activeTab === 'cost' && <CostPanel data={data} query={query} />}
+              {activeTab === 'entities' && <EntityPanel data={data} query={query} />}
+            </div>
+
+            <footer className={`pb-4 pt-2 text-center text-[11px] ${s.faint}`}>
+              คำนวณจาก {data.meta.row_count.toLocaleString('th-TH')} เคส · ช่วง{' '}
+              {fmtPeriod(data.meta.start_date, data.meta.end_date)} · ข้อมูล ณ {fmtDate(data.meta.generated_at)}
+            </footer>
+          </>
         )}
-
-        {/* Delivery View */}
-        {activeView === 'transport' && (
-          <TransportView data={""} />
-        )}
-
-
       </div>
+    </div>
+  );
+};
+
+/** โครงหน้าระหว่างโหลด — รักษาความสูงของหน้าไว้เพื่อไม่ให้เนื้อหากระโดดตอนข้อมูลมาถึง */
+const DashboardSkeleton = () => {
+  const s = useSurface();
+  const block = `animate-pulse rounded-xl border ${s.panel}`;
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className={`${block} h-[92px]`} />
+        ))}
+      </div>
+      <div className={`${block} h-[180px]`} />
+      <div className={`${block} h-[360px]`} />
     </div>
   );
 };
