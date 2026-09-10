@@ -304,10 +304,10 @@ export const hasCaseClosingDoc = (files: CategoryFiles) => ...
 ลำดับตอนกดปิดเคส:
 
 1. **อัปโหลดไฟล์ที่ยังค้างอยู่ก่อน** (`attatchments_post`) — กันเคสที่ผู้ใช้เพิ่งลากไฟล์เข้ามาแล้วกดปิดเคสเลยโดยไม่ได้กด "อัปเดตข้อมูล" ไม่งั้นเคสปิดไปทั้งที่เอกสารยังไม่ขึ้นระบบ
-2. `PUT /api/document/ac` ส่ง `casestatus: "Completed Investigate"` **พร้อม `docs`** เพื่อให้สถานะเอกสาร ("มี") ถูกบันทึกไปในรอบเดียวกัน
+2. `PUT /api/document/ac` ส่ง `casestatus: "Completed"` **พร้อม `docs`** เพื่อให้สถานะเอกสาร ("มี") ถูกบันทึกไปในรอบเดียวกัน
 3. อัปเดต `casestatus` บนหน้าจอ → `CaseStatusBadge` เปลี่ยนทันที
 
-ใช้สถานะ `Completed Investigate` ตัวเดิมของระบบ ไม่ได้เพิ่มสถานะใหม่ — [ACRecords.tsx](../components/ACRecords.tsx) แสดงผลเป็น **"Completed"** อยู่แล้ว และ Dashboard ก็นับรวมอยู่แล้ว
+บันทึกเป็น `"Completed"` ตรงๆ ให้ตรงกับ NC ([NCForm.tsx](../components/NCForm.tsx)) — เดิมเคยใช้ `"Completed Investigate"` แต่เปลี่ยนมาเพื่อไม่ให้ค่าที่บันทึกจริงกับค่าที่แสดงผล ("Completed") ต่างกัน ([ACRecords.tsx](../components/ACRecords.tsx) / [printDocument.ts](../lib/printDocument.ts) ยังรองรับค่าเก่า `Completed Investigate` ไว้เผื่อเรคคอร์ดที่ปิดไปก่อนหน้านี้)
 
 ### 4. เคสที่ปิดแล้ว — ซ่อนเอกสารที่ยังไม่มีไฟล์อัตโนมัติ
 

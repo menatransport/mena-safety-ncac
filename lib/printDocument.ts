@@ -109,7 +109,8 @@ const getStatusBadge = (status?: string) => {
       return '<span style="background-color: #fbbf24; color: #873f13; padding: 2px 8px; border-radius: 4px; font-size: 12px;">Pending</span>';
     case 'Voided':
       return '<span style="background-color: #ffbfd1; color: #4d0c1e; padding: 2px 8px; border-radius: 4px; font-size: 12px;">Voided</span>';
-    case 'Completed Investigate':
+    case 'Completed':
+    case 'Completed Investigate': // ค่าเก่าของเคสที่ปิดไว้ก่อนเปลี่ยนมาบันทึกเป็น "Completed"
       return '<span style="background-color: #baffe6; color: #065f46; padding: 2px 8px; border-radius: 4px; font-size: 12px;">Completed</span>';
     default:
       return '<span style="background-color: #e5e7eb; color: #374151; padding: 2px 8px; border-radius: 4px; font-size: 12px;">-</span>';

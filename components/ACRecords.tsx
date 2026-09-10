@@ -85,7 +85,7 @@ const EMPTY_COLUMN_FILTERS: ColumnFilters = {
 
 const STATUS_OPTIONS: ColumnFilterOption[] = [
   { value: "Pending", label: "🟡 Pending" },
-  { value: "Completed Investigate", label: "🟢 Completed" },
+  { value: "Completed", label: "🟢 Completed" },
   { value: "Voided", label: "🔴 Voided" },
 ];
 
@@ -442,7 +442,8 @@ export const ACRecordsComponent = () => {
         return "bg-red-100 text-red-800 border-red-200";
       case "Pending":
         return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "Completed Investigate":
+      case "Completed":
+      case "Completed Investigate": // ค่าเก่าของเคสที่ปิดไว้ก่อนเปลี่ยนมาบันทึกเป็น "Completed"
         return "bg-green-100 text-green-800 border-green-200";
       default:
         return "bg-gray-100 text-gray-800 border-gray-200";

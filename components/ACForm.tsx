@@ -55,8 +55,8 @@ interface CategoryFiles {
  */
 const INVESTIGATE_STORAGE_KEY = "acFormShowInvestigate";
 
-/** สถานะที่ถือว่าเคสถูกปิดแล้ว (ACRecords แสดงผลเป็น "Completed") */
-const CASE_CLOSED_STATUS = "Completed Investigate";
+/** สถานะที่ถือว่าเคสถูกปิดแล้ว — ให้ตรงกับ NC ที่บันทึกเป็น "Completed" ตรงๆ */
+const CASE_CLOSED_STATUS = "Completed";
 
 // มุมมองกระดาษ: จำค่าที่ผู้ใช้เลือกไว้ใน localStorage
 type LayoutMode = "stack" | "split";
