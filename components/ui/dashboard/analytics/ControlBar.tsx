@@ -19,8 +19,12 @@ const iso = (d: Date) => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 };
 
-export type PresetId = 'mtd' | 'last30' | 'qtd' | 'ytd' | 'prev_year' | 'custom';
+export type PresetId = 'mtd' | 'last30' | 'qtd' | 'ytd' | 'custom';
 
+/**
+ * ไม่มี preset "ปีที่แล้ว" โดยตั้งใจ — ระบบเริ่มบันทึกข้อมูลจริงตั้งแต่ 1 ม.ค. 2569
+ * ยังไม่มีปีก่อนหน้าที่มีข้อมูลใช้งานจริงให้เลือกดู (ดู SYSTEM_GO_LIVE ฝั่ง backend)
+ */
 export const buildPreset = (id: PresetId, today = new Date()): { startDate: string; endDate: string } | null => {
   const y = today.getFullYear();
   const m = today.getMonth();
@@ -36,8 +40,6 @@ export const buildPreset = (id: PresetId, today = new Date()): { startDate: stri
       return { startDate: iso(new Date(y, Math.floor(m / 3) * 3, 1)), endDate: iso(today) };
     case 'ytd':
       return { startDate: iso(new Date(y, 0, 1)), endDate: iso(today) };
-    case 'prev_year':
-      return { startDate: iso(new Date(y - 1, 0, 1)), endDate: iso(new Date(y - 1, 11, 31)) };
     default:
       return null;
   }
@@ -48,7 +50,6 @@ const PRESETS: { id: PresetId; label: string }[] = [
   { id: 'last30', label: '30 วันล่าสุด' },
   { id: 'qtd', label: 'ไตรมาสนี้' },
   { id: 'ytd', label: 'ปีนี้' },
-  { id: 'prev_year', label: 'ปีที่แล้ว' },
 ];
 
 const CASE_TYPES: { value: AnalyticsQuery['caseType']; label: string; hint: string }[] = [
@@ -65,8 +66,8 @@ interface ControlBarProps {
   sites: SiteOption[];
   loading: boolean;
   onRefresh: () => void;
-  compareStart?: string;
-  compareEnd?: string;
+  compareStart?: string | null;
+  compareEnd?: string | null;
 }
 
 export const ControlBar = ({
@@ -137,9 +138,13 @@ export const ControlBar = ({
         <div className="ms-auto flex items-center gap-3">
           <div className="text-right">
             <p className={`text-xs font-medium ${s.body}`}>{periodLabel}</p>
-            {compareStart && compareEnd && (
+            {compareStart && compareEnd ? (
               <p className={`text-[11px] ${s.faint}`}>
                 เทียบกับ {fmtPeriod(compareStart, compareEnd)}
+              </p>
+            ) : (
+              <p className={`text-[11px] ${s.faint}`} title="ระบบเริ่มบันทึกข้อมูลจริงตั้งแต่ 1 ม.ค. 2569 — ช่วงก่อนหน้านั้นไม่มีข้อมูลให้เทียบ">
+                ยังไม่มีช่วงก่อนหน้าให้เทียบ
               </p>
             )}
           </div>

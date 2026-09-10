@@ -1,6 +1,6 @@
 'use client';
 
-import { AnalyticsQuery, IncidentAnalytics, SEVERITY_COLORS, fmtInt, fmtMoneyShort, fmtPct, fmtPeriod } from '@/lib/incidentAnalytics';
+import { AnalyticsQuery, IncidentAnalytics, SEVERITY_COLORS, fmtDate, fmtInt, fmtMoneyShort, fmtPct, fmtPeriod } from '@/lib/incidentAnalytics';
 import { DASHBOARD_HELP } from '@/lib/dashboardHelp';
 import { StatTile, useSurface } from './ui';
 import { useCaseDrilldown } from './CaseListDialog';
@@ -92,6 +92,17 @@ export const KpiStrip = ({ data, query }: { data: IncidentAnalytics; query: Anal
         accentDark="#fbbf24"
         help={DASHBOARD_HELP.kpiOpenCases}
       />
+
+      {!data.meta.comparison_available && (
+        <p
+          className={`col-span-2 flex items-center gap-1.5 rounded-xl border px-4 py-2 text-[11px] md:col-span-3 xl:col-span-6 ${
+            s.isDark ? 'border-amber-900/70 bg-amber-950/30 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700'
+          }`}
+        >
+          ตัวเลข &quot;เทียบช่วงก่อน&quot; ทั้งหมดยังแสดงเป็น &quot;ใหม่&quot; เพราะระบบเริ่มบันทึกข้อมูลจริงตั้งแต่{' '}
+          {fmtDate(data.meta.system_go_live_date)} ช่วงเวลาที่เลือกย้อนไปก่อนวันนั้น จึงยังไม่มีข้อมูลย้อนหลังให้เทียบ
+        </p>
+      )}
 
       <div className={`col-span-2 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl border px-4 py-2.5 md:col-span-3 xl:col-span-6 ${s.panelSubtle}`}>
         <span className={`text-[11px] font-semibold uppercase tracking-wide ${s.muted}`}>บริบทเพิ่มเติม</span>

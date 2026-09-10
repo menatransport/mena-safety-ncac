@@ -84,8 +84,12 @@ export interface IncidentAnalytics {
     start_date: string;
     end_date: string;
     days: number;
-    compare_start_date: string;
-    compare_end_date: string;
+    /** null เมื่อช่วงเทียบย้อนไปก่อนวันที่ระบบเริ่มใช้งานจริง — ดู comparison_available */
+    compare_start_date: string | null;
+    compare_end_date: string | null;
+    /** false เมื่อช่วงเทียบทั้งหมดอยู่ก่อน system_go_live_date — ไม่มีข้อมูลใช้งานจริงให้เทียบ */
+    comparison_available: boolean;
+    system_go_live_date: string;
     case_type: string;
     granularity: 'day' | 'month';
     row_count: number;
@@ -345,28 +349,28 @@ export const COST_COLORS = {
 export const insightTone = (severity: Insight['severity'], isDark: boolean) => {
   const map = {
     critical: {
-      label: 'วิกฤต',
+      label: 'Critical',
       dot: 'bg-rose-600',
       border: isDark ? 'border-rose-900/70' : 'border-rose-200',
       text: isDark ? 'text-rose-300' : 'text-rose-700',
       chip: isDark ? 'bg-rose-950/60 text-rose-300' : 'bg-rose-50 text-rose-700',
     },
     warning: {
-      label: 'เฝ้าระวัง',
+      label: 'Warning',
       dot: 'bg-amber-500',
       border: isDark ? 'border-amber-900/70' : 'border-amber-200',
       text: isDark ? 'text-amber-300' : 'text-amber-700',
       chip: isDark ? 'bg-amber-950/60 text-amber-300' : 'bg-amber-50 text-amber-700',
     },
     info: {
-      label: 'ข้อสังเกต',
+      label: 'Info',
       dot: 'bg-slate-500',
       border: isDark ? 'border-slate-700' : 'border-slate-200',
       text: isDark ? 'text-slate-300' : 'text-slate-700',
       chip: isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700',
     },
     positive: {
-      label: 'สัญญาณบวก',
+      label: 'Positive',
       dot: 'bg-teal-600',
       border: isDark ? 'border-teal-900/70' : 'border-teal-200',
       text: isDark ? 'text-teal-300' : 'text-teal-700',

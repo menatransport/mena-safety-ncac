@@ -136,7 +136,12 @@ export const DashboardComponent = () => {
       const summary = [
         ['รายงานวิเคราะห์อุบัติการณ์ NC / AC'],
         ['ช่วงข้อมูล', fmtPeriod(data.meta.start_date, data.meta.end_date)],
-        ['เทียบกับ', fmtPeriod(data.meta.compare_start_date, data.meta.compare_end_date)],
+        [
+          'เทียบกับ',
+          data.meta.compare_start_date && data.meta.compare_end_date
+            ? fmtPeriod(data.meta.compare_start_date, data.meta.compare_end_date)
+            : `ยังไม่มีข้อมูลย้อนหลัง (ระบบเริ่มใช้งาน ${fmtDate(data.meta.system_go_live_date)})`,
+        ],
         ['สร้างเมื่อ', fmtDate(data.meta.generated_at)],
         [],
         ['ตัวชี้วัด', 'ค่าปัจจุบัน', 'ช่วงก่อนหน้า', 'เปลี่ยนแปลง (%)'],
