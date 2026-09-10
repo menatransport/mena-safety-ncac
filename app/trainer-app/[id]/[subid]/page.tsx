@@ -41,6 +41,8 @@ import {
     CheckCheck,
     Video,
     Wrench,
+    Send,
+    History,
 } from "lucide-react";
 
 /* ── Status helpers (module-level so identity is stable across renders) ── */
@@ -48,6 +50,50 @@ const STATUS_PASS = ["ผ่าน", "มี", "ไม่พบสาร"];
 const STATUS_FAIL = ["ไม่ผ่าน", "ไม่มี", "ชำรุด", "พบสาร"];
 const VEHICLE_BREAKDOWN = "รถเสีย-ซ่อม";
 const STATUS_NA = ["ไม่มีให้ตรวจ", "ไม่เกี่ยวข้อง", "ไม่ได้ตรวจ", "Toolbox Talk Online", VEHICLE_BREAKDOWN];
+
+/* ── หัวข้อที่อนุญาตให้แจ้ง "ส่งซ่อม" (เฉพาะชิ้นส่วน/อุปกรณ์รถ ไม่รวมความสะอาด/เอกสาร/สติกเกอร์) ── */
+const REPAIR_CANDIDATE_FIELDS: { fieldKey: string; label: string; section: string }[] = [
+    { fieldKey: "vehicle_front_glass", label: "กระจกหน้ารถ", section: "ด้านหน้า" },
+    { fieldKey: "vehicle_front_sidemirror", label: "กระจกมองข้าง", section: "ด้านหน้า" },
+    { fieldKey: "vehicle_front_headlight", label: "ไฟบนหัวเก๋ง", section: "ด้านหน้า" },
+    { fieldKey: "vehicle_front_light", label: "ไฟหน้า ไฟสูง/ต่ำ", section: "ด้านหน้า" },
+    { fieldKey: "vehicle_front_turnsignal", label: "ไฟเลี้ยวขวา/ ซ้าย", section: "ด้านหน้า" },
+    { fieldKey: "vehicle_front_tape", label: "แถบสะท้อนแสงด้านหน้ารถ", section: "ด้านหน้า" },
+    { fieldKey: "vehicle_left_doorglass", label: "กระจกประตูด้านซ้าย", section: "ด้านซ้าย" },
+    { fieldKey: "vehicle_left_sidestep", label: "บันไดขึ้นหัวเก๋งด้านซ้าย", section: "ด้านซ้าย" },
+    { fieldKey: "vehicle_left_rooflight", label: "ไฟราวด้านซ้าย", section: "ด้านซ้าย" },
+    { fieldKey: "vehicle_left_frontwheel", label: "ล้อหัวเก๋งด้านซ้าย", section: "ด้านซ้าย" },
+    { fieldKey: "vehicle_left_rearwheel", label: "ล้อบรรทุก/หาง ด้านซ้าย", section: "ด้านซ้าย" },
+    { fieldKey: "vehicle_left_storage", label: "จุดจัดเก็บรางด้านซ้าย", section: "ด้านซ้าย" },
+    { fieldKey: "vehicle_rear_glass", label: "ไฟเบรค", section: "ด้านหลัง" },
+    { fieldKey: "vehicle_rear_reverselight", label: "ไฟถอย", section: "ด้านหลัง" },
+    { fieldKey: "vehicle_rear_signal", label: "สัญญาณถอย (เสียง/ไฟ)", section: "ด้านหลัง" },
+    { fieldKey: "vehicle_rear_pini", label: "ตัวล็อครางตัวที่1", section: "ด้านหลัง" },
+    { fieldKey: "vehicle_rear_pinii", label: "ตัวล็อครางตัวที่2", section: "ด้านหลัง" },
+    { fieldKey: "vehicle_rear_tarpaulin", label: "ผ้าใบปิดปลายราง", section: "ด้านหลัง" },
+    { fieldKey: "vehicle_rear_plate", label: "ป้ายทะเบียนด้านท้าย", section: "ด้านหลัง" },
+    { fieldKey: "vehicle_rear_number", label: "เบอร์รถปากกรวยโม่", section: "ด้านหลัง" },
+    { fieldKey: "vehicle_rear_ladder", label: "บันไดขึ้นท้ายโม่", section: "ด้านหลัง" },
+    { fieldKey: "vehicle_rear_guardrail", label: "ราวกันตก", section: "ด้านหลัง" },
+    { fieldKey: "vehicle_right_doorglass", label: "กระจกประตูด้านขวา", section: "ด้านขวา" },
+    { fieldKey: "vehicle_right_sidestep", label: "บันไดขึ้นหัวเก๋งด้านขวา", section: "ด้านขวา" },
+    { fieldKey: "vehicle_right_rooflight", label: "ไฟราวด้านขวา", section: "ด้านขวา" },
+    { fieldKey: "vehicle_right_frontwheel", label: "ล้อหัวเก๋งด้านขวา", section: "ด้านขวา" },
+    { fieldKey: "vehicle_right_rearwheel", label: "ล้อบรรทุก/หาง ด้านขวา", section: "ด้านขวา" },
+    { fieldKey: "vehicle_right_storage", label: "จุดจัดเก็บรางด้านขวา", section: "ด้านขวา" },
+];
+
+/* ── สถานะคำขอซ่อม (จาก main-api-mena) ── */
+const REPAIR_STATUS_META: Record<string, { label: string; color: string }> = {
+    open: { label: "รอดำเนินการ", color: "bg-amber-500/20 border-amber-400/40 text-amber-100" },
+    in_progress: { label: "กำลังซ่อม", color: "bg-sky-500/20 border-sky-400/40 text-sky-100" },
+    waiting_parts: { label: "รออะไหล่", color: "bg-violet-500/20 border-violet-400/40 text-violet-100" },
+    waiting_approval: { label: "รออนุมัติ", color: "bg-fuchsia-500/20 border-fuchsia-400/40 text-fuchsia-100" },
+    driver_pass: { label: "คนขับยืนยันผ่าน", color: "bg-teal-500/20 border-teal-400/40 text-teal-100" },
+    done: { label: "เสร็จสิ้น", color: "bg-emerald-500/20 border-emerald-400/40 text-emerald-100" },
+    cancel: { label: "ยกเลิก", color: "bg-zinc-500/20 border-zinc-400/40 text-zinc-200" },
+};
+const repairStatusMeta = (s: string) => REPAIR_STATUS_META[s] ?? { label: s || "-", color: "bg-white/10 border-white/20 text-white/70" };
 const statusTone = (v: string, fieldType?: string) => {
     if (!v) return "empty";
     // Numeric text fields (e.g. alcohol mg%): >0 = fail, 0 = pass
@@ -315,6 +361,16 @@ export default function TrainerApp_SUBID() {
     const [vehicleDirty, setVehicleDirty] = useState(false);
     // Breakdown modal: when user clicks a Grand stat card
     const [breakdownTone, setBreakdownTone] = useState<null | "pass" | "fail" | "na" | "empty">(null);
+    // ส่งแจ้งซ่อม: ทะเบียนรถของคนขับ + dialog คัดเลือกรายการ
+    const [driverPlate, setDriverPlate] = useState<string>("");
+    const [repairDialogOpen, setRepairDialogOpen] = useState(false);
+    const [repairSelectedKeys, setRepairSelectedKeys] = useState<Set<string>>(new Set());
+    const [sendingRepair, setSendingRepair] = useState(false);
+    // แท็บภายใน dialog แจ้งซ่อม: เลือกรายการ / ประวัติซ่อม (เรียงตามทะเบียนรถ ล่าสุดก่อน)
+    const [repairDialogTab, setRepairDialogTab] = useState<"select" | "history">("select");
+    const [loadingHistory, setLoadingHistory] = useState(false);
+    const [repairHistory, setRepairHistory] = useState<any[]>([]);
+    const [historyDetails, setHistoryDetails] = useState<Record<number, any>>({});
     const { fetchSingleDropdown } = useDropdownStore();
     const router = useRouter();
 
@@ -364,6 +420,7 @@ export default function TrainerApp_SUBID() {
                 if (matchedDriver?.inspection_task_driver_id) {
                     setInspectionTaskDriverId(matchedDriver.inspection_task_driver_id);
                 }
+                setDriverPlate(matchedDriver?.number_plate ?? "");
             } catch (error) {
                 console.error("Error fetching task meta:", error);
             }
@@ -1862,6 +1919,121 @@ export default function TrainerApp_SUBID() {
     const getPpeRemark = (k: string) => String(dbPPE?.[k] ?? "");
     const getVehicleRemark = (k: string) => String(dbVehicle?.[k] ?? "");
 
+    /* ── ส่งแจ้งซ่อม: หัวข้อที่ถูกบันทึกเป็น "ไม่ผ่าน" ในกลุ่มที่อนุญาตให้ส่งซ่อม ── */
+    const failedRepairItems = REPAIR_CANDIDATE_FIELDS.filter(
+        (f) => String(dbVehicle?.[f.fieldKey] ?? "") === "ไม่ผ่าน",
+    );
+    const repairGroups = failedRepairItems.reduce<Record<string, typeof failedRepairItems>>((acc, f) => {
+        (acc[f.section] ??= []).push(f);
+        return acc;
+    }, {});
+
+    const handleOpenRepairDialog = () => {
+        setRepairDialogTab("select");
+        setRepairSelectedKeys(new Set(failedRepairItems.map((f) => f.fieldKey)));
+        setRepairDialogOpen(true);
+    };
+
+    const toggleRepairKey = (fieldKey: string) => {
+        setRepairSelectedKeys((prev) => {
+            const next = new Set(prev);
+            if (next.has(fieldKey)) next.delete(fieldKey);
+            else next.add(fieldKey);
+            return next;
+        });
+    };
+
+    const handleSubmitRepair = async () => {
+        const chosen = failedRepairItems.filter((f) => repairSelectedKeys.has(f.fieldKey));
+        if (chosen.length === 0) return;
+
+        if (!driverPlate) {
+            Swal.fire("ผิดพลาด", "ไม่พบทะเบียนรถของคนขับ กรุณาลองใหม่", "error");
+            return;
+        }
+
+        // created_by = รหัสพนักงานคนขับ (driver_id ที่ผูกกับ subid ของหน้านี้)
+        const createdBy = String(subid ?? "");
+        if (!createdBy) {
+            Swal.fire("ผิดพลาด", "ไม่พบรหัสพนักงานคนขับ กรุณาลองใหม่", "error");
+            return;
+        }
+
+        const problemDescription = chosen
+            .map((f) => {
+                const remark = getVehicleRemark(`${f.fieldKey}_remark`).trim();
+                return remark ? `${f.label} (${remark})` : f.label;
+            })
+            .join(", ");
+
+        setSendingRepair(true);
+        try {
+            const res = await fetch("/api/repair-request", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    truckplate: driverPlate,
+                    created_by: createdBy,
+                    platform: "mena_trainer",
+                    items: [
+                        {
+                            category: "แจ้งซ่อมทั่วไป",
+                            problem_description: problemDescription,
+                        },
+                    ],
+                }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err?.error || "ส่งคำขอไม่สำเร็จ");
+            }
+            setRepairDialogOpen(false);
+            setRepairSelectedKeys(new Set());
+            Swal.fire({ icon: "success", title: "ส่งแจ้งซ่อมสำเร็จ", timer: 1800, showConfirmButton: false });
+        } catch (e: any) {
+            Swal.fire("ผิดพลาด", e?.message || "ไม่สามารถส่งแจ้งซ่อมได้", "error");
+        } finally {
+            setSendingRepair(false);
+        }
+    };
+
+    /* ── สลับไปแท็บ "ประวัติซ่อม" ภายใน dialog แจ้งซ่อม: เรียงตามทะเบียนรถ (ล่าสุดก่อน) แสดง detail ทันทีไม่ต้องกดเปิด ── */
+    const handleSwitchToHistoryTab = async () => {
+        setRepairDialogTab("history");
+        if (!driverPlate) {
+            Swal.fire("ผิดพลาด", "ไม่พบทะเบียนรถของคนขับ กรุณาลองใหม่", "error");
+            return;
+        }
+        setLoadingHistory(true);
+        setRepairHistory([]);
+        setHistoryDetails({});
+        try {
+            const qs = new URLSearchParams({ truckplate: driverPlate, limit: "50", offset: "0" });
+            const res = await fetch(`/api/repair-request?${qs.toString()}`);
+            if (!res.ok) throw new Error("โหลดประวัติซ่อมไม่สำเร็จ");
+            const data = await res.json();
+            const list: any[] = Array.isArray(data) ? data : (data?.data ?? []);
+            const sorted = [...list].sort(
+                (a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime(),
+            );
+            setRepairHistory(sorted);
+
+            const results = await Promise.allSettled(
+                sorted.map((r) => fetch(`/api/repair-request/${r.id}`).then((res2) => (res2.ok ? res2.json() : null))),
+            );
+            const detailMap: Record<number, any> = {};
+            results.forEach((r, i) => {
+                if (r.status === "fulfilled" && r.value) detailMap[sorted[i].id] = r.value;
+            });
+            setHistoryDetails(detailMap);
+        } catch (e: any) {
+            Swal.fire("ผิดพลาด", e?.message || "ไม่สามารถโหลดประวัติซ่อมได้", "error");
+            setRepairHistory([]);
+        } finally {
+            setLoadingHistory(false);
+        }
+    };
+
     // Aggregate every editable field with its section + change handler so the breakdown modal can edit any of them
     type AggField = {
         section: string;
@@ -2163,9 +2335,18 @@ export default function TrainerApp_SUBID() {
                         </button>
                         <button
                             type="button"
+                            onClick={handleOpenRepairDialog}
+                            disabled={sendingRepair}
+                            className="flex-1 cursor-pointer sm:flex-none sm:min-w-[120px] flex items-center justify-center gap-2 rounded-xl bg-orange-500 px-6 py-3 text-sm sm:text-base font-semibold text-white shadow-lg shadow-orange-500/25 hover:bg-orange-600 hover:shadow-orange-500/40 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <Send size={16} />
+                            แจ้งซ่อม
+                        </button>
+                        <button
+                            type="button"
                             onClick={handleSave}
                             disabled={saving || !inspectionTaskDriverId}
-                            className="flex-1 sm:flex-none sm:min-w-[240px] flex items-center justify-center gap-2 rounded-xl bg-teal-500 px-6 py-3 text-sm sm:text-base font-semibold text-white shadow-lg shadow-teal-500/25 hover:bg-teal-600 hover:shadow-teal-500/40 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex-1 cursor-pointer sm:flex-none sm:min-w-[240px] flex items-center justify-center gap-2 rounded-xl bg-teal-500 px-6 py-3 text-sm sm:text-base font-semibold text-white shadow-lg shadow-teal-500/25 hover:bg-teal-600 hover:shadow-teal-500/40 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <Save size={16} />
                             {saving ? "กำลังบันทึก..." : "บันทึกข้อมูลทั้งหมด"}
@@ -2293,6 +2474,208 @@ export default function TrainerApp_SUBID() {
                                 <Save size={14} />
                                 {saving ? "กำลังบันทึก..." : "บันทึก"}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── ส่งแจ้งซ่อม (รวมแท็บ "เลือกรายการ" + "ประวัติซ่อม" ไว้ใน dialog เดียว) ── */}
+            {repairDialogOpen && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="แจ้งซ่อม"
+                    onClick={() => !sendingRepair && setRepairDialogOpen(false)}
+                    className="fixed inset-0 z-[95] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-6 animate-in fade-in duration-150"
+                >
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        className={`relative w-full sm:max-w-2xl max-h-[92vh] sm:max-h-[85vh] flex flex-col bg-slate-900 border border-white/10 sm:rounded-2xl shadow-2xl ring-1 ${repairDialogTab === "history" ? "ring-sky-400/30" : "ring-orange-400/30"}`}
+                    >
+                        {/* Header */}
+                        <div className="flex items-center gap-3 px-5 py-4 border-b border-white/10">
+                            <div className={`p-2 rounded-lg ${repairDialogTab === "history" ? "bg-sky-500/20 text-sky-200" : "bg-orange-500/20 text-orange-200"}`}>
+                                {repairDialogTab === "history" ? <History size={18} /> : <Wrench size={18} />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h3 className={`text-base sm:text-lg font-bold ${repairDialogTab === "history" ? "text-sky-200" : "text-orange-200"}`}>
+                                    {repairDialogTab === "history" ? "ประวัติซ่อม" : "เลือกรายการส่งซ่อม"}
+                                </h3>
+                                <p className="text-xs sm:text-sm text-white/60 font-mono">
+                                    {repairDialogTab === "history"
+                                        ? `${driverPlate || "-"} · ${repairHistory.length} รายการ · ล่าสุดก่อน`
+                                        : `เลือกแล้ว ${repairSelectedKeys.size}/${failedRepairItems.length} รายการ · ส่งเป็นคำขอซ่อม 1 รายการ (1 item)`}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setRepairDialogOpen(false)}
+                                disabled={sendingRepair}
+                                aria-label="ปิด"
+                                className="rounded-lg bg-white/10 hover:bg-white/20 text-white p-2 transition disabled:opacity-40"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Tabs */}
+                        <div className="flex items-center gap-1.5 px-5 pt-3">
+                            <button
+                                type="button"
+                                onClick={() => setRepairDialogTab("select")}
+                                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-semibold border transition ${repairDialogTab === "select"
+                                    ? "bg-orange-500/25 border-orange-400/50 text-orange-100"
+                                    : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"
+                                    }`}
+                            >
+                                <Wrench size={14} />
+                                เลือกรายการส่งซ่อม
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleSwitchToHistoryTab}
+                                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-semibold border transition ${repairDialogTab === "history"
+                                    ? "bg-sky-500/25 border-sky-400/50 text-sky-100"
+                                    : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"
+                                    }`}
+                            >
+                                <History size={14} />
+                                ประวัติซ่อม
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+                            {repairDialogTab === "select" ? (
+                                failedRepairItems.length === 0 ? (
+                                    <div className="text-center text-white/60 py-12 text-sm space-y-3">
+                                        <p>ยังไม่มีหัวข้อตรวจสภาพรถที่ถูกบันทึกว่า “ไม่ผ่าน”</p>
+                                        <button
+                                            type="button"
+                                            onClick={handleSwitchToHistoryTab}
+                                            className="inline-flex items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-200 px-3 py-1.5 text-xs font-medium transition"
+                                        >
+                                            <History size={14} />
+                                            ดูประวัติซ่อมของรถคันนี้แทน
+                                        </button>
+                                    </div>
+                                ) : (
+                                    Object.entries(repairGroups).map(([section, items]) => (
+                                        <div key={section} className="space-y-2">
+                                            <div className="text-xs font-semibold text-white/50 uppercase tracking-wider px-1">{section} <span className="text-white/30 font-mono">({items.length})</span></div>
+                                            <ul className="divide-y divide-white/5 rounded-xl border border-white/10 bg-white/5">
+                                                {items.map((f) => {
+                                                    const remark = getVehicleRemark(`${f.fieldKey}_remark`);
+                                                    const checked = repairSelectedKeys.has(f.fieldKey);
+                                                    return (
+                                                        <li key={f.fieldKey}>
+                                                            <label className="flex items-start gap-3 px-3 py-3 cursor-pointer hover:bg-white/5 transition">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={checked}
+                                                                    onChange={() => toggleRepairKey(f.fieldKey)}
+                                                                    className="mt-1 size-4 rounded border-white/30 bg-white/10 accent-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-400/40"
+                                                                />
+                                                                <span className="flex-1 min-w-0">
+                                                                    <span className="block text-sm sm:text-base text-white/90">{f.label}</span>
+                                                                    {remark && <span className="block text-xs text-rose-200/80 mt-0.5">เหตุผล: {remark}</span>}
+                                                                </span>
+                                                            </label>
+                                                        </li>
+                                                    );
+                                                })}
+                                            </ul>
+                                        </div>
+                                    ))
+                                )
+                            ) : (
+                                <div className="space-y-2">
+                                    {loadingHistory && (
+                                        <div className="text-center text-white/60 py-12 text-sm">กำลังโหลดประวัติซ่อม...</div>
+                                    )}
+                                    {!loadingHistory && repairHistory.length === 0 && (
+                                        <div className="text-center text-white/60 py-12 text-sm">ไม่พบประวัติซ่อมของรถคันนี้</div>
+                                    )}
+                                    {!loadingHistory && repairHistory.map((r) => {
+                                        const meta = repairStatusMeta(r.status);
+                                        const detail = historyDetails[r.id];
+                                        const createdAt = r.created_at
+                                            ? new Date(r.created_at).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })
+                                            : "-";
+                                        return (
+                                            <div key={r.id} className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
+                                                <div className="px-4 py-3">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <span className="text-sm font-semibold text-white/90 font-mono">{r.request_no}</span>
+                                                        <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${meta.color}`}>{meta.label}</span>
+                                                    </div>
+                                                    <div className="text-xs text-white/50 mt-1">{createdAt} · {r.items_count ?? detail?.items?.length ?? 0} รายการซ่อม</div>
+                                                </div>
+                                                <div className="px-4 pb-4 border-t border-white/10 pt-3">
+                                                    {!detail ? (
+                                                        <div className="text-center text-white/40 py-2 text-xs">ไม่สามารถโหลดรายละเอียดได้</div>
+                                                    ) : (
+                                                        <div className="space-y-3">
+                                                            <div className="grid grid-cols-2 gap-2 text-xs text-white/60">
+                                                                <div><span className="text-white/40">ผู้แจ้ง:</span> {detail.created_by || "-"}</div>
+                                                                <div><span className="text-white/40">ความสำคัญ:</span> {detail.priority || "-"}</div>
+                                                            </div>
+                                                            <ul className="divide-y divide-white/5 rounded-lg border border-white/10 bg-black/20">
+                                                                {(detail.items ?? []).map((it: any) => {
+                                                                    const itemMeta = repairStatusMeta(it.status);
+                                                                    return (
+                                                                        <li key={it.id} className="px-3 py-2.5">
+                                                                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                                                <span className="text-xs font-semibold text-white/70">{it.category}</span>
+                                                                                <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${itemMeta.color}`}>{itemMeta.label}</span>
+                                                                            </div>
+                                                                            <p className="text-sm text-white/85 mt-1">{it.problem_description}</p>
+                                                                        </li>
+                                                                    );
+                                                                })}
+                                                            </ul>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex items-center gap-3 px-5 py-3 border-t border-white/10 bg-slate-900/80">
+                            {repairDialogTab === "select" ? (
+                                <>
+                                    <span className="text-xs text-white/50 mr-auto hidden sm:inline">ทะเบียนรถ: {driverPlate || "—"}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setRepairDialogOpen(false)}
+                                        disabled={sendingRepair}
+                                        className="rounded-lg border border-white/15 bg-white/5 hover:bg-white/15 text-white/80 px-4 py-2 text-sm font-medium transition disabled:opacity-40"
+                                    >
+                                        ยกเลิก
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={sendingRepair || repairSelectedKeys.size === 0}
+                                        onClick={handleSubmitRepair}
+                                        className="flex items-center gap-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 text-sm font-semibold shadow-lg shadow-orange-500/25 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        <Send size={14} />
+                                        {sendingRepair ? "กำลังส่ง..." : `ส่งซ่อม (${repairSelectedKeys.size})`}
+                                    </button>
+                                </>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => setRepairDialogOpen(false)}
+                                    className="ml-auto rounded-lg border border-white/15 bg-white/5 hover:bg-white/15 text-white/80 px-4 py-2 text-sm font-medium transition"
+                                >
+                                    ปิด
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
