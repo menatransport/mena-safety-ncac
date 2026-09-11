@@ -20,6 +20,7 @@ interface ACRecord {
   id: string;
   date: string;
   customer: string;
+  origin_name: string;
   reporter: string;
   site: string;
   department: string;
@@ -70,6 +71,7 @@ interface ColumnFilters {
   client_id: string[];
   breakdown_status: string[];
   reporter_id: string[];
+  origin_id: string[];
 }
 
 const EMPTY_COLUMN_FILTERS: ColumnFilters = {
@@ -81,6 +83,7 @@ const EMPTY_COLUMN_FILTERS: ColumnFilters = {
   client_id: [],
   breakdown_status: [],
   reporter_id: [],
+  origin_id: [],
 };
 
 const STATUS_OPTIONS: ColumnFilterOption[] = [
@@ -129,12 +132,14 @@ export const ACRecordsComponent = () => {
     departments: any[];
     clients: any[];
     reporters: any[];
+    locations: any[];
   }>({
     sites: [],
     drivers: [],
     departments: [],
     clients: [],
     reporters: [],
+    locations: [],
   });
 
   const loadDrivers = useCallback(async () => {
@@ -182,6 +187,20 @@ export const ACRecordsComponent = () => {
       console.error("Error fetching reporters:", error);
     }
   }, [dropdownData.reporters.length]);
+
+  const loadLocations = useCallback(async () => {
+    if (dropdownData.locations.length > 0) return;
+    try {
+      const res = await fetch("/api/list", { headers: { "X-Api-Path": "/locations" } });
+      const data = await res.json();
+      const sorted = (data || []).sort((a: any, b: any) => {
+        return (a.location_name || "").localeCompare(b.location_name || "", 'th');
+      });
+      setDropdownData((prev) => ({ ...prev, locations: sorted }));
+    } catch (error) {
+      console.error("Error fetching locations:", error);
+    }
+  }, [dropdownData.locations.length]);
 
   useEffect(() => {
     const fetchDropdownData = async () => {
@@ -232,6 +251,7 @@ export const ACRecordsComponent = () => {
     loadDrivers();
     loadClients();
     loadReporters();
+    loadLocations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -262,6 +282,7 @@ export const ACRecordsComponent = () => {
       date: record.record_datetime,
       date_event: record.incident_datetime,
       customer: record.client_name,
+      origin_name: record.origin_name,
       reporter: record.reporter_name,
       site: record.site_name,
       department: record.department_name,
@@ -309,6 +330,7 @@ export const ACRecordsComponent = () => {
     columnFilters.driver_id.forEach((v) => params.append("driver_id", v));
     columnFilters.client_id.forEach((v) => params.append("client_id", v));
     columnFilters.reporter_id.forEach((v) => params.append("reporter_id", v));
+    columnFilters.origin_id.forEach((v) => params.append("origin_id", v));
     columnFilters.breakdown_status.forEach((v) => params.append("breakdown_status", v));
 
     params.append("page", String(pageArg));
@@ -425,6 +447,15 @@ export const ACRecordsComponent = () => {
         label: `${r.firstname || ""} ${r.lastname || ""}`.trim() || "ไม่ระบุชื่อ",
       })),
     [dropdownData.reporters]
+  );
+
+  const locationOptions: ColumnFilterOption[] = useMemo(
+    () =>
+      dropdownData.locations.map((l: any) => ({
+        value: l.location_id?.toString() || "",
+        label: l.location_name || "ไม่ระบุชื่อ",
+      })),
+    [dropdownData.locations]
   );
 
   // breakdown_status is only ever "วิ่งต่อได้" / "ไม่สามารถวิ่งต่อได้" (set from
@@ -642,6 +673,7 @@ export const ACRecordsComponent = () => {
           'ระดับความรุนแรง': record.priority || '',
           'สถานะ': record.status || '',
           'ลูกค้า': record.customer || '',
+          'ต้นทาง/แพล้น': record.origin_name || '',
           'ผู้รายงาน': record.reporter || '',
           'สำนักงาน/ศูนย์': record.site || '',
           'แผนก': record.department || '',
@@ -857,6 +889,16 @@ export const ACRecordsComponent = () => {
                   </th>
                   <th className="border border-gray-300 px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
                     <ColumnFilterDropdown
+                      label="Origin/Plant"
+                      options={locationOptions}
+                      selectedValues={columnFilters.origin_id}
+                      onApply={handleColumnFilterApply("origin_id")}
+                      sortDirection={sortBy === "origin_name" ? sortOrder : null}
+                      onSort={(dir) => { setSortBy("origin_name"); setSortOrder(dir); }}
+                    />
+                  </th>
+                  <th className="border border-gray-300 px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
+                    <ColumnFilterDropdown
                       label="Reporter"
                       options={reporterOptions}
                       selectedValues={columnFilters.reporter_id}
@@ -1015,6 +1057,9 @@ export const ACRecordsComponent = () => {
                         {record.customer || "ไม่ระบุ"}
                       </td>
                       <td className="border border-gray-200 px-3 py-4 text-xs text-gray-600">
+                        {record.origin_name || "ไม่ระบุ"}
+                      </td>
+                      <td className="border border-gray-200 px-3 py-4 text-xs text-gray-600">
                         {record.reporter || "ไม่ระบุ"}
                       </td>
                       <td className="border border-gray-200 px-3 py-4 text-xs text-gray-600">
@@ -1150,16 +1195,23 @@ export const ACRecordsComponent = () => {
                           <p className="text-gray-900 text-xs border-b-1 w-fit">{record.customer || "ไม่ระบุ"}</p>
                         </div>
                         <div>
-                          <span className="font-semibold text-indigo-600">ผู้รายงาน:</span>
-                          <p className="text-gray-900 text-xs border-b-1 w-fit">{record.reporter || "ไม่ระบุ"}</p>
+                          <span className="font-semibold text-indigo-600">ต้นทาง/แพล้น:</span>
+                          <p className="text-gray-900 text-xs border-b-1 w-fit">{record.origin_name || "ไม่ระบุ"}</p>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2">
                         <div>
+                          <span className="font-semibold text-indigo-600">ผู้รายงาน:</span>
+                          <p className="text-gray-900 text-xs border-b-1 w-fit">{record.reporter || "ไม่ระบุ"}</p>
+                        </div>
+                        <div>
                           <span className="font-semibold text-indigo-600">สำนักงาน/ศูนย์:</span>
                           <p className="text-gray-900 text-xs border-b-1 w-fit">{record.site || "ไม่ระบุ"}</p>
                         </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
                         <div>
                           <span className="font-semibold text-indigo-600">ทะเบียนรถ:</span>
                           <p className="text-gray-900 text-xs border-b-1 w-fit">{record.plateNumber || "ไม่ระบุ"}</p>

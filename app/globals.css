@@ -108,6 +108,246 @@
   --glow-accent: oklch(0.72 0.14 55 / 0.2);
 }
 
+
+/* ---------------------------------------------------------------------------
+ * Tailwind v4 token mapping
+ * ตัวแปรสีด้านบนถูกอ้างถึงด้วยคลาสอย่าง bg-primary / text-foreground ทั่วโปรเจกต์
+ * (รวมถึง components/ui ทั้งชุด) แต่ Tailwind v4 จะสร้าง utility ให้ก็ต่อเมื่อ
+ * ประกาศไว้ใน @theme เท่านั้น บล็อกนี้จึงทำหน้าที่เชื่อมตัวแปรเข้ากับ utility
+ * ------------------------------------------------------------------------ */
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* ---------------------------------------------------------------------------
+ * Safety Self Learning — ชุดสีเฉพาะระบบบทเรียน (อ้างอิงแบบ 3a จาก Claude Design)
+ * ประกาศเป็น utility ชุด lsn-* แยกจากโทนหลักของ MENA SAFETY เพื่อไม่ให้กระทบ
+ * หน้าอื่นในโปรเจกต์ ใช้ได้เฉพาะภายใน /lesson และ /lesson-admin
+ * ------------------------------------------------------------------------ */
+@theme {
+  /* ── ตัวหนังสือ ─────────────────────────────────────────────── */
+  --color-lsn-ink: #0C3A2C;
+  --color-lsn-ink-70: #4A6E60;
+
+  /* ── เขียวมรกตของแบรนด์ ไล่จากเข้มไปสว่าง ─────────────────── */
+  --color-lsn-deep: #067A5B;
+  --color-lsn-forest: #0B9E6E;
+  --color-lsn-brand: #12B981;
+  --color-lsn-green: #17C98A;
+  --color-lsn-teal: #0FB5C7;
+  --color-lsn-mint: #6FE7BE;
+  --color-lsn-hero: #0B9E6E;
+
+  /* เขียวสำหรับ "ตัวหนังสือบนพื้นขาว" ต้องเข้มพอให้อ่านออกที่ขนาด 11–13px */
+  --color-lsn-green-deep: #07845A;
+  --color-lsn-green-soft: #CFF5E5;
+  --color-lsn-green-tint: #E8FBF2;
+
+  /* ── Enterprise Refined (เพิ่ม 7 ก.ย. 2569) ─────────────────────
+   * เพิ่มใหม่อย่างเดียว ไม่แก้ค่าเดิม เพื่อไม่ให้กระทบหน้าอื่นในโปรเจกต์
+   * ------------------------------------------------------------- */
+  /* เขียวสำหรับ "ตัวอักษรบนพื้น green-tint" — green-deep เดิมได้ 4.37:1 ซึ่งยังไม่ผ่าน AA
+   * ค่านี้ได้ 5.61:1 และใช้เป็นสีปุ่มหลักตอน hover ด้วย */
+  --color-lsn-green-900: #06714D;
+  --color-lsn-green-950: #056649;
+
+  /* เส้น "ขอบเขต" (ขอบแผง ใต้หัวตาราง เหนือแถบท้าย) — เข้มกว่า lsn-line
+   * ที่สงวนไว้ให้เส้นภายในอย่างเส้นคั่นแถว สองน้ำหนักนี้คือทั้งระบบ */
+  --color-lsn-line-strong: #CADFD4;
+
+  /* พื้นแถวตอนชี้เมาส์ — ต้องสว่างกว่า green-tint ที่ใช้กับแถวที่ถูกเลือก
+   * ไม่งั้นสองสถานะจะแยกกันไม่ออก */
+  --color-lsn-row-hover: #F0FBF6;
+
+  /* ── พื้นผิวและเส้น ─────────────────────────────────────────── */
+  --color-lsn-surface: #F4FAF7;
+  --color-lsn-line: #E6F0EA;
+  --color-lsn-input-line: #D9E8E0;
+  --color-lsn-tile: #EEF5F1;
+  --color-lsn-canvas: #F5FAF8;
+  --color-lsn-info: #EDFAF4;
+  --color-lsn-info-ink: #43705E;
+
+  /* ── ตัวหนังสือรอง ไล่จากชัดไปจาง ──────────────────────────── */
+  --color-lsn-muted: #5F7A6E;
+  --color-lsn-dim: #7A9489;
+  --color-lsn-mute2: #86A296;
+  --color-lsn-faint: #A9C2B6;
+
+  /* ── สีเน้น: อำพันใช้กับแบดจ์เตือน (คู่กับตัวหนังสือสีเข้ม) ── */
+  --color-lsn-amber: #F5A524;
+  --color-lsn-orange: #F5A524;
+  --color-lsn-orange-tint: #FFF6EA;
+  --color-lsn-orange-ink: #8A5218;
+
+  /* ── สถานะไม่ผ่าน / ผิด ────────────────────────────────────── */
+  --color-lsn-danger: #F0654F;
+  --color-lsn-danger-ink: #B03A28;
+  --color-lsn-x: #E4572E;
+  --color-lsn-fail-ink: #5C1810;
+
+  /* แถบบอกข้อที่ตอบแล้วบนหัวจอไล่สี */
+  --color-lsn-step: #6FE7BE;
+  /* ตัวเลือกที่ถูกเลือกในแบบทดสอบ */
+  --color-lsn-pick: #C9F7E2;
+
+  /* เหลือไว้เพื่อความเข้ากันได้ของโค้ดเดิม (ชิปอำพันในหน้า admin) */
+  --color-lsn-hero-soft: #FFE3B0;
+}
+
+
+/**
+ * .lsn — ขอบเขตของธีมบทเรียน
+ * ตัวหนังสือใช้ Mitr น้ำหนักบาง (300) เป็นพื้น หัวข้อใช้ 500/600
+ * ต้องรีเซ็ต h1–h3 ที่ globals ตั้งเป็น Outfit 700 ไว้ ไม่งั้นหัวข้อจะหลุดธีม
+ */
+.lsn {
+  font-family: var(--font-mitr), 'IBM Plex Sans Thai', system-ui, sans-serif;
+  font-weight: 300;
+  letter-spacing: 0;
+  color: var(--color-lsn-ink);
+}
+
+.lsn h1,
+.lsn h2,
+.lsn h3,
+.lsn h4 {
+  font-family: inherit;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.35;
+}
+
+.lsn input,
+.lsn select,
+.lsn textarea,
+.lsn button {
+  font-family: inherit;
+}
+
+.lsn ::selection {
+  background: var(--color-lsn-green-soft);
+  color: var(--color-lsn-ink);
+}
+
+/**
+ * ขอบบนแบบรอยหยัก "เมฆ" ของแผ่นการ์ดขาว — เอกลักษณ์ของแบบ 3a
+ * วางเป็น element ลอยไว้บนสุดของแผ่น (ดูการใช้งานใน SheetTop)
+ */
+.lsn-cloud {
+  background: radial-gradient(circle at 11px 11px, #fff 11px, transparent 12px) repeat-x;
+  background-size: 22px 22px;
+}
+
+/* ---------------------------------------------------------------------------
+ * ไล่สีประจำธีม — ใช้เป็นคลาสแทน utility ยาว ๆ เพื่อให้ทุกจอไล่สีชุดเดียวกัน
+ * ทิศทางเดียวกันทั้งระบบ: เข้มด้านบน → สว่างด้านล่าง บรรจบกับแผ่นการ์ดขาว
+ * ------------------------------------------------------------------------ */
+
+/** หัวจอหลัก (เข้าใช้งาน / หน้าแรก / แบบทดสอบ / หัวเพจ admin) */
+.lsn-grad-hero {
+  background-image: linear-gradient(
+    158deg,
+    #067a5b 0%,
+    #0b9e6e 38%,
+    #12b981 68%,
+    #2fd79e 100%
+  );
+}
+
+/** สรุปผล "ผ่าน" — เขียวมรกตไล่ไปมิ้นต์ ใช้ตัวหนังสือสีเข้ม */
+.lsn-grad-pass {
+  background-image: linear-gradient(158deg, #0b9e6e 0%, #22cf94 52%, #7deec4 100%);
+}
+
+/** สรุปผล "ไม่ผ่าน" — โทนอิฐไล่ไปโครัล ใช้ตัวหนังสือสีขาว */
+.lsn-grad-fail {
+  background-image: linear-gradient(158deg, #a83418 0%, #dd5a3c 50%, #f89478 100%);
+}
+
+/** ปุ่ม/การ์ดเน้นโทนเข้ม (ปุ่มหลัก, บทเรียนที่ต้องทำต่อ) */
+.lsn-grad-cta {
+  background-image: linear-gradient(135deg, #0c3a2c 0%, #12694c 55%, #0d7d5c 100%);
+}
+
+/** ปุ่มไปต่อโทนสว่าง (ดูจบแล้ว / เรียนหัวข้อถัดไป) */
+.lsn-grad-go {
+  background-image: linear-gradient(135deg, #17c98a 0%, #12b981 50%, #0fb5c7 100%);
+}
+
+/** แถบความคืบหน้า */
+.lsn-grad-bar {
+  background-image: linear-gradient(90deg, #12b981 0%, #17c98a 55%, #0fb5c7 100%);
+}
+
+/**
+ * ปุ่มใบประกาศนียบัตร — ทองไล่เฉด ใช้คู่กับตัวหนังสือสีเขียวเข้ม (text-lsn-ink)
+ * แยกสีออกจากเขียวของระบบเพื่อให้ "ของรางวัล" เด่นกว่าปุ่มทำงานทั่วไป
+ */
+.lsn-grad-gold {
+  background-image: linear-gradient(120deg, #f4e3b3 0%, #dcbc66 38%, #cfa94e 70%, #b8963e 100%);
+}
+
+/**
+ * ฉากหลังของหน้าจอใหญ่ — เรืองเขียวจาง ๆ ให้กรอบโทรศัพท์ไม่ลอยอยู่บนพื้นเทาเปล่า
+ * บนมือถือถูกตัวแอปทับจนไม่เห็น จึงใส่ไว้ที่ระดับ layout ได้เลย
+ */
+.lsn-canvas {
+  background-color: #f5faf8;
+  background-image:
+    radial-gradient(900px 560px at 10% -12%, rgba(18, 185, 129, 0.16), transparent 62%),
+    radial-gradient(760px 480px at 102% 104%, rgba(15, 181, 199, 0.12), transparent 58%);
+  background-attachment: fixed;
+}
+
+/** แถบความคืบหน้า */
+.lsn-grad-bar {
+  background-image: linear-gradient(90deg, #05de7b 0%, #00c48f 100%);
+}
+
+/** ซ่อน scrollbar ในกรอบโทรศัพท์บนเดสก์ท็อป */
+.lsn-noscroll {
+  scrollbar-width: none;
+}
+.lsn-noscroll::-webkit-scrollbar {
+  display: none;
+}
+
 @layer base {
 
   html {
@@ -488,4 +728,47 @@
 
 .animate-scale-in {
   animation: scale-in 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* === Enterprise Refined utilities === */
+/* ---------------------------------------------------------------------------
+ * ใช้เฉพาะ /lesson-admin — เงา 3 ระดับและแอนิเมชันของหน้าแอดมิน
+ * เงามีแค่ 3 ระดับและถูกจัดสรรตายตัว: e1 = การ์ด/แผงตอนพัก,
+ * e2 = หัวตารางตอนปักหมุดและแถบคำสั่งกลุ่ม, e3 = ชั้นลอย (เมนู/ไดอะล็อก)
+ * ไม่มีการยกลอยตอนชี้เมาส์ที่ไหนเลย — ความลึกมาจากเส้นขอบและพื้นผิว
+ * ------------------------------------------------------------------------ */
+.lsn-e1 { box-shadow: 0 1px 2px rgba(12, 58, 44, .05); }
+.lsn-e2 { box-shadow: 0 1px 2px rgba(12, 58, 44, .05), 0 6px 16px -8px rgba(12, 58, 44, .12); }
+.lsn-e3 { box-shadow: 0 2px 4px rgba(12, 58, 44, .06), 0 16px 32px -12px rgba(12, 58, 44, .18); }
+
+/* ฟอนต์ monospace สำหรับรหัส — ใช้ของระบบล้วน ไม่ต้องดาวน์โหลดเพิ่ม
+ * รหัสถูกกวาดสายตาลงในแนวตั้งและเอามาเทียบกัน monospace ช่วยแยก 0 กับ O */
+.lsn-mono {
+  font-family: ui-monospace, "SF Mono", "Segoe UI Mono", "Cascadia Mono", Menlo, monospace;
+  letter-spacing: .02em;
+}
+
+@keyframes lsn-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes lsn-rise-row { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes lsn-pop { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
+@keyframes lsn-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+
+.lsn-rise { animation: lsn-rise .26s cubic-bezier(.22, 1, .36, 1) both; }
+.lsn-rise-row { animation: lsn-rise-row .2s cubic-bezier(.22, 1, .36, 1) both; }
+.lsn-pop { animation: lsn-pop .32s cubic-bezier(.22, 1, .36, 1) both; }
+.lsn-skel { background: var(--color-lsn-tile); animation: lsn-pulse 1.4s cubic-bezier(.4, 0, .6, 1) infinite; }
+
+/* แถวตาราง: เข้าเร็ว ออกช้า — กวาดเมาส์ผ่านหลายแถวแล้วจะลื่น ไม่กะพริบ */
+.lsn-row { transition: background-color .16s linear; }
+.lsn-row:hover { transition-duration: .09s; }
+
+/**
+ * ปิดเฉพาะการเคลื่อนไหวที่กระตุ้นอาการเวียนหัว แต่คงการเปลี่ยนสีและการจางไว้
+ * ถ้าปิดทรานซิชันทั้งหมดจะรู้สึกว่าแอปพัง ไม่ใช่สงบ
+ */
+@media (prefers-reduced-motion: reduce) {
+  .lsn-rise, .lsn-rise-row, .lsn-pop { animation-duration: .01ms !important; animation-delay: 0ms !important; }
+  .lsn-skel { animation: none; }
+  .lsn-ring circle, .lsn-knob, .lsn-tab-ind, .lsn-bar-fill { transition-duration: .01ms !important; }
+  .lsn-press:active { transform: none !important; }
 }

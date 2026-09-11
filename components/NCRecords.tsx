@@ -64,6 +64,7 @@ interface ColumnFilters {
   breakdown_status: string[];
   reporter_id: string[];
   incident_cause_id: string[];
+  origin_id: string[];
 }
 
 const EMPTY_COLUMN_FILTERS: ColumnFilters = {
@@ -76,6 +77,7 @@ const EMPTY_COLUMN_FILTERS: ColumnFilters = {
   breakdown_status: [],
   reporter_id: [],
   incident_cause_id: [],
+  origin_id: [],
 };
 
 const STATUS_OPTIONS: ColumnFilterOption[] = [
@@ -126,6 +128,7 @@ export const NCRecordsComponent = () => {
     clients: any[];
     reporters: any[];
     causes: any[];
+    locations: any[];
   }>({
     sites: [],
     drivers: [],
@@ -133,6 +136,7 @@ export const NCRecordsComponent = () => {
     clients: [],
     reporters: [],
     causes: [],
+    locations: [],
   });
 
   const loadDrivers = useCallback(async () => {
@@ -195,6 +199,20 @@ export const NCRecordsComponent = () => {
     }
   }, [dropdownData.causes.length]);
 
+  const loadLocations = useCallback(async () => {
+    if (dropdownData.locations.length > 0) return;
+    try {
+      const res = await fetch("/api/list", { headers: { "X-Api-Path": "/locations" } });
+      const data = await res.json();
+      const sorted = (data || []).sort((a: any, b: any) => {
+        return (a.location_name || "").localeCompare(b.location_name || "", 'th');
+      });
+      setDropdownData((prev) => ({ ...prev, locations: sorted }));
+    } catch (error) {
+      console.error("Error fetching locations:", error);
+    }
+  }, [dropdownData.locations.length]);
+
   useEffect(() => {
     const fetchDropdownData = async () => {
       try {
@@ -245,6 +263,7 @@ export const NCRecordsComponent = () => {
     loadClients();
     loadReporters();
     loadCauses();
+    loadLocations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -318,6 +337,7 @@ export const NCRecordsComponent = () => {
     columnFilters.client_id.forEach((v) => params.append("client_id", v));
     columnFilters.reporter_id.forEach((v) => params.append("reporter_id", v));
     columnFilters.incident_cause_id.forEach((v) => params.append("incident_cause_id", v));
+    columnFilters.origin_id.forEach((v) => params.append("origin_id", v));
     columnFilters.breakdown_status.forEach((v) => params.append("breakdown_status", v));
 
     params.append("page", String(pageArg));
@@ -440,6 +460,15 @@ export const NCRecordsComponent = () => {
         label: c.cause_name || "ไม่ระบุชื่อ",
       })),
     [dropdownData.causes]
+  );
+
+  const locationOptions: ColumnFilterOption[] = useMemo(
+    () =>
+      dropdownData.locations.map((l: any) => ({
+        value: l.location_id?.toString() || "",
+        label: l.location_name || "ไม่ระบุชื่อ",
+      })),
+    [dropdownData.locations]
   );
 
   // breakdown_status is only ever "วิ่งต่อได้" / "ไม่สามารถวิ่งต่อได้" (set from
@@ -882,6 +911,16 @@ export const NCRecordsComponent = () => {
                   </th>
                   <th className="border border-gray-300 px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
                     <ColumnFilterDropdown
+                      label="Origin/Plant"
+                      options={locationOptions}
+                      selectedValues={columnFilters.origin_id}
+                      onApply={handleColumnFilterApply("origin_id")}
+                      sortDirection={sortBy === "origin_name" ? sortOrder : null}
+                      onSort={(dir) => { setSortBy("origin_name"); setSortOrder(dir); }}
+                    />
+                  </th>
+                  <th className="border border-gray-300 px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
+                    <ColumnFilterDropdown
                       label="Reporter"
                       options={reporterOptions}
                       selectedValues={columnFilters.reporter_id}
@@ -1043,6 +1082,9 @@ export const NCRecordsComponent = () => {
                         {record.client_name || "ไม่ระบุ"}
                       </td>
                       <td className="border border-gray-200 px-3 py-4 text-xs text-gray-600">
+                        {record.origin_name || "ไม่ระบุ"}
+                      </td>
+                      <td className="border border-gray-200 px-3 py-4 text-xs text-gray-600">
                         {record.reporter_name || "ไม่ระบุ"}
                       </td>
                       <td className="border border-gray-200 px-3 py-4 text-xs text-gray-600">
@@ -1191,9 +1233,16 @@ export const NCRecordsComponent = () => {
 
                       <div className="grid grid-cols-2 gap-2">
                         <div>
+                          <span className="font-semibold text-indigo-600">ต้นทาง/แพล้น:</span>
+                          <p className="text-gray-900 text-xs border-b-1 w-fit">{record.origin_name || "ไม่ระบุ"}</p>
+                        </div>
+                        <div>
                           <span className="font-semibold text-indigo-600">สำนักงาน/ศูนย์:</span>
                           <p className="text-gray-900 text-xs border-b-1 w-fit">{record.site_name || "ไม่ระบุ"}</p>
                         </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
                         <div>
                           <span className="font-semibold text-indigo-600">ทะเบียนรถ:</span>
                           <p className="text-gray-900 text-xs border-b-1 w-fit">{record.plateNumber || "ไม่ระบุ"}</p>

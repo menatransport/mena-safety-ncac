@@ -5,6 +5,15 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Loading from "@/components/loading";
 import Swal from "sweetalert2";
 
+/**
+ * เส้นทางที่เข้าได้โดยไม่ต้อง login ด้วย userData
+ *   /login  — หน้าเข้าสู่ระบบเอง
+ *   /lesson — Safety Self Learning ฝั่งผู้เรียน ยืนยันตัวตนด้วย driver_id อย่างเดียว
+ *             (ไม่ครอบ /lesson-admin ซึ่งยังต้อง login ตามปกติ)
+ */
+const isPublicPath = (pathname: string) =>
+    pathname === "/login" || pathname === "/lesson" || pathname.startsWith("/lesson/");
+
 export default function AuthProvider({
     children,
 }: {
@@ -18,7 +27,7 @@ export default function AuthProvider({
 
     useEffect(() => {
 
-        if (pathname === "/login") {
+        if (isPublicPath(pathname)) {
             setIsLoading(false);
             setIsAuthenticated(true);
             return;
@@ -56,7 +65,7 @@ export default function AuthProvider({
         );
     }
 
-    if (!isAuthenticated && pathname !== "/login") {
+    if (!isAuthenticated && !isPublicPath(pathname)) {
         return null;
     }
 

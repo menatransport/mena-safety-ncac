@@ -6,16 +6,18 @@ import {
   GraduationCap,
   AlertTriangle,
   ArrowRight,
+  BookOpen,
 } from "lucide-react";
 import { useUiTheme } from "@/lib/useUiTheme";
 import Swal from "sweetalert2";
 import { useEffect } from "react";
+import { NcacMascot, TrainerMascot, LessonMascot } from "@/components/home/MenuMascots";
 
 function IncidentSvgButton({ onClick, isDark }: { onClick: () => void; isDark: boolean }) {
   return (
     <button
       onClick={onClick}
-      className={`group relative inline-flex items-center gap-3 rounded-2xl border px-5 py-3 font-semibold transition-all duration-300 hover:-translate-y-0.5 ${isDark
+      className={`group relative inline-flex w-full items-center justify-center gap-3 rounded-2xl border px-5 py-3 font-semibold transition-all duration-300 hover:-translate-y-0.5 sm:w-auto ${isDark
           ? "border-rose-300/40 bg-gradient-to-r from-rose-500 to-orange-500 text-white shadow-lg shadow-rose-900/30 hover:shadow-xl hover:shadow-rose-900/40"
           : "border-rose-300 bg-gradient-to-r from-rose-500 via-red-500 to-orange-500 text-white shadow-lg shadow-rose-300/40 hover:shadow-xl hover:shadow-rose-300/55"
         }`}
@@ -44,6 +46,170 @@ function IncidentSvgButton({ onClick, isDark }: { onClick: () => void; isDark: b
     </button>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* Shared row primitives                                               */
+/* ------------------------------------------------------------------ */
+
+type Accent = "rose" | "cyan" | "emerald";
+
+/** Per-accent Tailwind classes, split by theme so `isDark` stays the single switch. */
+const ACCENT = {
+  rose: {
+    dark: {
+      row: "hover:border-rose-300/35",
+      glow: "from-rose-500/25 to-orange-400/10",
+      tile: "from-rose-500/20 to-orange-400/10 ring-rose-300/25",
+      badge: "border-rose-300/40 bg-rose-500/15 text-rose-100",
+    },
+    light: {
+      row: "hover:border-rose-300 shadow-rose-100/40",
+      glow: "from-rose-300/40 to-orange-200/30",
+      tile: "from-rose-100 to-orange-50 ring-rose-200/70",
+      badge: "border-rose-300/70 bg-rose-50 text-rose-700",
+    },
+  },
+  cyan: {
+    dark: {
+      row: "hover:border-cyan-300/35",
+      glow: "from-cyan-400/30 to-indigo-400/10",
+      tile: "from-cyan-500/20 to-indigo-400/10 ring-cyan-300/25",
+      badge: "border-cyan-300/40 bg-cyan-500/15 text-cyan-100",
+    },
+    light: {
+      row: "hover:border-cyan-300 shadow-cyan-100/40",
+      glow: "from-cyan-300/40 to-indigo-200/30",
+      tile: "from-cyan-100 to-indigo-50 ring-cyan-200/70",
+      badge: "border-cyan-300/70 bg-cyan-50 text-cyan-700",
+    },
+  },
+  emerald: {
+    dark: {
+      row: "hover:border-emerald-300/35",
+      glow: "from-emerald-400/30 to-teal-400/10",
+      tile: "from-emerald-500/20 to-teal-400/10 ring-emerald-300/25",
+      badge: "border-emerald-300/40 bg-emerald-500/15 text-emerald-100",
+    },
+    light: {
+      row: "hover:border-emerald-300 shadow-emerald-100/40",
+      glow: "from-emerald-300/40 to-teal-200/30",
+      tile: "from-emerald-100 to-teal-50 ring-emerald-200/70",
+      badge: "border-emerald-300/70 bg-emerald-50 text-emerald-700",
+    },
+  },
+} as const;
+
+type MenuRowProps = {
+  isDark: boolean;
+  accent: Accent;
+  mascot: React.ReactNode;
+  badgeIcon: React.ReactNode;
+  badgeLabel: string;
+  title: string;
+  description: string;
+  action: React.ReactNode;
+  /** When provided the entire row becomes a button that navigates. */
+  onClick?: () => void;
+};
+
+/**
+ * One standardized list row: [mascot] [badge + title + description] [action].
+ * Renders as a <button> when `onClick` is given (whole row is the target),
+ * otherwise as a <div> so the nested action button owns the interaction.
+ */
+function MenuRow({
+  isDark,
+  accent,
+  mascot,
+  badgeIcon,
+  badgeLabel,
+  title,
+  description,
+  action,
+  onClick,
+}: MenuRowProps) {
+  const a = ACCENT[accent][isDark ? "dark" : "light"];
+
+  const rowClass = `group relative w-full overflow-hidden rounded-3xl border p-5 text-left shadow-xl transition-all duration-300 hover:-translate-y-1 sm:p-6 ${isDark
+      ? `border-white/15 bg-white/5 backdrop-blur-sm hover:bg-white/[0.07] ${a.row}`
+      : `border-slate-200/80 bg-white/85 ${a.row}`
+    } ${onClick ? "cursor-pointer" : ""}`;
+
+  const content = (
+    <>
+      {/* Ambient glow (top-right) */}
+      <div
+        className={`pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-gradient-to-br transition-all duration-300 group-hover:scale-110 ${a.glow} ${isDark ? "blur-3xl" : "blur-2xl"}`}
+      />
+
+      <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
+        {/* Mascot + copy */}
+        <div className="flex min-w-0 flex-1 items-start gap-4 sm:items-center sm:gap-5">
+          <div
+            className={`flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br p-2 ring-1 transition-transform duration-300 group-hover:scale-105 group-hover:-rotate-2 sm:h-24 sm:w-24 sm:p-3 ${a.tile}`}
+          >
+            {mascot}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold tracking-wide ${a.badge}`}
+            >
+              {badgeIcon}
+              {badgeLabel}
+            </div>
+
+            <h2 className={`mt-3 text-xl font-extrabold leading-snug sm:text-2xl ${isDark ? "text-white" : "text-slate-900"}`}>
+              {title}
+            </h2>
+            <p className={`mt-1.5 text-sm leading-relaxed ${isDark ? "text-white/65" : "text-slate-600"}`}>
+              {description}
+            </p>
+          </div>
+        </div>
+
+        {/* Action */}
+        <div className="shrink-0 sm:pl-2">{action}</div>
+      </div>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={rowClass}>
+        {content}
+      </button>
+    );
+  }
+  return <div className={rowClass}>{content}</div>;
+}
+
+/** Gradient pill CTA used by rows whose whole surface navigates. */
+function RowCta({
+  isDark,
+  icon,
+  label,
+  gradient,
+}: {
+  isDark: boolean;
+  icon: React.ReactNode;
+  label: string;
+  gradient: { dark: string; light: string };
+}) {
+  return (
+    <span
+      className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl border px-5 py-3 font-semibold text-white shadow-lg transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-xl sm:w-auto ${isDark ? gradient.dark : gradient.light}`}
+    >
+      {icon}
+      {label}
+      <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Page                                                                 */
+/* ------------------------------------------------------------------ */
 
 export default function HomePage() {
   const router = useRouter();
@@ -83,15 +249,8 @@ export default function HomePage() {
           />
         </div>
 
-        <div className="relative w-full place-self-center max-w-6xl space-y-5 sm:space-y-10 px-4 py-10 sm:px-6 sm:py-14 lg:px-10">
+        <div className="relative mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
           <div className="mb-8 flex flex-col items-center gap-2 text-center sm:mb-10">
-            <span
-              className={`text-xs font-semibold uppercase tracking-[0.2em] ${
-                isDark ? "text-white/50" : "text-slate-500"
-              }`}
-            >
-              Main Menu
-            </span>
             <h1
               className={`text-2xl font-black tracking-tight sm:text-4xl ${
                 isDark ? "text-white" : "text-slate-900"
@@ -113,88 +272,64 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-            <div
-              className={`cursor-pointer group relative overflow-hidden rounded-3xl border p-6 shadow-xl transition-all duration-300 hover:-translate-y-1 ${isDark
-                  ? "border-white/15 bg-white/5 backdrop-blur-sm hover:border-rose-300/30 hover:bg-white/[0.07]"
-                  : "border-rose-100/90 bg-white/85 hover:border-rose-300 shadow-rose-100/40"
-                }`}
-            >
-              <div
-                className={`absolute -right-16 -top-16 h-52 w-52 rounded-full bg-gradient-to-br transition-all duration-300 group-hover:scale-110 ${isDark ? "from-rose-500/25 to-orange-400/10 blur-3xl" : "from-rose-300/40 to-orange-200/30 blur-2xl"
-                  }`}
-              />
+          <div className="flex flex-col gap-4 sm:gap-5">
+            {/* 1. NC/AC — row is a container; the incident button is the action */}
+            <MenuRow
+              isDark={isDark}
+              accent="rose"
+              mascot={<NcacMascot isDark={isDark} className="h-full w-full" />}
+              badgeIcon={<AlertTriangle className="h-4 w-4" />}
+              badgeLabel="MENA-NCAC"
+              title="ระบบจัดการเอกสาร NC/AC"
+              description="สำหรับจัดการรายงาน NC/AC พร้อมปุ่มแจ้งเหตุอุบัติการณ์แบบด่วน"
+              action={<IncidentSvgButton isDark={isDark} onClick={() => router.push("/nc-form")} />}
+            />
 
-              <div className="relative flex h-full flex-col gap-4">
-                <div className="flex items-start justify-between">
-                  <div
-                    className={`w-1/2 sm:w-1/3 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold tracking-wide ${isDark
-                        ? "border-rose-300/40 bg-rose-500/15 text-rose-100"
-                        : "border-rose-300/70 bg-rose-50 text-rose-700"
-                      }`}
-                  >
-                    <AlertTriangle className="h-4 w-4" />
-                    MENA-NCAC
-                  </div>
-                </div>
-
-                <div>
-                  <h2 className={`text-2xl font-extrabold ${isDark ? "text-white" : "text-slate-900"}`}>ระบบจัดการเอกสาร NC/AC</h2>
-                  <p className={`mt-2 text-sm leading-relaxed ${isDark ? "text-white/65" : "text-slate-600"}`}>
-                    สำหรับจัดการรายงาน Non-Conformance และ Action Corrective พร้อมปุ่มแจ้งเหตุอุบัติการณ์แบบด่วน
-                  </p>
-                </div>
-
-                <div className="pt-2">
-                  <IncidentSvgButton isDark={isDark} onClick={() => router.push("/nc-form")} />
-                </div>
-              </div>
-            </div>
-
-            <button
+            {/* 2. Trainer — whole row navigates */}
+            <MenuRow
+              isDark={isDark}
+              accent="cyan"
               onClick={() => router.push("/trainer-app")}
-              className={`cursor-pointer group relative overflow-hidden rounded-3xl border p-6 text-left shadow-xl transition-all duration-300 hover:-translate-y-1 ${isDark
-                  ? "border-white/15 bg-white/5 backdrop-blur-sm hover:border-cyan-300/35 hover:bg-white/[0.07]"
-                  : "border-cyan-100/90 bg-white/85 hover:border-cyan-300 shadow-cyan-100/40"
-                }`}
-            >
-              <div
-                className={`absolute -right-16 -top-16 h-52 w-52 rounded-full bg-gradient-to-br transition-all duration-300 group-hover:scale-110 ${isDark ? "from-cyan-400/30 to-indigo-400/10 blur-3xl" : "from-cyan-300/40 to-indigo-200/30 blur-2xl"
-                  }`}
-              />
+              mascot={<TrainerMascot isDark={isDark} className="h-full w-full" />}
+              badgeIcon={<GraduationCap className="h-4 w-4" />}
+              badgeLabel="Trainer App"
+              title="ระบบติดตามผลหน้างานเทรนเนอร์"
+              description="ระบบสำหรับติดตามผลการตรวจแพล้น และรายงานผลการออกตรวจแพล้นครบวงจร"
+              action={
+                <RowCta
+                  isDark={isDark}
+                  icon={<GraduationCap className="h-4 w-4" />}
+                  label="เข้าใช้งาน"
+                  gradient={{
+                    dark: "border-cyan-200/40 bg-gradient-to-r from-cyan-500 via-sky-500 to-indigo-500 shadow-cyan-900/30 group-hover:shadow-cyan-900/40",
+                    light: "border-cyan-300 bg-gradient-to-r from-cyan-500 via-sky-500 to-indigo-500 shadow-cyan-300/50 group-hover:shadow-cyan-300/70",
+                  }}
+                />
+              }
+            />
 
-              <div className="relative flex h-full flex-col gap-4">
-                <div
-                  className={`w-1/2 sm:w-25 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold tracking-wide ${isDark
-                      ? "border-cyan-300/40 bg-cyan-500/15 text-cyan-100"
-                      : "border-cyan-300/70 bg-cyan-50 text-cyan-700"
-                    }`}
-                >
-                  <GraduationCap className="h-4 w-4" />
-                  TRAINER
-                </div>
-
-                <div>
-                  <h2 className={`text-2xl font-extrabold ${isDark ? "text-white" : "text-slate-900"}`}>ระบบติดตามผลหน้างานเทรนเนอร์</h2>
-                  <p className={`mt-2 text-sm leading-relaxed ${isDark ? "text-white/65" : "text-slate-600"}`}>
-                    ระบบสำหรับติดตามผลการตรวจแพล้น และรายงานผลการออกตรวจแพล้นครบวงจร
-                  </p>
-                </div>
-
-                <div className="pt-2">
-                  <span
-                    className={`inline-flex items-center gap-2 rounded-2xl border px-5 py-3 font-semibold shadow-lg transition-all duration-300 group-hover:-translate-y-0.5 ${isDark
-                        ? "border-cyan-200/40 bg-gradient-to-r from-cyan-500 via-sky-500 to-indigo-500 text-white shadow-cyan-900/30 group-hover:shadow-xl group-hover:shadow-cyan-900/40"
-                        : "border-cyan-300 bg-gradient-to-r from-cyan-500 via-sky-500 to-indigo-500 text-white shadow-cyan-300/50 group-hover:shadow-xl group-hover:shadow-cyan-300/70"
-                      }`}
-                  >
-                    <GraduationCap className="h-4 w-4" />
-                    เข้าใช้งาน Trainer App
-                    <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-                  </span>
-                </div>
-              </div>
-            </button>
+            {/* 3. Safety Self Learning — whole row navigates */}
+            <MenuRow
+              isDark={isDark}
+              accent="emerald"
+              onClick={() => router.push("/lesson-admin")}
+              mascot={<LessonMascot isDark={isDark} className="h-full w-full" />}
+              badgeIcon={<BookOpen className="h-4 w-4" />}
+              badgeLabel="Safety Self Learning"
+              title="ระบบจัดการบทเรียน"
+              description="สร้างและแก้ไขบทเรียน พร้อมติดตามผลคะแนนของผู้เรียน และรายงานผลการเรียนครบวงจร"
+              action={
+                <RowCta
+                  isDark={isDark}
+                  icon={<BookOpen className="h-4 w-4" />}
+                  label="เข้าใช้งาน"
+                  gradient={{
+                    dark: "border-emerald-200/40 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 shadow-emerald-900/30 group-hover:shadow-emerald-900/40",
+                    light: "border-emerald-300 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 shadow-emerald-300/50 group-hover:shadow-emerald-300/70",
+                  }}
+                />
+              }
+            />
           </div>
         </div>
       </div>
