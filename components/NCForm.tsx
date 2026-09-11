@@ -900,6 +900,44 @@ export const NCFormComponent = () => {
     }
   }
 
+  const handleRemoveItem_investigate = async (itemValue: string | number) => {
+    const item = (masterrootcauses || []).find((c: any) => c.root_cause === itemValue);
+    if (!item) return;
+
+    const result = await Swal.fire({
+      title: "ยืนยันการลบ",
+      html: `ต้องการลบ <b>${item.root_cause}</b> ออกจากรายการ root cause ใช่หรือไม่?`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "ลบข้อมูล",
+      cancelButtonText: "ยกเลิก",
+    });
+    if (!result.isConfirmed) return;
+
+    try {
+      const res = await fetch(`/api/list`, {
+        method: "DELETE",
+        headers: { "x-api-path": `/master-root-causes/${item.id}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+      setMasterrootcauses((prev) => prev.filter((c: any) => c.id !== item.id));
+      if (formInvestigate?.root_cause === itemValue) {
+        setFormInvestigate((prev) => ({ ...prev, root_cause: "" }));
+      }
+      Swal.fire({
+        icon: "success",
+        title: "ลบรายการ" + item.root_cause + "สำเร็จ",
+        showConfirmButton: true,
+      });
+    } catch (error) {
+      console.error(`Error removing root cause:`, error);
+      alert(`ลบรายการ "${item.root_cause}" ไม่สำเร็จ ลองใหม่อีกครั้ง`);
+    }
+  };
+
   // ========== Add/Remove Item Functions ==========
   const handleAddItem = async (type: string) => {
     if (formData.site_id === undefined || formData.site_id === null) return alert("กรุณาเลือก ศูนย์ปฏิบัติการ ก่อนเพิ่มรายการ");
@@ -2586,7 +2624,8 @@ export const NCFormComponent = () => {
                                 root_cause: String(value),
                               }))
                             }
-                            // onAdd={() => handleAddItem_investigate()}
+                            onAdd={() => handleAddItem_investigate()}
+                            onRemove={(itemValue) => handleRemoveItem_investigate(itemValue)}
                             showAddRemove={true}
                             className="w-full"
                             disabled={isViewMode}

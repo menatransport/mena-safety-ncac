@@ -75,6 +75,7 @@ const MASTER_RESOURCES = [
   'masterdrivers',
   'driver_roles',
   'mastercauses',
+  'master-root-causes',
 ] as const;
 
 // อนุญาต "/resource", "/resource/" และ "/resource/{id}" เท่านั้น — กัน path traversal ไปในตัว
