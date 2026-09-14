@@ -15,7 +15,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Swal from "sweetalert2";
 import { useParams, useRouter } from "next/navigation";
-import { FileUploadField } from "@/app/trainer-app/_components/render";
+import { FileUploadField, compressImage } from "@/app/trainer-app/_components/render";
+import { RepairPhotoPicker, type RepairPhoto } from "@/app/trainer-app/_components/RepairPhotoPicker";
+import { uploadMediaFile, deleteMedia as deleteMediaFile } from "@/app/trainer-app/_components/mediaApi";
 import { PageHeader } from "@/app/trainer-app/_components/PageHeader";
 import { NavComponent } from "@/components/Navbar";
 import { Badge } from "@/components/ui/badge";
@@ -366,6 +368,8 @@ export default function TrainerApp_SUBID() {
     const [repairDialogOpen, setRepairDialogOpen] = useState(false);
     const [repairSelectedKeys, setRepairSelectedKeys] = useState<Set<string>>(new Set());
     const [sendingRepair, setSendingRepair] = useState(false);
+    // รูปแนบตอนแจ้งซ่อม — อัปโหลดผ่าน Media API ทันทีที่เลือก เก็บ media_id ไว้ส่งตอน submit
+    const [repairPhotos, setRepairPhotos] = useState<RepairPhoto[]>([]);
     // แท็บภายใน dialog แจ้งซ่อม: เลือกรายการ / ประวัติซ่อม (เรียงตามทะเบียนรถ ล่าสุดก่อน)
     const [repairDialogTab, setRepairDialogTab] = useState<"select" | "history">("select");
     const [loadingHistory, setLoadingHistory] = useState(false);
@@ -1931,6 +1935,7 @@ export default function TrainerApp_SUBID() {
     const handleOpenRepairDialog = () => {
         setRepairDialogTab("select");
         setRepairSelectedKeys(new Set(failedRepairItems.map((f) => f.fieldKey)));
+        setRepairPhotos([]);
         setRepairDialogOpen(true);
     };
 
@@ -1941,6 +1946,48 @@ export default function TrainerApp_SUBID() {
             else next.add(fieldKey);
             return next;
         });
+    };
+
+    /* ── เลือก/ถ่ายรูปแนบแจ้งซ่อม: compress แล้วอัปโหลดผ่าน Media API ทันที ── */
+    const handlePickRepairPhoto = async (file: File) => {
+        const clientId = `repair-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+        const userId = String(subid ?? "");
+        if (!userId) {
+            Swal.fire("ผิดพลาด", "ไม่พบรหัสพนักงานคนขับ กรุณาลองใหม่", "error");
+            return;
+        }
+
+        const compressed = await compressImage(file, clientId);
+        const localPreview = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.readAsDataURL(compressed);
+        });
+
+        setRepairPhotos((prev) => [
+            ...prev,
+            { clientId, localPreview, mediaId: null, status: "uploading" },
+        ]);
+
+        try {
+            const { mediaId } = await uploadMediaFile(compressed, userId, "repair_request");
+            setRepairPhotos((prev) =>
+                prev.map((p) => (p.clientId === clientId ? { ...p, mediaId, status: "uploaded" } : p))
+            );
+        } catch (e: any) {
+            setRepairPhotos((prev) =>
+                prev.map((p) => (p.clientId === clientId ? { ...p, status: "failed", error: e?.message } : p))
+            );
+        }
+    };
+
+    const handleRemoveRepairPhoto = (clientId: string) => {
+        const photo = repairPhotos.find((p) => p.clientId === clientId);
+        setRepairPhotos((prev) => prev.filter((p) => p.clientId !== clientId));
+        const userId = String(subid ?? "");
+        if (photo?.mediaId && userId) {
+            deleteMediaFile(photo.mediaId, userId).catch(() => {});
+        }
     };
 
     const handleSubmitRepair = async () => {
@@ -1959,12 +2006,22 @@ export default function TrainerApp_SUBID() {
             return;
         }
 
+        if (repairPhotos.some((p) => p.status === "uploading")) {
+            Swal.fire("กรุณารอสักครู่", "รอรูปภาพอัปโหลดให้เสร็จก่อนส่งซ่อม", "warning");
+            return;
+        }
+
         const problemDescription = chosen
             .map((f) => {
                 const remark = getVehicleRemark(`${f.fieldKey}_remark`).trim();
                 return remark ? `${f.label} (${remark})` : f.label;
             })
             .join(", ");
+
+        // image_urls ของ repair-request item รับเป็น media_id string (backend resolve เป็น URL จริงเอง)
+        const imageUrls = repairPhotos
+            .filter((p) => p.mediaId && p.status !== "failed")
+            .map((p) => String(p.mediaId));
 
         setSendingRepair(true);
         try {
@@ -1979,6 +2036,7 @@ export default function TrainerApp_SUBID() {
                         {
                             category: "แจ้งซ่อมทั่วไป",
                             problem_description: problemDescription,
+                            ...(imageUrls.length > 0 ? { image_urls: imageUrls } : {}),
                         },
                     ],
                 }),
@@ -1989,6 +2047,7 @@ export default function TrainerApp_SUBID() {
             }
             setRepairDialogOpen(false);
             setRepairSelectedKeys(new Set());
+            setRepairPhotos([]);
             Swal.fire({ icon: "success", title: "ส่งแจ้งซ่อมสำเร็จ", timer: 1800, showConfirmButton: false });
         } catch (e: any) {
             Swal.fire("ผิดพลาด", e?.message || "ไม่สามารถส่งแจ้งซ่อมได้", "error");
@@ -2319,38 +2378,48 @@ export default function TrainerApp_SUBID() {
 
                 {/* ── Sticky Save bar (single bottom button) ── */}
                 <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-slate-900/80 backdrop-blur-lg shadow-[0_-8px_32px_rgba(0,0,0,0.4)]">
-                    <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3">
+                    <div className="max-w-screen-2xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 space-y-2 sm:space-y-0 sm:flex sm:items-center sm:gap-3">
                         <div className="hidden sm:flex flex-col text-xs text-white/60 mr-auto">
                             <span className="font-semibold text-white/80">ความคืบหน้า {grandPct}%</span>
                             <span className="font-mono">กรอกแล้ว {grand.pass + grand.fail + grand.na}/{grand.total} · ค้าง {grand.empty}</span>
                         </div>
-                        <button
-                            type="button"
-                            onClick={handleReset}
-                            disabled={saving}
-                            className="flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/20 hover:text-white transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                            <RotateCcw size={14} />
-                            ล้างทั้งหมด
-                        </button>
-                        <button
-                            type="button"
-                            onClick={handleOpenRepairDialog}
-                            disabled={sendingRepair}
-                            className="flex-1 cursor-pointer sm:flex-none sm:min-w-[120px] flex items-center justify-center gap-2 rounded-xl bg-orange-500 px-6 py-3 text-sm sm:text-base font-semibold text-white shadow-lg shadow-orange-500/25 hover:bg-orange-600 hover:shadow-orange-500/40 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <Send size={16} />
-                            แจ้งซ่อม
-                        </button>
-                        <button
-                            type="button"
-                            onClick={handleSave}
-                            disabled={saving || !inspectionTaskDriverId}
-                            className="flex-1 cursor-pointer sm:flex-none sm:min-w-[240px] flex items-center justify-center gap-2 rounded-xl bg-teal-500 px-6 py-3 text-sm sm:text-base font-semibold text-white shadow-lg shadow-teal-500/25 hover:bg-teal-600 hover:shadow-teal-500/40 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <Save size={16} />
-                            {saving ? "กำลังบันทึก..." : "บันทึกข้อมูลทั้งหมด"}
-                        </button>
+
+                        {/* progress line (มือถือ: บรรทัดสั้น ๆ เหนือปุ่ม) */}
+                        <div className="sm:hidden text-center text-[11px] font-mono text-white/50">
+                            ความคืบหน้า {grandPct}% · กรอกแล้ว {grand.pass + grand.fail + grand.na}/{grand.total} · ค้าง {grand.empty}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 sm:contents">
+                            {/* <button
+                                type="button"
+                                onClick={handleReset}
+                                disabled={saving}
+                                className="flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm px-2 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-medium text-white/80 hover:bg-white/20 hover:text-white transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                <RotateCcw size={14} className="shrink-0" />
+                                <span className="sm:hidden">ล้าง</span>
+                                <span className="hidden sm:inline">ล้างทั้งหมด</span>
+                            </button> */}
+                            <button
+                                type="button"
+                                onClick={handleOpenRepairDialog}
+                                disabled={sendingRepair}
+                                className="cursor-pointer sm:flex-none sm:min-w-[120px] flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl bg-orange-500 px-2 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-base font-semibold text-white shadow-lg shadow-orange-500/25 hover:bg-orange-600 hover:shadow-orange-500/40 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <Send size={16} className="shrink-0" />
+                                แจ้งซ่อม
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleSave}
+                                disabled={saving || !inspectionTaskDriverId}
+                                className="cursor-pointer sm:flex-none sm:min-w-[240px] flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl bg-teal-500 px-2 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-base font-semibold text-white shadow-lg shadow-teal-500/25 hover:bg-teal-600 hover:shadow-teal-500/40 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <Save size={16} className="shrink-0" />
+                                <span className="sm:hidden">{saving ? "กำลังบันทึก" : "บันทึก"}</span>
+                                <span className="hidden sm:inline">{saving ? "กำลังบันทึก..." : "บันทึกข้อมูลทั้งหมด"}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2560,33 +2629,47 @@ export default function TrainerApp_SUBID() {
                                         </button>
                                     </div>
                                 ) : (
-                                    Object.entries(repairGroups).map(([section, items]) => (
-                                        <div key={section} className="space-y-2">
-                                            <div className="text-xs font-semibold text-white/50 uppercase tracking-wider px-1">{section} <span className="text-white/30 font-mono">({items.length})</span></div>
-                                            <ul className="divide-y divide-white/5 rounded-xl border border-white/10 bg-white/5">
-                                                {items.map((f) => {
-                                                    const remark = getVehicleRemark(`${f.fieldKey}_remark`);
-                                                    const checked = repairSelectedKeys.has(f.fieldKey);
-                                                    return (
-                                                        <li key={f.fieldKey}>
-                                                            <label className="flex items-start gap-3 px-3 py-3 cursor-pointer hover:bg-white/5 transition">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={checked}
-                                                                    onChange={() => toggleRepairKey(f.fieldKey)}
-                                                                    className="mt-1 size-4 rounded border-white/30 bg-white/10 accent-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-400/40"
-                                                                />
-                                                                <span className="flex-1 min-w-0">
-                                                                    <span className="block text-sm sm:text-base text-white/90">{f.label}</span>
-                                                                    {remark && <span className="block text-xs text-rose-200/80 mt-0.5">เหตุผล: {remark}</span>}
-                                                                </span>
-                                                            </label>
-                                                        </li>
-                                                    );
-                                                })}
-                                            </ul>
+                                    <>
+                                        {Object.entries(repairGroups).map(([section, items]) => (
+                                            <div key={section} className="space-y-2">
+                                                <div className="text-xs font-semibold text-white/50 uppercase tracking-wider px-1">{section} <span className="text-white/30 font-mono">({items.length})</span></div>
+                                                <ul className="divide-y divide-white/5 rounded-xl border border-white/10 bg-white/5">
+                                                    {items.map((f) => {
+                                                        const remark = getVehicleRemark(`${f.fieldKey}_remark`);
+                                                        const checked = repairSelectedKeys.has(f.fieldKey);
+                                                        return (
+                                                            <li key={f.fieldKey}>
+                                                                <label className="flex items-start gap-3 px-3 py-3 cursor-pointer hover:bg-white/5 transition">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={checked}
+                                                                        onChange={() => toggleRepairKey(f.fieldKey)}
+                                                                        className="mt-1 size-4 rounded border-white/30 bg-white/10 accent-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-400/40"
+                                                                    />
+                                                                    <span className="flex-1 min-w-0">
+                                                                        <span className="block text-sm sm:text-base text-white/90">{f.label}</span>
+                                                                        {remark && <span className="block text-xs text-rose-200/80 mt-0.5">เหตุผล: {remark}</span>}
+                                                                    </span>
+                                                                </label>
+                                                            </li>
+                                                        );
+                                                    })}
+                                                </ul>
+                                            </div>
+                                        ))}
+
+                                        <div className="space-y-2">
+                                            <div className="text-xs font-semibold text-white/50 uppercase tracking-wider px-1">แนบรูปภาพ (ถ้ามี)</div>
+                                            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                                                <RepairPhotoPicker
+                                                    photos={repairPhotos}
+                                                    onPick={handlePickRepairPhoto}
+                                                    onRemove={handleRemoveRepairPhoto}
+                                                    disabled={sendingRepair}
+                                                />
+                                            </div>
                                         </div>
-                                    ))
+                                    </>
                                 )
                             ) : (
                                 <div className="space-y-2">
@@ -2659,7 +2742,7 @@ export default function TrainerApp_SUBID() {
                                     </button>
                                     <button
                                         type="button"
-                                        disabled={sendingRepair || repairSelectedKeys.size === 0}
+                                        disabled={sendingRepair || repairSelectedKeys.size === 0 || repairPhotos.some((p) => p.status === "uploading")}
                                         onClick={handleSubmitRepair}
                                         className="flex items-center gap-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 text-sm font-semibold shadow-lg shadow-orange-500/25 transition disabled:opacity-50 disabled:cursor-not-allowed"
                                     >

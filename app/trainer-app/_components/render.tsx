@@ -335,7 +335,7 @@ function TagsField({ values, readonly, onChangeArray }: { values: string[]; read
 /* ── Compress an image File to JPEG (max edge px, given quality). Returns the
      original File when input isn't a raster image (e.g. PDF) or compression
      produces a larger result. Keeps EXIF orientation via createImageBitmap. ── */
-async function compressImage(
+export async function compressImage(
     file: File,
     fieldKey: string,
     maxEdge = 1600,
