@@ -32,6 +32,7 @@ import { TaskFilter } from "./_components/TaskFilter";
 import type { Task, TaskFilterRef, TaskFilterResult, Users } from "./type";
 import { ROLE_SAFETY_TRAINER,ANALYTICS_TABS } from "./constant";
 import { AnalyticsTabs } from "./_components/analytics/main";
+import { DEPARTMENT_ID } from "@/lib/departments";
 
 const CalendarTask = dynamic(
     () => import("./_components/Calendar").then(m => m.CalendarTask),
@@ -100,7 +101,7 @@ export default function TrainerApp() {
     /* ── Data: fetch safety team + plant options + tasks (ยิงครั้งเดียวตอน mount) ── */
     useEffect(() => {
         const fetchSafetyTeam = async () => {
-            const res = await fetch(`/api/organization?department_id=8&employee_status=Active`, {
+            const res = await fetch(`/api/organization?department_id=${DEPARTMENT_ID.SAFETY}&employee_status=Active`, {
                 method: "GET",
                 headers: { "Content-Type": "application/json" },
             });

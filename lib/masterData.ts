@@ -1,8 +1,11 @@
 import type { DropdownlistData } from "@/lib/dropdownlist";
+import { DEPARTMENT_ID } from "@/lib/departments";
 
 /** สิทธิ์แก้ไขข้อมูลหลัก (ดูได้ทุกคน แต่แก้ไขได้เฉพาะผู้ที่ตรงเงื่อนไขนี้) */
-/** แผนกที่มีสิทธิ์แก้ไข: 8 = safety, 17 = compliance */
-export const MASTER_EDIT_DEPARTMENT_IDS = [8, 17];
+export const MASTER_EDIT_DEPARTMENT_IDS: number[] = [
+  DEPARTMENT_ID.SAFETY,
+  DEPARTMENT_ID.COMPLIANCE,
+];
 
 /** อีเมลที่ได้รับสิทธิ์แก้ไขเป็นรายบุคคล (นอกเหนือจากแผนกด้านบน) */
 export const MASTER_EDIT_EMAILS = [

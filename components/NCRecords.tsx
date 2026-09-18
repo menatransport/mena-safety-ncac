@@ -13,6 +13,11 @@ import { RecordFilter, RecordFilterResult, RecordFilterRef } from "./ui/record-f
 import { ColumnFilterDropdown, ColumnFilterOption } from "./ui/column-filter-dropdown";
 import Swal from "sweetalert2";
 import { documentRole } from "@/lib/documentRole";
+import {
+  RECORD_FILTER_DEPARTMENT_IDS,
+  findDepartmentId,
+  findSiteId,
+} from "@/lib/departments";
 import { useUiTheme } from "@/lib/useUiTheme";
 
 interface NCRecord {
@@ -241,14 +246,10 @@ export const NCRecordsComponent = () => {
           return nameA.localeCompare(nameB, 'th');
         });
 
-        const filteredDepartments = sortedDepartments.filter((dept: any) => {
-          return dept.department_id == 3 || dept.department_id == 15 || dept.department_id == 16 || dept.department_id == 17 || dept.department_id == 19 || dept.department_id == 20
-        });
-
         setDropdownData((prev) => ({
           ...prev,
           sites: sortedSites,
-          departments: filteredDepartments,
+          departments: sortedDepartments,
         }));
 
 
@@ -419,10 +420,12 @@ export const NCRecordsComponent = () => {
 
   const departmentOptions: ColumnFilterOption[] = useMemo(
     () =>
-      dropdownData.departments.map((d: any) => ({
-        value: d.department_id?.toString() || "",
-        label: d.department_name_th || d.department_name || "ไม่ระบุชื่อ",
-      })),
+      dropdownData.departments
+        .filter((d: any) => RECORD_FILTER_DEPARTMENT_IDS.includes(Number(d.department_id)))
+        .map((d: any) => ({
+          value: d.department_id?.toString() || "",
+          label: d.department_name_th || d.department_name || "ไม่ระบุชื่อ",
+        })),
     [dropdownData.departments]
   );
 
@@ -559,7 +562,7 @@ export const NCRecordsComponent = () => {
 
     const parsedUserData = JSON.parse(userData);
     const currentUserName = `${parsedUserData.firstname || ""} ${parsedUserData.lastname || ""}`.trim();
-    const currentDepartment = parsedUserData.department || "";
+    const currentDepartmentId = parsedUserData.department_id ?? null;
 
     const selectedRecord = records.find((record) => record.id === id);
     if (!selectedRecord) {
@@ -571,7 +574,15 @@ export const NCRecordsComponent = () => {
       return;
     }
 
-    if (documentRole(selectedRecord.department_name, selectedRecord.reporter_name, currentUserName, currentDepartment, selectedRecord.site_name)) {
+    const isViewOnly = documentRole({
+      departmentId: findDepartmentId(dropdownData.departments, selectedRecord.department_name),
+      siteId: findSiteId(dropdownData.sites, selectedRecord.site_name),
+      reporterName: selectedRecord.reporter_name,
+      currentUserName,
+      currentDepartmentId,
+    });
+
+    if (isViewOnly) {
       Swal.fire({
         title: "ไม่สามารถลบได้",
         text: "คุณไม่ใช่เจ้าของรายการนี้",

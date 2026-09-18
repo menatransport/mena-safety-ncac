@@ -29,6 +29,19 @@ const formatDT = (dateTimeString?: string) => {
     return new Intl.DateTimeFormat("en-GB", options).format(date);
   };
 
+/**
+ * ชื่อคนขับสำหรับข้อความคัดลอก
+ * ต้องดูจาก selectedDriver (master data ที่ map จาก driver_id) ก่อน เพราะ dropdown เก็บแค่ driver_id
+ * formData.driver_name จะมีค่าเฉพาะเอกสารที่โหลดมาจาก API และจะเป็นค่าเก่าถ้าผู้ใช้เปลี่ยนคนขับ
+ */
+const driverFullName = (data: any) => {
+    const selected = data.selectedDriver;
+    const fromMaster = selected
+        ? `${selected.first_name || ""} ${selected.last_name || ""}`.trim()
+        : "";
+    return fromMaster || String(data.formData?.driver_name || "").trim() || "N/A";
+};
+
 export const useClipboard_nc = (data: any) => {
 // console.log("useClipboard_nc data:", data);
     const content = `🚨 รายงาน NC 
@@ -41,7 +54,7 @@ export const useClipboard_nc = (data: any) => {
 🏛️ ฝ่าย: ${data.selectedDepartment?.department_name_th || 'N/A'}
 ⏰ วันที่แจ้ง: ${formatDT(data.formData.record_date) || 'N/A'}
 🔥 วันที่เกิดเหตุ: ${formatDT(data.formData.incident_date) || 'N/A'}
-🚚 พนักงาน: ${data.formData.driver_name || 'N/A'}
+🚚 พนักงาน: ${driverFullName(data)}
 ${data.formData.vehicle_head_plate || 'N/A'} ${(data.formData.breakdown_status || 'N/A') === 'มี breakdown' ? '⛔ breakdown' : ''}
 
 🔗 https://mena-safety-ncac.vercel.app/nc-form?doc=${data.formData.document_no}
@@ -53,19 +66,19 @@ return content;
 }
 
 export const useClipboard_ac = (data: any) => {
-    console.log("useClipboard_ac data:", data);
+// console.log("useClipboard_ac data:", data);
      const content = `🚨 รายงานอุบัติเหตุ AC 
 ระดับ ${priorityIcon(
     data.formData.priority
           )}
 ====================
 📄 เลขที่เอกสาร: ${data.formData.document_no_ac || "N/A"}
-👤 ผู้รายงาน: ${data.userinfo?.name || "N/A"}
+👤 ผู้รายงาน: ${data.formData.reporter_name || data.userinfo?.name || "N/A"}
 🏢 ศูนย์ปฏิบัติการ: ${data.selectedSite?.site_name_th || "N/A"}
 🏛️ ฝ่าย: ${data.selectedDepartment?.department_name_th || "N/A"}
 ⏰ วันที่แจ้ง: ${formatDT(data.formData.record_datetime) || "N/A"}
 🔥 วันที่เกิดเหตุ: ${formatDT(data.formData.incident_datetime) || "N/A"}
-🚚 พนักงาน: ${data.selectedDriver?.first_name || 'N/A'} ${data.selectedDriver?.last_name || 'N/A'}
+🚚 พนักงาน: ${driverFullName(data)}
 🕵️‍♂️ เป็นฝ่าย: ${data.formData.fault_party === 'เป็นฝ่ายถูก' ? 'ถูก' : data.formData.fault_party === 'เป็นฝ่ายผิด' ? 'ผิด' : data.formData.fault_party === 'ประมาทร่วม' ? 'ประมาทร่วม' : data.formData.fault_party === 'รอสรุปผลคดี' ? 'รอสรุปผลคดี' : 'N/A'}
 
 🔗 https://mena-safety-ncac.vercel.app/ac-form?doc=${data.formData.document_no_ac}

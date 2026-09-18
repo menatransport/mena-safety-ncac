@@ -28,6 +28,7 @@ import { printDocument_ac, type PrintParts } from "@/lib/printDocument";
 import PrintOptionsDialog from "@/components/PrintOptionsDialog";
 import { sendErrorLog } from "@/lib/logError";
 import { documentRole } from "@/lib/documentRole";
+import { DEPARTMENT_ID, findDepartmentId, findSiteId } from "@/lib/departments";
 import { useUiTheme } from "@/lib/useUiTheme";
 import { CaseStatusBadge } from "./CaseStatusBadge";
 
@@ -305,6 +306,7 @@ export const ACFormComponent = () => {
           employee_id: parsedUserData.employee_id || "",
           name: `${parsedUserData.firstname} ${parsedUserData.lastname}`.trim(),
           department: parsedUserData.department || "",
+          department_id: parsedUserData.department_id ?? null,
           site: parsedUserData.site || "",
           position: parsedUserData.position || "",
           position_level: parsedUserData.position_level || "",
@@ -354,7 +356,16 @@ export const ACFormComponent = () => {
             if (res.ok) {
               // console.log('Fetched AC record data:', data);
               // console.log('Fetched newUserinfo:', newUserinfo);
-              setIsViewMode(documentRole(data.department_name, data.reporter_name, newUserinfo.name, newUserinfo.department, data.site_name));
+              const dropdownStore = getData();
+              setIsViewMode(
+                documentRole({
+                  departmentId: findDepartmentId(dropdownStore.departments, data.department_name),
+                  siteId: findSiteId(dropdownStore.sites, data.site_name),
+                  reporterName: data.reporter_name,
+                  currentUserName: newUserinfo.name,
+                  currentDepartmentId: newUserinfo.department_id,
+                })
+              );
               setFormData({
                 ...data,
                 damage_items: normalizeDamageItems(data.damage_items),
@@ -2041,7 +2052,7 @@ export const ACFormComponent = () => {
       case "site":
         return data?.filter((site: any) => site.site_id !== 1) || []
       case "department":
-        return data?.filter((dept: any) => dept.department_name_en === "Safety Standards [Compliance]") || []
+        return data?.filter((dept: any) => Number(dept.department_id) === DEPARTMENT_ID.COMPLIANCE) || []
       default:
         return data || []
     }

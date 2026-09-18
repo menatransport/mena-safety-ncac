@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { LordIcon } from "@/components/LordIcon";
 import { ImageGalleryDialog } from "@/components/ImageGalleryDialog";
 import { Separator } from "@/components/ui/separator";
+import { DEPARTMENT_ID } from "@/lib/departments";
 import {
     ArrowLeft, Presentation, Truck, User,
     CalendarDays, ClipboardList, Users, ImagePlus, X, Eye, Handshake,
@@ -66,7 +67,7 @@ export default function TrainerApp_ID() {
     useEffect(() => {
         const fetchUserSafety = async () => {
             try {
-                const res = await fetch(`/api/organization?department_id=8&employee_status=Active`, {
+                const res = await fetch(`/api/organization?department_id=${DEPARTMENT_ID.SAFETY}&employee_status=Active`, {
                     method: "GET",
                     headers: { "Content-Type": "application/json" },
                 });

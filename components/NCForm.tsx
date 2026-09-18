@@ -16,6 +16,7 @@ import { printDocument_nc, type PrintParts } from "@/lib/printDocument";
 import PrintOptionsDialog from "@/components/PrintOptionsDialog";
 import { sendErrorLog } from "@/lib/logError";
 import { documentRole } from "@/lib/documentRole";
+import { findDepartmentId, findSiteId } from "@/lib/departments";
 import { useUiTheme } from "@/lib/useUiTheme";
 import { CaseStatusBadge } from "./CaseStatusBadge";
 
@@ -203,6 +204,7 @@ export const NCFormComponent = () => {
           employee_id: parsedUserData.employee_id || "",
           name: `${parsedUserData.firstname} ${parsedUserData.lastname}`.trim(),
           department: parsedUserData.department || "",
+          department_id: parsedUserData.department_id ?? null,
           site: parsedUserData.site || "",
           position: parsedUserData.position || "",
           position_level: parsedUserData.position_level || "",
@@ -248,7 +250,16 @@ export const NCFormComponent = () => {
             if (res.ok) {
               // console.log('Fetched NC record data:', data);
               // console.log('Fetched newUserinfo:', newUserinfo);
-              setIsViewMode(documentRole(data.department_name, data.reporter_name, newUserinfo.name, newUserinfo.department, data.site_name));
+              const dropdownStore = getData();
+              setIsViewMode(
+                documentRole({
+                  departmentId: findDepartmentId(dropdownStore.departments, data.department_name),
+                  siteId: findSiteId(dropdownStore.sites, data.site_name),
+                  reporterName: data.reporter_name,
+                  currentUserName: newUserinfo.name,
+                  currentDepartmentId: newUserinfo.department_id,
+                })
+              );
               setFormData({
                 ...data,
                 products: data.products.map((item: any, index: number) => ({
