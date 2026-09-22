@@ -4,7 +4,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
-import { Car, FileText, FilterX, Loader2 } from 'lucide-react';
+import { Car, FileSpreadsheet, FileText, FilterX, Loader2 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import type { TaskFilterResult } from '../../../type';
 import { CALENDAR_MONTHS_TH } from '../../../constant';
@@ -17,6 +17,7 @@ interface VehicleRow {
     inspection_task_driver_id: string;
     driver_id: string;
     driver_name: string;
+    driver_role_name: string;
     number_plate: string;
     truck_number: string;
     truck_type: string;
@@ -82,6 +83,7 @@ const COLUMNS: ColumnDef[] = [
     { key: 'truck_number', label: 'เบอร์รถ', values: v => [v.truck_number], sortValue: v => v.truck_number },
     { key: 'truck_type', label: 'ประเภท', values: v => [v.truck_type], sortValue: v => v.truck_type },
     { key: 'driver_name', label: 'พนักงานขับรถ', values: v => [v.driver_name || '-'], sortValue: v => v.driver_name },
+    { key: 'driver_role_name', label: 'ตำแหน่ง', values: v => [v.driver_role_name || '-'], sortValue: v => v.driver_role_name },
     { key: 'plant_name', label: 'หน่วยงาน', values: v => [v.plant_name], sortValue: v => v.plant_name },
     {
         key: 'date',
@@ -134,6 +136,7 @@ export const VehicleTab = ({ filters }: { filters: TaskFilterResult }) => {
     /** แสดงทีละเดือนแบบ tab — กันไม่ให้หน้ายืดยาวลงไปด้านล่างเวลากางหลายเดือนพร้อมกัน */
     const [activeMonth, setActiveMonth] = useState<string | null>(null);
     const [pdfBusy, setPdfBusy] = useState<string | null>(null);
+    const [excelBusy, setExcelBusy] = useState(false);
     /** ค่าที่ถูกติ๊กไว้ต่อคอลัมน์ — ไม่มี key = เลือกทั้งหมด */
     const [colFilters, setColFilters] = useState<Record<string, string[]>>({});
     const [sort, setSort] = useState<{ key: string; dir: SortDir } | null>(null);
@@ -160,6 +163,110 @@ export const VehicleTab = ({ filters }: { filters: TaskFilterResult }) => {
             Swal.fire('สร้างรายงานไม่สำเร็จ', e instanceof Error ? e.message : 'เกิดข้อผิดพลาด', 'error');
         } finally {
             setPdfBusy(null);
+        }
+    };
+
+    /** Export Excel "รูปภาพตรวจรถรายคัน" — ตามรายการที่กรองไว้ (ทุกเดือน ไม่ใช่แค่เดือนที่เปิดอยู่) */
+    const handleExcelExport = async () => {
+        const targets = visibleMonths.flatMap(g => g.vehicles.map(v => ({ ...v, month: g.month })));
+        if (targets.length === 0) {
+            Swal.fire('ไม่มีข้อมูล', 'ไม่มีรายการรถให้ Export', 'warning');
+            return;
+        }
+
+        setExcelBusy(true);
+        try {
+            const res = await fetch('/api/task/vehicle-photos-batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    vehicles: targets.map(v => ({
+                        inspection_task_driver_id: v.inspection_task_driver_id,
+                        inspection_task_id: v.inspection_task_id,
+                        driver_name: v.driver_name,
+                    })),
+                }),
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const { photos } = await res.json() as {
+                photos: Record<string, { front: string | null; left: string | null; rear: string | null; right: string | null; inside: string | null }>
+            };
+
+            const PHOTO_COLUMNS = [
+                { key: 'front', header: 'รูปด้านหน้า' },
+                { key: 'left', header: 'รูปด้านซ้าย' },
+                { key: 'rear', header: 'รูปด้านหลัง' },
+                { key: 'right', header: 'รูปด้านขวา' },
+                { key: 'inside', header: 'รูปภายในรถ' },
+            ] as const;
+
+            // ใช้ exceljs แทน xlsx (ตัวฟรี) เพราะต้องคุมสี/หน้าตาลิงก์และ wrap text จริง ๆ ซึ่ง xlsx เขียนสไตล์ไม่ได้
+            const ExcelJS = (await import('exceljs')).default;
+            const wb = new ExcelJS.Workbook();
+            const ws = wb.addWorksheet('รูปภาพตรวจรถรายคัน');
+
+            ws.columns = [
+                { header: 'ปี-เดือน', key: 'month', width: 12, style: { numFmt: 'yyyy-mm' } },
+                { header: 'ชื่อคน', key: 'driver_name', width: 20 },
+                { header: 'ตำแหน่ง', key: 'driver_role_name', width: 16 },
+                { header: 'เบอร์รถ', key: 'truck_number', width: 14 },
+                { header: 'ทะเบียนรถ', key: 'number_plate', width: 16 },
+                { header: 'ลูกค้า', key: 'client_name', width: 20 },
+                { header: 'แพล้นท์', key: 'plant_name', width: 20 },
+                ...PHOTO_COLUMNS.map(c => ({ header: c.header, key: c.key, width: 34 })),
+                { header: 'ผลการตรวจ', key: 'vehicle_status', width: 14 },
+            ];
+            ws.getRow(1).font = { bold: true };
+
+            targets.forEach(v => {
+                const p = photos[v.inspection_task_driver_id];
+                // เก็บเป็นเซลล์วันที่จริง (ไม่ใช่ข้อความไทย) เพื่อให้ Excel เรียงลำดับ/กรอง/ทำ PivotTable ตามวันที่ได้ถูกต้อง
+                // ต้องสร้างเป็น UTC เพราะ exceljs แปลง Date → เลขวันที่ของ Excel โดยอิง d.getTime() (UTC) ตรง ๆ
+                // ถ้าใช้ local midnight (เช่น ไทย UTC+7) จะถูกลดวันลง 1 กลายเป็นเดือนก่อนหน้าเวลาเป็นวันที่ 1
+                const [monthYear, monthNum] = v.month.split('-').map(Number);
+                const row = ws.addRow({
+                    month: new Date(Date.UTC(monthYear, (monthNum || 1) - 1, 1)),
+                    driver_name: v.driver_name || '-',
+                    driver_role_name: v.driver_role_name || '-',
+                    truck_number: v.truck_number,
+                    number_plate: v.number_plate,
+                    client_name: v.client_name,
+                    plant_name: v.plant_name,
+                    vehicle_status: STATUS_CHIP[v.vehicle_status].label,
+                });
+                // ไม่ wrap — ข้อความ/ลิงก์ที่ยาวเกินความกว้างคอลัมน์จะถูกตัดไปตามขอบเซลล์แทนการขึ้นบรรทัดใหม่
+                row.alignment = { wrapText: false, vertical: 'top' };
+
+                PHOTO_COLUMNS.forEach(col => {
+                    const url = p?.[col.key];
+                    const cell = row.getCell(col.key);
+                    if (url) {
+                        // แสดง URL ตรง ๆ (ไม่ใช่คำว่า "เปิดรูป") กดเปิดได้เลยโดยไม่ต้องคัดลอกไปวางในเบราว์เซอร์
+                        cell.value = { text: url, hyperlink: url };
+                        cell.font = { color: { argb: 'FF0563C1' }, underline: true };
+                    } else {
+                        cell.value = '-';
+                    }
+                });
+            });
+
+            const buffer = await wb.xlsx.writeBuffer();
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('th-TH', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-');
+            const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/:/g, '-');
+            const fileName = `รูปภาพตรวจรถรายคัน_${dateStr}_${timeStr}.xlsx`;
+
+            const blob = new Blob([buffer], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            link.click();
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            Swal.fire('Export ไม่สำเร็จ', e instanceof Error ? e.message : 'เกิดข้อผิดพลาด', 'error');
+        } finally {
+            setExcelBusy(false);
         }
     };
 
@@ -365,6 +472,17 @@ export const VehicleTab = ({ filters }: { filters: TaskFilterResult }) => {
                                 <FilterX size={12} /> ล้างตัวกรอง
                             </button>
                         )}
+                        <button
+                            onClick={handleExcelExport}
+                            disabled={excelBusy}
+                            title="Export Excel: รูปภาพตรวจรถรายคัน"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 hover:bg-emerald-500/25 disabled:opacity-50 transition-colors cursor-pointer"
+                        >
+                            {excelBusy
+                                ? <Loader2 size={12} className="animate-spin" />
+                                : <FileSpreadsheet size={12} />}
+                            Excel
+                        </button>
                         <span className="text-[11px] text-white/40">
                             {tableFiltered ? `${filteredCount} / ${total}` : total} คัน
                         </span>
@@ -449,6 +567,7 @@ export const VehicleTab = ({ filters }: { filters: TaskFilterResult }) => {
                                                         <td className="px-3 py-2.5 text-xs text-white/60 whitespace-nowrap">{v.truck_number}</td>
                                                         <td className="px-3 py-2.5 text-xs text-white/60 whitespace-nowrap">{v.truck_type}</td>
                                                         <td className="px-3 py-2.5 text-xs text-white/70 whitespace-nowrap">{v.driver_name || '-'}</td>
+                                                        <td className="px-3 py-2.5 text-xs text-white/50 whitespace-nowrap">{v.driver_role_name || '-'}</td>
                                                         <td className="px-3 py-2.5 text-xs text-white/50 whitespace-nowrap">{v.plant_name}</td>
                                                         <td className="px-3 py-2.5 text-xs text-white/50 whitespace-nowrap">{fmtDate(v.action_date ?? v.plan_date)}</td>
                                                         <td className="px-3 py-2.5 text-center">

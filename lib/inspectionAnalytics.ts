@@ -46,6 +46,8 @@ export interface DriverSummaryRow {
     driver_id: string;
     first_name: string | null;
     last_name: string | null;
+    driver_role_id: number | null;
+    driver_role_name: string | null;
     number_plate: string | null;
     truck_number: string | null;
     truck_type: string | null;
@@ -352,6 +354,7 @@ export interface VehicleMonthRow {
     inspection_task_driver_id: string;
     driver_id: string;
     driver_name: string;
+    driver_role_name: string;
     number_plate: string;
     truck_number: string;
     truck_type: string;
@@ -387,6 +390,7 @@ export function buildVehicleByMonth(rows: DriverSummaryRow[]) {
             inspection_task_driver_id: `${r.inspection_task_id}-${r.driver_id}`,
             driver_id: r.driver_id,
             driver_name: `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim(),
+            driver_role_name: r.driver_role_name ?? '-',
             number_plate: r.number_plate ?? '-',
             truck_number: r.truck_number ?? '-',
             truck_type: r.truck_type ?? '-',
