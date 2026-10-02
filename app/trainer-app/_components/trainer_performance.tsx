@@ -4,15 +4,19 @@
 // Component: TrainerPerformance
 // -----------------------------------------------------------------------------
 // Wrapper แสดง ListUsers พร้อม header summary (จำนวนเทรนเนอร์, ตัวกรองที่เลือก)
+//   • แบ่งกลุ่ม "ปัจจุบัน" / "ลาออกแล้ว" — คนลาออกแสดงเฉพาะที่เคยมีงานหรือเป็นตำแหน่งเทรนเนอร์
 // =============================================================================
 
-import { GraduationCap, Users as UsersIcon, X } from "lucide-react";
+import { useState } from "react";
+import { GraduationCap, UserMinus, Users as UsersIcon, X } from "lucide-react";
 import type { Task, Users } from "../type";
-import { ROLE_SAFETY_TRAINER } from "../constant";
+import { ROLE_SAFETY_TRAINER, isActiveEmployee } from "../constant";
 import { ListUsers } from "./ListUser";
 
 interface TrainerPerformanceProps {
     user: Users[];
+    /** employee_id ทุกคนที่เคยมีงาน (ไม่ขึ้นกับตัวกรอง) */
+    taskTrainerIds?: Set<string>;
     tasks: Task[];
     selectedTrainer?: string;
     filterYears?: number[];
@@ -23,13 +27,30 @@ interface TrainerPerformanceProps {
     lockRole?: boolean;
 }
 
-export const TrainerPerformance = ({ user, tasks, selectedTrainer = "", filterYears = [], filterMonths = [], onViewTask, onDeleteTask, onSelectTrainer, lockRole }: TrainerPerformanceProps) => {
-    const allTrainers = user.filter(u => (u.position === ROLE_SAFETY_TRAINER ) || (u.position.includes("trainer") || u.position.includes("Trainer")));
+type TrainerGroup = "active" | "resigned";
+
+const isTrainerPosition = (u: Users) =>
+    u.position === ROLE_SAFETY_TRAINER || !!u.position?.includes("trainer") || !!u.position?.includes("Trainer");
+
+export const TrainerPerformance = ({ user, taskTrainerIds, tasks, selectedTrainer = "", filterYears = [], filterMonths = [], onViewTask, onDeleteTask, onSelectTrainer, lockRole }: TrainerPerformanceProps) => {
+    const [group, setGroup] = useState<TrainerGroup>("active");
+
+    const activeTrainers = user.filter(u => isActiveEmployee(u) && isTrainerPosition(u));
+    // ตำแหน่งของคนลาออกอาจถูกเปลี่ยนไปแล้ว จึงนับคนที่เคยมีงานด้วย
+    const resignedTrainers = user.filter(u => !isActiveEmployee(u) && (isTrainerPosition(u) || !!taskTrainerIds?.has(u.employee_id)));
+    const groupTrainers = group === "resigned" ? resignedTrainers : activeTrainers;
+
+    // กรองรายคนแล้วให้หาจากทั้งสองกลุ่ม — เลือกคนลาออกจาก TaskFilter ก็ยังเห็นการ์ด
     const trainers = selectedTrainer
-        ? allTrainers.filter(t => `${t.firstname} ${t.lastname}` === selectedTrainer)
-        : allTrainers;
+        ? [...activeTrainers, ...resignedTrainers].filter(t => `${t.firstname} ${t.lastname}` === selectedTrainer)
+        : groupTrainers;
     const trainerCount = trainers.length;
-    const totalTrainerCount = allTrainers.length;
+    const totalTrainerCount = groupTrainers.length;
+
+    const groupTabs: { value: TrainerGroup; label: string; count: number }[] = [
+        { value: "active", label: "ปัจจุบัน", count: activeTrainers.length },
+        { value: "resigned", label: "ลาออกแล้ว", count: resignedTrainers.length },
+    ];
 
     return (
         <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm shadow-lg shadow-black/10 overflow-hidden">
@@ -48,7 +69,30 @@ export const TrainerPerformance = ({ user, tasks, selectedTrainer = "", filterYe
                 </div>
 
                 {/* Summary chips + active filter */}
-                <div className="flex flex-wrap gap-2 mt-3">
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                    {!selectedTrainer && (
+                        <div className="flex items-center gap-1 p-0.5 bg-white/5 rounded-lg border border-white/10">
+                            {groupTabs.map(tab => {
+                                const isCurrent = group === tab.value;
+                                return (
+                                    <button
+                                        key={tab.value}
+                                        onClick={() => setGroup(tab.value)}
+                                        className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${isCurrent
+                                            ? tab.value === "resigned"
+                                                ? "bg-rose-500/20 text-rose-100 border border-rose-400/30"
+                                                : "bg-teal-500/20 text-teal-100 border border-teal-400/30"
+                                            : "text-white/60 border border-transparent hover:text-white hover:bg-white/5"
+                                            }`}
+                                    >
+                                        {tab.value === "resigned" && <UserMinus size={12} />}
+                                        {tab.label}
+                                        <span className="tabular-nums text-[11px] opacity-70">{tab.count}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
                     <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 rounded-lg border border-white/10">
                         <UsersIcon size={13} className="text-teal-300" />
                         <span className="text-xs font-semibold text-white">

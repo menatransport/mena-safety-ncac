@@ -5,7 +5,8 @@
 // -----------------------------------------------------------------------------
 // หน้าหลักของ Safety Trainer Dashboard
 //   • โหลดงาน inspection ทั้งหมด (GET /api/task)
-//   • โหลดรายชื่อทีม Safety (GET /api/organization?department_id=8)
+//   • โหลดรายชื่อทีม Safety ทุกสถานะ (GET /api/organization?department_id=8)
+//     — รวมคนที่ลาออกแล้ว เพื่อให้ยังแสดงชื่อ/กรอง/ดูผลงานย้อนหลังได้
 //   • โหลด Plant options (GET /api/task/option-plant)
 //   • รวมตัวกรอง + ปฏิทิน + ประสิทธิภาพเทรนเนอร์ + ตารางงาน
 //   • Lock บางการกระทำเมื่อ user เป็น Safety Trainer (lockRole)
@@ -30,7 +31,7 @@ import { mapTasksWithDropdowns } from "@/lib/trainerMapper";
 import { TaskTable } from "./_components/TaskTable";
 import { TaskFilter } from "./_components/TaskFilter";
 import type { Task, TaskFilterRef, TaskFilterResult, Users } from "./type";
-import { ROLE_SAFETY_TRAINER,ANALYTICS_TABS } from "./constant";
+import { ROLE_SAFETY_TRAINER, ANALYTICS_TABS, isActiveEmployee } from "./constant";
 import { AnalyticsTabs } from "./_components/analytics/main";
 import { DEPARTMENT_ID } from "@/lib/departments";
 
@@ -101,7 +102,7 @@ export default function TrainerApp() {
     /* ── Data: fetch safety team + plant options + tasks (ยิงครั้งเดียวตอน mount) ── */
     useEffect(() => {
         const fetchSafetyTeam = async () => {
-            const res = await fetch(`/api/organization?department_id=${DEPARTMENT_ID.SAFETY}&employee_status=Active`, {
+            const res = await fetch(`/api/organization?department_id=${DEPARTMENT_ID.SAFETY}`, {
                 method: "GET",
                 headers: { "Content-Type": "application/json" },
             });
@@ -148,6 +149,19 @@ export default function TrainerApp() {
     );
 
     const filteredTasks = rawFiltered;
+
+    // มอบหมายงานใหม่ได้เฉพาะคนที่ยังทำงานอยู่
+    const activeSafety = useMemo(() => UserSafety.filter(isActiveEmployee), [UserSafety]);
+
+    // employee_id ทุกคนที่เคยมีงาน (เจ้าของ/partner) — ใช้คัดคนลาออกที่มีประวัติงานมาแสดงใน Performance
+    const taskTrainerIds = useMemo(() => {
+        const ids = new Set<string>();
+        for (const t of tasks) {
+            if (t.trainer_id) ids.add(t.trainer_id);
+            (t.partner_trainer_ids ?? []).forEach((id) => ids.add(id));
+        }
+        return ids;
+    }, [tasks]);
 
     const handleMoveTask = useCallback((taskId: string, newDate: string) => {
         setTasks(prev => prev.map(t =>
@@ -471,7 +485,7 @@ export default function TrainerApp() {
                                             onMonthChange={(y, m) => setCalendarNav({ year: y, month: m })}
                                             createform={{
                                                 clients: [...new Map(plantOptions.map(p => [p.client_name, p.client_name])).values()],
-                                                trainer: UserSafety,
+                                                trainer: activeSafety,
                                                 locations: plantOptions,
                                             }}
                                             lockRole={lockRole}
@@ -488,6 +502,7 @@ export default function TrainerApp() {
 
                                         <TrainerPerformance
                                             user={UserSafety}
+                                            taskTrainerIds={taskTrainerIds}
                                             tasks={filteredTasks}
                                             selectedTrainer={selectedTrainer}
                                             filterYears={analyticsFilters.selectedYears}

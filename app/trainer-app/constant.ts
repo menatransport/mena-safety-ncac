@@ -154,6 +154,11 @@ export const MANUAL_DRIVER_ID_MAX_LENGTH = 10;
 /* -------------------------------------------------------------------------- */
 export const ROLE_SAFETY_TRAINER = "Safety Trainer";
 
+/** employee_status ของพนักงานปัจจุบัน — ค่าอื่น (เช่น "Inactive") ถือว่าลาออกแล้ว */
+export const EMPLOYEE_STATUS_ACTIVE = "Active";
+export const isActiveEmployee = (u: { employee_status?: string | null }) =>
+    u.employee_status === EMPLOYEE_STATUS_ACTIVE;
+
 /* -------------------------------------------------------------------------- */
 /*  Truck types                                                               */
 /* -------------------------------------------------------------------------- */

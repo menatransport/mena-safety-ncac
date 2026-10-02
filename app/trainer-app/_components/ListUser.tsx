@@ -20,7 +20,7 @@ import {
     Loader2, ArrowRight, TrendingUp, Users as UsersIcon,
 } from "lucide-react";
 import type { Task, Users, PerformanceData } from "../type";
-import { LIST_USER_STATUS } from "../constant";
+import { LIST_USER_STATUS, isActiveEmployee } from "../constant";
 
 /* -------------------------------------------------------------------------- */
 /*  Stats helpers                                                             */
@@ -237,7 +237,14 @@ export const ListUsers = ({
                                 </Avatar>
 
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-semibold text-white truncate">{displayName}</p>
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                        <p className="text-sm font-semibold text-white truncate">{displayName}</p>
+                                        {!isActiveEmployee(person) && (
+                                            <span className="shrink-0 text-[10px] text-rose-200 bg-rose-500/20 border border-rose-400/30 px-1.5 py-0.5 rounded-md font-medium whitespace-nowrap">
+                                                ลาออกแล้ว
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="flex items-center gap-2 mt-0.5">
                                         <span className="text-[11px] text-white/50 truncate">{person.position}</span>
                                         {stats.total > 0 && (

@@ -15,7 +15,7 @@ import Swal from "sweetalert2";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { NavComponent } from "@/components/Navbar";
 import type { TaskDetail, SafetyTalkFields, Users as UsersType } from "../type";
-import { UPLOAD_SLOTS_COUNT, TASK_TABLE_STATUS } from "../constant";
+import { UPLOAD_SLOTS_COUNT, TASK_TABLE_STATUS, isActiveEmployee } from "../constant";
 import { mapSingleTask } from "@/lib/trainerMapper";
 import { FormRender } from "../_components/render";
 import { SafetyTalkCard } from "../_components/SafetyTalkCard";
@@ -67,7 +67,7 @@ export default function TrainerApp_ID() {
     useEffect(() => {
         const fetchUserSafety = async () => {
             try {
-                const res = await fetch(`/api/organization?department_id=${DEPARTMENT_ID.SAFETY}&employee_status=Active`, {
+                const res = await fetch(`/api/organization?department_id=${DEPARTMENT_ID.SAFETY}`, {
                     method: "GET",
                     headers: { "Content-Type": "application/json" },
                 });
@@ -184,6 +184,15 @@ export default function TrainerApp_ID() {
     }, [data?.task.inspection_task_status, data?.drivers, data?.task.action_date]);
 
 
+    // ตัวเลือกเทรนเนอร์: คนที่ยังทำงานอยู่ + คนลาออกที่ผูกกับงานนี้อยู่แล้ว (ให้ยังแสดงชื่อได้ แต่เลือกใหม่ไม่ได้)
+    const assignedIds = new Set([data?.task.trainer_id ?? "", ...(data?.task.partner_trainer_ids ?? [])].map(String));
+    const trainerOptions = UserSafety
+        .filter((u) => isActiveEmployee(u) || assignedIds.has(String(u.employee_id)))
+        .map((u) => ({
+            value: String(u.employee_id),
+            label: `${u.firstname} ${u.lastname}${isActiveEmployee(u) ? "" : " (ลาออกแล้ว)"}`,
+        }));
+
     const taskFields = [
         {
             label: "เทรนเนอร์",
@@ -192,12 +201,7 @@ export default function TrainerApp_ID() {
             fieldKey: "trainer_id",
             readonly: false,
             value: data?.task.trainer_id ?? "",
-            options: [
-                ...UserSafety.map((u) => ({
-                    value: String(u.employee_id),
-                    label: `${u.firstname} ${u.lastname}`,
-                })),
-            ],
+            options: trainerOptions,
         },
         {
             label: "พาร์ทเนอร์ (ไม่บังคับ)",
@@ -207,12 +211,7 @@ export default function TrainerApp_ID() {
             readonly: false,
             value: "",
             values: data?.task.partner_trainer_ids ?? [],
-            options: UserSafety
-                .filter((u) => String(u.employee_id) !== String(data?.task.trainer_id ?? ""))
-                .map((u) => ({
-                    value: String(u.employee_id),
-                    label: `${u.firstname} ${u.lastname}`,
-                })),
+            options: trainerOptions.filter((o) => o.value !== String(data?.task.trainer_id ?? "")),
         },
         {
             label: "ลูกค้า",
