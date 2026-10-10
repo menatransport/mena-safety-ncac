@@ -1122,7 +1122,7 @@ const AC_SEVERITY_LABELS: { [key: string]: string } = {
   L5: 'L5 - สูงมาก (High)',
 };
 
-const AC_CAUSE_CATEGORY_LABELS: { [key: string]: string } = {
+export const AC_CAUSE_CATEGORY_LABELS: { [key: string]: string } = {
   man: 'คน (Man)',
   machine: 'เครื่องจักร/ยานพาหนะ (Machine)',
   material: 'วัสดุ/สินค้า (Material)',

@@ -20,6 +20,8 @@ import {
   findSiteId,
 } from "@/lib/departments";
 import { useUiTheme } from "@/lib/useUiTheme";
+import { AC_CAUSE_CATEGORY_LABELS } from "@/lib/printDocument";
+import type { acRootCauseItem } from "@/lib/caseReport";
 
 interface ACRecord {
   id: string;
@@ -658,6 +660,19 @@ export const ACRecordsComponent = () => {
         return;
       }
 
+      // สาเหตุที่แท้จริง (Root Cause) มาจากผลการสอบสวน ไม่ได้มากับ list ของ AC — ถ้าดึงไม่ได้ให้ export ต่อโดยเว้นว่าง
+      let rootCausesByDoc: Record<string, acRootCauseItem[]> = {};
+      const rcResponse = await fetch("/api/investigate/ac/root-causes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ document_nos: exportRecords.map(r => r.id) }),
+      }).catch(() => null);
+      if (rcResponse?.ok) {
+        rootCausesByDoc = (await rcResponse.json()).root_causes || {};
+      } else {
+        sendErrorLog('ACRecords/exportToExcel', `root-causes fetch failed: ${rcResponse?.status ?? 'network'}`);
+      }
+
       const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 
       const excelData = exportRecords.map(record => {
@@ -673,6 +688,8 @@ export const ACRecordsComponent = () => {
           reportDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
           reportTime = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
         }
+        // เรียงลำดับตรงกันระหว่างสองคอลัมน์ เพื่อให้จับคู่สาเหตุกับประเภทได้
+        const rootCauses = (rootCausesByDoc[record.id] || []).filter(rc => rc.root_cause || rc.category);
         return {
           'เลขที่เอกสาร': record.id,
           'ปีที่บันทึกเหตุ': reportYear,
@@ -708,7 +725,11 @@ export const ACRecordsComponent = () => {
           'ความเสียหายของรถ': record.truck_damage || '',
           'รายละเอียดความเสียหายของรถ': record.truck_damage_details || '',
           'มูลค่าความเสียหายประมาณการ': record.estimated_cost != null ? Number(record.estimated_cost) : null,
-          'มูลค่าความเสียหายจริง': record.actual_price != null ? Number(record.actual_price) : null
+          'มูลค่าความเสียหายจริง': record.actual_price != null ? Number(record.actual_price) : null,
+          'สาเหตุที่แท้จริง (Root Cause)': rootCauses.map(rc => rc.root_cause || '-').join(', '),
+          'ประเภทสาเหตุ (5M1E)': rootCauses
+            .map(rc => (rc.category && AC_CAUSE_CATEGORY_LABELS[rc.category]) || rc.category || '-')
+            .join(', ')
         };
       });
 
