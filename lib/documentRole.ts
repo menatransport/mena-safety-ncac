@@ -1,6 +1,7 @@
 import {
   DOCUMENT_FULL_ACCESS_DEPARTMENT_IDS,
   SITE_OWNER_DEPARTMENT_ID,
+  effectiveDepartmentIds,
 } from "./departments";
 
 export interface DocumentRoleInput {
@@ -29,6 +30,7 @@ const toId = (value?: number | string | null): number | null => {
  *  1. อยู่ฝ่าย Safety / Compliance (ดูแลเอกสารทุกใบ)
  *  2. อยู่ฝ่ายเดียวกับฝ่ายที่รับผิดชอบเอกสาร
  *  3. อยู่ฝ่ายจัดส่งที่ดูแลศูนย์ของเอกสารนั้น
+ *  (ข้อ 2–3 นับแผนกเดิมด้วย ถ้าผู้ใช้อยู่แผนกที่แยกออกมา — DEPARTMENT_PARENT_ID)
  *  4. เป็นผู้แจ้งเอกสารนั้นเอง
  *
  * เทียบด้วย department_id/site_id เท่านั้น — ดูเหตุผลที่ lib/departments.ts
@@ -47,13 +49,15 @@ export function documentRole({
       return false;
     }
 
+    const myDeptIds = effectiveDepartmentIds(currentDeptId);
+
     const docDeptId = toId(departmentId);
-    if (docDeptId !== null && docDeptId === currentDeptId) {
+    if (docDeptId !== null && myDeptIds.includes(docDeptId)) {
       return false;
     }
 
     const docSiteId = toId(siteId);
-    if (docSiteId !== null && SITE_OWNER_DEPARTMENT_ID[docSiteId] === currentDeptId) {
+    if (docSiteId !== null && myDeptIds.includes(SITE_OWNER_DEPARTMENT_ID[docSiteId])) {
       return false;
     }
   }

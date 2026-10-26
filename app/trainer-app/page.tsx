@@ -5,7 +5,7 @@
 // -----------------------------------------------------------------------------
 // หน้าหลักของ Safety Trainer Dashboard
 //   • โหลดงาน inspection ทั้งหมด (GET /api/task)
-//   • โหลดรายชื่อทีม Safety ทุกสถานะ (GET /api/organization?department_id=8)
+//   • โหลดรายชื่อทีม Safety ทุกสถานะ (GET /api/organization?division_id=18 = แผนก 8 + 16)
 //     — รวมคนที่ลาออกแล้ว เพื่อให้ยังแสดงชื่อ/กรอง/ดูผลงานย้อนหลังได้
 //   • โหลด Plant options (GET /api/task/option-plant)
 //   • รวมตัวกรอง + ปฏิทิน + ประสิทธิภาพเทรนเนอร์ + ตารางงาน
@@ -33,7 +33,7 @@ import { TaskFilter } from "./_components/TaskFilter";
 import type { Task, TaskFilterRef, TaskFilterResult, Users } from "./type";
 import { ROLE_SAFETY_TRAINER, ANALYTICS_TABS, isActiveEmployee } from "./constant";
 import { AnalyticsTabs } from "./_components/analytics/main";
-import { DEPARTMENT_ID } from "@/lib/departments";
+import { DIVISION_ID } from "@/lib/departments";
 
 const CalendarTask = dynamic(
     () => import("./_components/Calendar").then(m => m.CalendarTask),
@@ -102,7 +102,7 @@ export default function TrainerApp() {
     /* ── Data: fetch safety team + plant options + tasks (ยิงครั้งเดียวตอน mount) ── */
     useEffect(() => {
         const fetchSafetyTeam = async () => {
-            const res = await fetch(`/api/organization?department_id=${DEPARTMENT_ID.SAFETY}`, {
+            const res = await fetch(`/api/organization?division_id=${DIVISION_ID.SAFETY}`, {
                 method: "GET",
                 headers: { "Content-Type": "application/json" },
             });

@@ -4,6 +4,7 @@ import { DEPARTMENT_ID } from "@/lib/departments";
 /** สิทธิ์แก้ไขข้อมูลหลัก (ดูได้ทุกคน แต่แก้ไขได้เฉพาะผู้ที่ตรงเงื่อนไขนี้) */
 export const MASTER_EDIT_DEPARTMENT_IDS: number[] = [
   DEPARTMENT_ID.SAFETY,
+  DEPARTMENT_ID.SAFETY_STANDARDS, // ทีมจากแผนก 8 ย้ายมาแผนก 16 เมื่อ 2026-10-25
   DEPARTMENT_ID.COMPLIANCE,
 ];
 

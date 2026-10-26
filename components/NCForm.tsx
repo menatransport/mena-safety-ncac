@@ -16,7 +16,7 @@ import { printDocument_nc, type PrintParts } from "@/lib/printDocument";
 import PrintOptionsDialog from "@/components/PrintOptionsDialog";
 import { sendErrorLog } from "@/lib/logError";
 import { documentRole } from "@/lib/documentRole";
-import { findDepartmentId, findSiteId } from "@/lib/departments";
+import { NC_RESPONSIBLE_DEPARTMENT_IDS, findDepartmentId, findSiteId } from "@/lib/departments";
 import { useUiTheme } from "@/lib/useUiTheme";
 import { CaseStatusBadge } from "./CaseStatusBadge";
 
@@ -1755,7 +1755,7 @@ export const NCFormComponent = () => {
       case "site":
         return data?.filter((site: any) => site.site_id !== 1) || []
       case "department":
-        return data?.filter((dept: any) => (dept.department_id > 11 || dept.department_id === 3) && (dept.department_id !== 21)) || []
+        return data?.filter((dept: any) => NC_RESPONSIBLE_DEPARTMENT_IDS.includes(Number(dept.department_id))) || []
       default:
         return data || []
     }
