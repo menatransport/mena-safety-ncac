@@ -332,7 +332,9 @@ function EditableSectionCard({
 }
 
 export default function TrainerApp_SUBID() {
-    const { id: taskId, subid } = useParams();
+    const { id: taskId, subid: rawSubid } = useParams();
+    // useParams คืนค่าแบบยังไม่ decode — driver_id ที่มีช่องว่าง (เช่น "MT 091-1") จะมาเป็น "MT%20091-1"
+    const subid = typeof rawSubid === "string" ? decodeURIComponent(rawSubid) : rawSubid;
     const [taskPlantCode, setTaskPlantCode] = useState<string>("");
     const [taskPlantName, setTaskPlantName] = useState<string>("");
     const [masterDriverLabel, setMasterDriverLabel] = useState<string>("");
